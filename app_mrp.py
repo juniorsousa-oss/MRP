@@ -40,14 +40,12 @@ def zip_bytes(files):
     return bio.getvalue()
 
 def periodo_semana(semana, ano=2026):
-    """Retorna o período da semana no padrão domingo a sábado usado nos relatórios."""
     try:
         semana = int(semana)
     except (TypeError, ValueError):
         return ""
     if not 1 <= semana <= 53:
         return ""
-    # O calendário do MRP considera domingo como primeiro dia da semana.
     primeiro_domingo = date(ano, 1, 1)
     primeiro_domingo += timedelta(days=(6 - primeiro_domingo.weekday()) % 7)
     inicio = primeiro_domingo + timedelta(weeks=semana - 1)
@@ -101,9 +99,7 @@ def load_sources(cb, eb, gb, pb, mb):
         "Semana S.C.": num(cr.iloc[:, 5]),
         "Quantidade P.C.": num(cr.iloc[:, 9]).fillna(0),
         "Semana P.C.": num(cr.iloc[:, 11]),
-        # S.C. permanece na coluna C, que já estava correta.
         "Nº S.C.": cr.iloc[:, 2],
-        # O número do P.C. é explicitamente a coluna I do ComprasTratado.
         "Nº P.C.": cr.iloc[:, 8]
     }).dropna(subset=["Código"])
     cp["Código"] = cp["Código"].astype("int64")
@@ -275,10 +271,17 @@ if len(proj):
     atendimento_map = {}
     for code, g in proj.groupby("Código", sort=False):
         g = g.sort_values("Semana")
-        if float(g.iloc[-1]["Resumo Final"]) < -1e-9:
+        finais = pd.to_numeric(g["Resumo Final"], errors="coerce").fillna(-float("inf"))
+        # Regra: se nunca houve saldo negativo, o material já está normalizado na semana atual.
+        if (finais >= -1e-9).all():
+            atendimento_map[int(code)] = semana_atual
+        # Se terminou negativo, nunca normalizou definitivamente.
+        elif float(finais.iloc[-1]) < -1e-9:
             atendimento_map[int(code)] = "NN"
+        # Se houve saldo negativo e depois recuperou, a normalização é a última semana
+        # em que o Resumo Final ficou igual ou maior que zero.
         else:
-            normalizados = g[g["Resumo Final"] >= -1e-9]
+            normalizados = g[finais >= -1e-9]
             atendimento_map[int(code)] = int(normalizados.iloc[-1]["Semana"]) if len(normalizados) else "NN"
 else:
     atendimento_map = {}
@@ -302,8 +305,6 @@ macro["Período de Atendimento"] = macro["Semana de Atendimento"].apply(
     lambda x: "NN" if str(x).strip().upper() == "NN" else periodo_semana(x)
 )
 
-# DETALHAMENTOS
-# S.A.: sem descrição, conforme solicitado.
 ultima_solicitacao = rg.groupby("Projeto", as_index=False)["Data Solicitação"].max().rename(
     columns={"Data Solicitação": "Última Solicitação"}
 )

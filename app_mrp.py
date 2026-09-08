@@ -156,6 +156,22 @@ if len(proj):
     keys = pd.MultiIndex.from_frame(proj[["Código", "Semana"]]); proj["P.C."] = pc_idx.reindex(keys).fillna(0.0).to_numpy(); proj["S.C."] = sc_idx.reindex(keys).fillna(0.0).to_numpy(); proj["Produzindo"] = fab_idx.reindex(keys).fillna(0.0).to_numpy()
     proj["Descrição"] = proj["Código"].map(cad.set_index("Código")["Descrição"].to_dict()); proj["Tipo"] = proj["Código"].map(cad.set_index("Código")["Tipo"].to_dict())
 
+# SEMANA DE ATENDIMENTO / NORMALIZAÇÃO
+# Para cada material, procura a última semana em que o Resumo Final ficou >= 0.
+# Se o último registro projetado permanecer negativo, o material não normaliza: NN.
+if len(proj):
+    atendimento_map = {}
+    for code, g in proj.groupby("Código", sort=False):
+        g = g.sort_values("Semana")
+        if float(g.iloc[-1]["Resumo Final"]) < -1e-9:
+            atendimento_map[int(code)] = "NN"
+        else:
+            normalizados = g[g["Resumo Final"] >= -1e-9]
+            atendimento_map[int(code)] = int(normalizados.iloc[-1]["Semana"]) if len(normalizados) else "NN"
+else:
+    atendimento_map = {}
+macro["Semana de Atendimento"] = macro["Código"].map(atendimento_map).fillna("")
+
 # DETALHAMENTOS
 # No S.A. são exibidos somente projetos cuja demanda (Pendência) é diferente de zero.
 demanda_projeto = rg_mrp[~rg_mrp["Código"].isin(codigos_ii) & rg_mrp["Pendência"].ne(0)][["Código", "Projeto", "Pendência", "Semana"]].rename(columns={"Pendência": "Quantidade"}).sort_values(["Código", "Semana", "Projeto"])
@@ -165,7 +181,7 @@ fab_det = op[["ORDEM DE PRODUÇÃO", "Código Produto", "Semana Entrega"]].sort_
 
 m=st.columns(5); m[0].metric("Materiais no MRP", f"{len(macro):,}"); m[1].metric("Demanda total", f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.", f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.", f"{macro['S.C.'].sum():,.0f}"); criar_sc_total=(-macro.loc[macro["DIV"]<0,"DIV"]).sum(); m[4].metric("Criar S.C.", f"{criar_sc_total:,.0f}")
 tab1,tab2=st.tabs(["DEMANDA GERAL","DEMANDA POR PROJETO"])
-macro_cols=["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status"]
+macro_cols=["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status","Semana de Atendimento"]
 with tab1:
     st.subheader("Demanda Geral"); c1,c2,c3=st.columns(3)
     with c1: busca=st.text_input("Código / descrição")

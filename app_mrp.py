@@ -307,13 +307,30 @@ with tab1:
         v = v[v["Tipo"].isin(tipos)]
     v["_ord_status"] = v["Status"].map({"CRIAR S.C.": 0, "OK": 1}).fillna(2)
     v = v.sort_values(["_ord_status", "Código"]).drop(columns="_ord_status")
-    st.dataframe(v[macro_cols], use_container_width=True, height=500, hide_index=True)
 
-    if len(v):
+    st.markdown("**Clique em uma linha para abrir o detalhamento do material.**")
+    selecao = st.dataframe(
+        v[macro_cols],
+        use_container_width=True,
+        height=500,
+        hide_index=True,
+        on_select="rerun",
+        selection_mode="single-row",
+        key="demanda_geral_tabela",
+    )
+
+    linhas_selecionadas = selecao.selection.rows if selecao is not None else []
+    code = None
+    if linhas_selecionadas:
+        linha = v.iloc[linhas_selecionadas[0]]
+        code = int(linha["Código"])
+
+    if code is not None:
         st.divider()
         st.subheader("Detalhamento do material")
         desc_map = cad.set_index("Código")["Descrição"].to_dict()
-        code = st.selectbox("Material", v["Código"].tolist(), format_func=lambda x: f"{x} — {desc_map.get(x, '')}")
+        st.markdown(f"**Material selecionado:** `{code}` — {desc_map.get(code, '')}")
+
         w = proj[proj["Código"] == code].copy()
         if len(w):
             w = w[["Código", "Descrição", "Tipo", "Semana", "Saldo Inicial", "Demanda", "P.C.", "S.C.", "Produzindo", "Resumo Final"]]

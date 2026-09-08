@@ -26,6 +26,11 @@ def periodo_semana(semana,ano=2026):
     except (TypeError,ValueError): return ""
     if not 1<=semana<=53: return ""
     primeiro_domingo=date(ano,1,1); primeiro_domingo+=timedelta(days=(6-primeiro_domingo.weekday())%7); inicio=primeiro_domingo+timedelta(weeks=semana-1); fim=inicio+timedelta(days=6); return f"{inicio.strftime('%d/%m/%Y')} a {fim.strftime('%d/%m/%Y')}"
+def ultimo_dia_util_semana(semana,ano=2026):
+    try: semana=int(semana)
+    except (TypeError,ValueError): return ""
+    if not 1<=semana<=53: return ""
+    primeiro_domingo=date(ano,1,1); primeiro_domingo+=timedelta(days=(6-primeiro_domingo.weekday())%7); sexta=primeiro_domingo+timedelta(weeks=semana-1,days=5); return sexta.strftime('%d/%m/%Y')
 def formatar_data_br(s):
     dt=pd.to_datetime(s,errors="coerce",dayfirst=True); return "" if pd.isna(dt) else dt.strftime("%d/%m/%Y")
 
@@ -109,6 +114,22 @@ def calcular_demanda_projeto(df):
             out.append({"Projeto":r["Projeto"],"Produto":int(code),"Descrição":r["Descrição"],"Última Solicitação":r["Última Solicitação"],"Semana de Necessidade":int(r["Semana de Necessidade"]),"Semana de Atendimento":semana_atendimento,"Necessidade":necessidade,"Estoque":saldo_estoque_inicial,"Pré Nota":float(pre_nota_map.get(int(code),0.0)),"P.C.":usados["P.C."],"Fabricação":usados["Fabricação"],"S.C.":usados["S.C."],"Ação":"; ".join(acoes) if acoes else "OK"})
     return pd.DataFrame(out)[cols].sort_values(["Produto","Semana de Necessidade","Projeto"]).reset_index(drop=True)
 demanda_projeto=calcular_demanda_projeto(demanda_projeto_base)
+# Lista de compras: somente demandas de projeto que não normalizam e exigem nova S.C.
+compras_mrp=pd.DataFrame(columns=["produto","qnt","data","psy","cc","op","obs","prioridade"])
+if len(demanda_projeto):
+    cp_mrp=demanda_projeto[demanda_projeto["Semana de Atendimento"].astype(str).str.strip().str.upper().eq("NN")].copy()
+    if len(cp_mrp):
+        cp_mrp["qnt"]=pd.to_numeric(cp_mrp["Ação"].str.extract(r"CRIAR S\.C\.\s*([0-9]+(?:\.[0-9]+)?)",expand=False),errors="coerce").fillna(0.0)
+        cp_mrp=cp_mrp[cp_mrp["qnt"]>1e-9].copy()
+        cp_mrp["produto"]=cp_mrp["Produto"].map(lambda x:f"{int(x):08d}")
+        cp_mrp["data"]=cp_mrp["Semana de Necessidade"].map(ultimo_dia_util_semana)
+        cp_mrp["psy"]=""
+        cp_mrp["cc"]="600307"
+        cp_mrp["op"]=cp_mrp["Projeto"].astype(str)
+        cp_mrp["obs"]="MRP"
+        cp_mrp["prioridade"]=""
+        compras_mrp=cp_mrp[["produto","qnt","data","psy","cc","op","obs","prioridade"]].reset_index(drop=True)
+        compras_mrp["qnt"]=compras_mrp["qnt"].map(lambda x:int(x) if float(x).is_integer() else float(x))
 fab_det=op[["ORDEM DE PRODUÇÃO","Código Produto","Semana Entrega"]].sort_values(["Código Produto","Semana Entrega","ORDEM DE PRODUÇÃO"]).copy(); fab_det["Quantidade"]=1
 m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.",f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.",f"{macro['S.C.'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro['DIV']<0,'DIV']).sum():,.0f}")
 tab1,tab2=st.tabs(["DEMANDA GERAL","DEMANDA POR PROJETO"])
@@ -152,9 +173,14 @@ st.divider(); st.subheader("Exportação de relatórios"); st.caption("Os relat�
 export_macro=macro[macro_cols].sort_values(["Status","Código"],key=lambda s:s.map({"CRIAR S.C.":0,"OK":1}).fillna(2) if s.name=="Status" else s).copy(); export_proj=proj.copy()
 if len(export_proj): export_proj["Período da Semana"]=export_proj["Semana"].apply(periodo_semana)
 export_proj=export_proj[["Código","Descrição","Tipo","Semana","Período da Semana","Saldo Inicial","Demanda","P.C.","S.C.","Produzindo","Resumo Final"]].sort_values(["Código","Semana"])
-sheets={"MRP_Geral":export_macro,"Projecao_Semanal":export_proj,"Demanda_Projeto":demanda_projeto,"Compras":cp,"Fabricacao":fab_det,"Cadastro_Base":cad}
+sheets={"MRP_Geral":export_macro,"Projecao_Semanal":export_proj,"Demanda_Projeto":demanda_projeto,"Compra_MRP":compras_mrp,"Compras":cp,"Fabricacao":fab_det,"Cadastro_Base":cad}
 excel_data=excel_bytes(sheets); zip_data=zip_bytes({name+".csv":csv_bytes(df) for name,df in sheets.items()})
-b1,b2,b3=st.columns(3)
+compra_excel_data=excel_bytes({"Compra_MRP":compras_mrp})
+compra_csv_data=csv_bytes(compras_mrp)
+b1,b2,b3,b4=st.columns(4)
 with b1: st.download_button("BAIXAR TODOS — EXCEL",excel_data,"MRP_Relatorios_Completos.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
 with b2: st.download_button("BAIXAR TODOS — ZIP/CSV",zip_data,"MRP_Relatorios_Completos.zip","application/zip",use_container_width=True)
 with b3: st.download_button("BAIXAR MRP GERAL — CSV",csv_bytes(export_macro),"MRP_Geral.csv","text/csv",use_container_width=True)
+with b4: st.download_button("BAIXAR COMPRA MRP",compra_excel_data,"Compra_MRP.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
+if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns) que não normalizam na Demanda por Projeto e exigem nova S.C.")
+else: st.caption("Nenhum item da Demanda por Projeto exige nova S.C. no momento.")

@@ -180,7 +180,7 @@ macro["Semana de Atendimento"] = macro["Código"].map(atendimento_map).fillna(""
 # S.A.: somente projetos com demanda diferente de zero. A descrição vem do Cadastro.
 # A última solicitação é a maior data da coluna D para cada projeto no RelatorioGeral_Tratado.
 descricao_map = cad.set_index("Código")["Descrição"].to_dict()
-ultima_solicitacao = rg_mrp.groupby("Projeto", as_index=False)["Data Solicitação"].max().rename(columns={"Data Solicitação": "Última Solicitação"})
+ultima_solicitacao = rg.groupby("Projeto", as_index=False)["Data Solicitação"].max().rename(columns={"Data Solicitação": "Última Solicitação"})
 demanda_projeto = rg_mrp[~rg_mrp["Código"].isin(codigos_ii) & rg_mrp["Pendência"].ne(0)][["Código", "Projeto", "Pendência", "Semana"]].rename(columns={"Pendência": "Quantidade"})
 demanda_projeto["Descrição"] = demanda_projeto["Código"].map(descricao_map).fillna("")
 demanda_projeto = demanda_projeto.merge(ultima_solicitacao, on="Projeto", how="left")

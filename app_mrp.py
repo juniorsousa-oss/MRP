@@ -50,7 +50,13 @@ def load_sources(cb, eb, gb, pb, mb):
     est = est.groupby("Código", as_index=False)["Saldo em Estoque"].sum()
 
     gr = pd.read_excel(BytesIO(gb), sheet_name="RelatorioTratado")
-    rg = pd.DataFrame({"Código": num(gr.iloc[:, 2]), "Pendência": num(gr.iloc[:, 6]).fillna(0), "Semana": num(gr.iloc[:, 13]), "Projeto": gr.iloc[:, 1].fillna("").astype(str)}).dropna(subset=["Código"])
+    rg = pd.DataFrame({
+        "Código": num(gr.iloc[:, 2]),
+        "Pendência": num(gr.iloc[:, 6]).fillna(0),
+        "Data Solicitação": pd.to_datetime(gr.iloc[:, 3], errors="coerce", dayfirst=True),
+        "Semana": num(gr.iloc[:, 13]),
+        "Projeto": gr.iloc[:, 1].fillna("").astype(str)
+    }).dropna(subset=["Código"])
     rg["Código"] = rg["Código"].astype("int64")
     rg_mrp = rg[rg["Semana"].notna() & rg["Semana"].between(1, 53)].copy()
     rg_mrp["Semana"] = rg_mrp["Semana"].astype("int64")
@@ -157,8 +163,6 @@ if len(proj):
     proj["Descrição"] = proj["Código"].map(cad.set_index("Código")["Descrição"].to_dict()); proj["Tipo"] = proj["Código"].map(cad.set_index("Código")["Tipo"].to_dict())
 
 # SEMANA DE ATENDIMENTO / NORMALIZAÇÃO
-# Para cada material, procura a última semana em que o Resumo Final ficou >= 0.
-# Se o último registro projetado permanecer negativo, o material não normaliza: NN.
 if len(proj):
     atendimento_map = {}
     for code, g in proj.groupby("Código", sort=False):
@@ -173,8 +177,14 @@ else:
 macro["Semana de Atendimento"] = macro["Código"].map(atendimento_map).fillna("")
 
 # DETALHAMENTOS
-# No S.A. são exibidos somente projetos cuja demanda (Pendência) é diferente de zero.
-demanda_projeto = rg_mrp[~rg_mrp["Código"].isin(codigos_ii) & rg_mrp["Pendência"].ne(0)][["Código", "Projeto", "Pendência", "Semana"]].rename(columns={"Pendência": "Quantidade"}).sort_values(["Código", "Semana", "Projeto"])
+# S.A.: somente projetos com demanda diferente de zero. A descrição vem do Cadastro.
+# A última solicitação é a maior data da coluna D para cada projeto no RelatorioGeral_Tratado.
+descricao_map = cad.set_index("Código")["Descrição"].to_dict()
+ultima_solicitacao = rg_mrp.groupby("Projeto", as_index=False)["Data Solicitação"].max().rename(columns={"Data Solicitação": "Última Solicitação"})
+demanda_projeto = rg_mrp[~rg_mrp["Código"].isin(codigos_ii) & rg_mrp["Pendência"].ne(0)][["Código", "Projeto", "Pendência", "Semana"]].rename(columns={"Pendência": "Quantidade"})
+demanda_projeto["Descrição"] = demanda_projeto["Código"].map(descricao_map).fillna("")
+demanda_projeto = demanda_projeto.merge(ultima_solicitacao, on="Projeto", how="left")
+demanda_projeto = demanda_projeto[["Código", "Descrição", "Projeto", "Quantidade", "Semana", "Última Solicitação"]].sort_values(["Código", "Semana", "Projeto"])
 pc_det = cp[cp["Quantidade P.C."] > 0].sort_values(["Código", "Semana P.C."]).copy()
 sc_det = cp[cp["Quantidade S.C."] > 0].sort_values(["Código", "Semana S.C."]).copy()
 fab_det = op[["ORDEM DE PRODUÇÃO", "Código Produto", "Semana Entrega"]].sort_values(["Código Produto", "Semana Entrega", "ORDEM DE PRODUÇÃO"]).copy(); fab_det["Quantidade"] = 1
@@ -198,7 +208,7 @@ with tab1:
     linhas_selecionadas=selecao.selection.rows if selecao is not None else []; code=None
     if linhas_selecionadas: code=int(v.iloc[linhas_selecionadas[0]]["Código"])
     if code is not None:
-        st.divider(); st.subheader("Detalhamento do material"); desc_map=cad.set_index("Código")["Descrição"].to_dict(); st.markdown(f"**Material selecionado:** `{code}` — {desc_map.get(code,'')}")
+        st.divider(); st.subheader("Detalhamento do material"); st.markdown(f"**Material selecionado:** `{code}` — {descricao_map.get(code,'')}")
         w=proj[proj["Código"]==code].copy()
         if len(w): st.markdown("**Projeção semanal**"); st.dataframe(w[["Código","Descrição","Tipo","Semana","Saldo Inicial","Demanda","P.C.","S.C.","Produzindo","Resumo Final"]],use_container_width=True,hide_index=True)
         d=demanda_projeto[demanda_projeto["Código"]==code]

@@ -40,7 +40,6 @@ def zip_bytes(files):
 
 @st.cache_data(show_spinner=False)
 def load_sources(cb, eb, gb, pb, mb):
-    # CADASTRO: primeira linha em branco; cabeçalho na linha 02.
     raw = pd.read_excel(BytesIO(cb), sheet_name="Listagem do Browse", header=None)
     cad = raw.iloc[2:, [1, 2, 3]].copy()
     cad.columns = ["Código", "Descrição", "Tipo"]
@@ -122,56 +121,58 @@ except Exception as e:
     st.stop()
 
 # ============================================================
-# SEMANA ATUAL — menor semana válida encontrada nas bases.
+# SEMANA ATUAL
+# O RelatorioGeral_Tratado é a base principal para identificar a semana
+# operacional atual, pois sua coluna N representa a semana de necessidade.
+# As demais bases servem como fallback caso o Relatorio Geral não tenha
+# nenhuma semana válida.
 # ============================================================
-semanas_base = []
-for s in [rg_mrp["Semana"], cp["Semana P.C."], cp["Semana S.C."], mt["Semana Entrega"], mt["Semana Necessidade"]]:
-    v = num(s).dropna()
-    v = v[(v >= 1) & (v <= 53)]
-    if len(v):
-        semanas_base.append(v.astype(int))
+rg_semanas = num(rg_mrp["Semana"]).dropna()
+rg_semanas = rg_semanas[(rg_semanas >= 1) & (rg_semanas <= 53)]
 
-if not semanas_base:
-    st.error("Não foi possível identificar a semana atual nas planilhas carregadas.")
-    st.stop()
+if len(rg_semanas):
+    semana_atual = int(rg_semanas.min())
+    fonte_semana = "RelatorioGeral_Tratado — coluna N"
+else:
+    semanas_base = []
+    for s in [cp["Semana P.C."], cp["Semana S.C."], mt["Semana Entrega"], mt["Semana Necessidade"]]:
+        v = num(s).dropna()
+        v = v[(v >= 1) & (v <= 53)]
+        if len(v):
+            semanas_base.append(v.astype(int))
+    if not semanas_base:
+        st.error("Não foi possível identificar a semana atual nas planilhas carregadas.")
+        st.stop()
+    semana_atual = min(int(s.min()) for s in semanas_base)
+    fonte_semana = "demais bases — fallback"
 
-semana_atual = min(int(s.min()) for s in semanas_base)
 with st.sidebar:
     st.divider()
     st.markdown("**Semana atual identificada nas bases**")
     st.number_input("Semana atual", min_value=1, max_value=53, value=semana_atual, disabled=True)
+    st.caption(f"Fonte: {fonte_semana}")
 
 # ============================================================
 # DEMANDA
 # ============================================================
-# REGRA CORRETA:
-# - Tipo II: demanda exibida/calculada no MRP = 0.
-# - Tipo diferente de II: demanda real das bases.
-# Os demais pilares (estoque, PC, SC e produzindo) permanecem reais para TODOS os tipos.
 codigos_ii = set(cad.loc[cad["Tipo"].str.upper().eq("II"), "Código"])
 
-# S.A.: RelatorioGeral_Tratado — C, G e N.
 sa_week = rg_mrp.groupby(["Código", "Semana"], as_index=False)["Pendência"].sum().rename(columns={"Pendência": "Demanda S.A."})
 
-# Demanda para fabricação de TC/TP: MRP_TC_TP_Tratado — H, J e L.
 tc_rows = mt[(mt["Material"] > 0) & mt["Semana Necessidade"].between(1, 53)].copy()
 tc_week = tc_rows.groupby(["Material", "Semana Necessidade"], as_index=False)["Quantidade"].sum()
 tc_week.columns = ["Código", "Semana", "Demanda TC/TP"]
 
-# Entradas programadas.
 pc_week = cp[(cp["Quantidade P.C."] > 0) & cp["Semana P.C."].between(1, 53)].groupby(
     ["Código", "Semana P.C."], as_index=False)["Quantidade P.C."].sum()
 pc_week.columns = ["Código", "Semana", "P.C."]
 
-# S.C. total no macro inclui solicitações sem semana definida.
 sc_all = cp[cp["Quantidade S.C."] > 0].groupby("Código", as_index=False)["Quantidade S.C."].sum().rename(columns={"Quantidade S.C.": "S.C."})
 
-# Na projeção, S.C. só entra quando possui semana definida.
 sc_week = cp[(cp["Quantidade S.C."] > 0) & cp["Semana S.C."].between(1, 53)].groupby(
     ["Código", "Semana S.C."], as_index=False)["Quantidade S.C."].sum()
 sc_week.columns = ["Código", "Semana", "S.C."]
 
-# Produzindo: cada OP corresponde a 1 peça.
 op = mt[(mt["Código Produto"] > 0) & mt["Semana Entrega"].between(1, 53)].copy()
 fab_week = op.groupby(["Código Produto", "Semana Entrega"]).size().reset_index(name="Produzindo")
 fab_week.columns = ["Código", "Semana", "Produzindo"]
@@ -192,15 +193,12 @@ for df in [
 for c in ["Saldo em Estoque", "Demanda S.A.", "Demanda TC/TP", "P.C.", "S.C.", "Produzindo"]:
     macro[c] = macro[c].fillna(0.0)
 
-# Demanda real é mantida nos componentes para rastreabilidade, mas o campo MRP DEMANDA
-# é zerado exclusivamente para Tipo II.
 macro["Demanda"] = macro["Demanda S.A."] + macro["Demanda TC/TP"]
 macro.loc[macro["Tipo"].str.upper().eq("II"), "Demanda"] = 0.0
 
 macro["DIV"] = macro["Saldo em Estoque"] + macro["P.C."] + macro["S.C."] + macro["Produzindo"] - macro["Demanda"]
 macro["Status"] = macro["DIV"].apply(lambda x: "CRIAR S.C." if x < -1e-9 else "OK")
 
-# Retira somente materiais sem qualquer informação útil para análise.
 atividade = ["Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo"]
 macro = macro[macro[atividade].abs().sum(axis=1) > 1e-9].copy()
 
@@ -216,7 +214,6 @@ events = pd.concat([
 ], ignore_index=True)
 
 events = events[events["Semana"] >= semana_atual].copy()
-# Tipo II não possui demanda MRP também na projeção; seus outros movimentos permanecem reais.
 events.loc[events["Código"].isin(codigos_ii), "Demanda"] = 0.0
 events = events.groupby(["Código", "Semana"], as_index=False)[["Demanda", "Supply"]].sum()
 
@@ -264,7 +261,6 @@ if len(proj):
 # ============================================================
 # DETALHAMENTOS
 # ============================================================
-# Somente itens diferentes de II possuem demanda MRP e aparecem nos projetos geradores.
 demanda_projeto = rg_mrp[~rg_mrp["Código"].isin(codigos_ii)][
     ["Código", "Projeto", "Pendência", "Semana"]
 ].rename(columns={"Pendência": "Quantidade"}).sort_values(["Código", "Semana", "Projeto"])
@@ -288,6 +284,7 @@ criar_sc_total = (-macro.loc[macro["DIV"] < 0, "DIV"]).sum()
 m[4].metric("Criar S.C.", f"{criar_sc_total:,.0f}")
 
 tab1, tab2 = st.tabs(["DEMANDA GERAL", "DEMANDA POR PROJETO"])
+
 macro_cols = ["Código", "Descrição", "Tipo", "Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo", "DIV", "Status"]
 
 with tab1:
@@ -317,7 +314,6 @@ with tab1:
         st.subheader("Detalhamento do material")
         desc_map = cad.set_index("Código")["Descrição"].to_dict()
         code = st.selectbox("Material", v["Código"].tolist(), format_func=lambda x: f"{x} — {desc_map.get(x, '')}")
-
         w = proj[proj["Código"] == code].copy()
         if len(w):
             w = w[["Código", "Descrição", "Tipo", "Semana", "Saldo Inicial", "Demanda", "P.C.", "S.C.", "Produzindo", "Resumo Final"]]

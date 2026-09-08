@@ -2,23 +2,20 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 from zipfile import ZipFile, ZIP_DEFLATED
-import unicodedata
-import re
 from datetime import date, timedelta
 
 st.set_page_config(page_title="MRP | SETTA", page_icon="📦", layout="wide")
 
+
 def num(s):
     return pd.to_numeric(s, errors="coerce")
 
-def norm_header(v):
-    s = unicodedata.normalize("NFKD", str(v)).encode("ascii", "ignore").decode("ascii").upper()
-    return re.sub(r"[^A-Z0-9]+", " ", s).strip()
 
 def col_by_pos(df, pos, name):
     if df.shape[1] <= pos:
         raise ValueError(f"A base MRP_TC_TP não possui a coluna {name} na posição esperada.")
     df[name] = num(df.iloc[:, pos])
+
 
 def excel_bytes(sheets):
     bio = BytesIO()
@@ -28,8 +25,10 @@ def excel_bytes(sheets):
     bio.seek(0)
     return bio.getvalue()
 
+
 def csv_bytes(df):
     return df.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+
 
 def zip_bytes(files):
     bio = BytesIO()
@@ -38,6 +37,7 @@ def zip_bytes(files):
             z.writestr(name, data)
     bio.seek(0)
     return bio.getvalue()
+
 
 def periodo_semana(semana, ano=2026):
     try:
@@ -52,11 +52,13 @@ def periodo_semana(semana, ano=2026):
     fim = inicio + timedelta(days=6)
     return f"{inicio.strftime('%d/%m/%Y')} a {fim.strftime('%d/%m/%Y')}"
 
+
 def formatar_data_br(s):
     dt = pd.to_datetime(s, errors="coerce", dayfirst=True)
     if pd.isna(dt):
         return ""
     return dt.strftime("%d/%m/%Y")
+
 
 @st.cache_data(show_spinner=False)
 def load_sources(cb, eb, gb, pb, mb):
@@ -91,8 +93,8 @@ def load_sources(cb, eb, gb, pb, mb):
     rg_mrp["Semana"] = rg_mrp["Semana"].astype("int64")
 
     cr = pd.read_excel(BytesIO(pb), sheet_name="ComprasTratado")
-    if cr.shape[1] <= 8:
-        raise ValueError("A base Compras_Tratado não possui a coluna I para o número do P.C.")
+    if cr.shape[1] <= 14:
+        raise ValueError("A base Compras_Tratado não possui a coluna O para o saldo de Pré Nota.")
     cp = pd.DataFrame({
         "Código": num(cr.iloc[:, 0]),
         "Quantidade S.C.": num(cr.iloc[:, 3]).fillna(0),
@@ -100,7 +102,8 @@ def load_sources(cb, eb, gb, pb, mb):
         "Quantidade P.C.": num(cr.iloc[:, 9]).fillna(0),
         "Semana P.C.": num(cr.iloc[:, 11]),
         "Nº S.C.": cr.iloc[:, 2],
-        "Nº P.C.": cr.iloc[:, 8]
+        "Nº P.C.": cr.iloc[:, 8],
+        "Saldo em Pré Nota": num(cr.iloc[:, 14]).fillna(0)
     }).dropna(subset=["Código"])
     cp["Código"] = cp["Código"].astype("int64")
     cp["Nº S.C."] = cp["Nº S.C."].fillna("").astype(str).str.replace(r"\.0$", "", regex=True).str.strip()
@@ -120,6 +123,7 @@ def load_sources(cb, eb, gb, pb, mb):
     if "ORDEM DE PRODUÇÃO" not in mt.columns:
         mt["ORDEM DE PRODUÇÃO"] = mt.index + 1
     return cad, est, rg, rg_mrp, cp, mt
+
 
 st.title("MRP — Planejamento de Necessidades de Materiais")
 st.caption("Cadastro + Estoque + Relatório Geral + Compras + MRP TC/TP. Projeção calculada semana a semana.")
@@ -272,22 +276,16 @@ if len(proj):
     for code, g in proj.groupby("Código", sort=False):
         g = g.sort_values("Semana")
         finais = pd.to_numeric(g["Resumo Final"], errors="coerce").fillna(-float("inf"))
-        # Regra: se nunca houve saldo negativo, o material já está normalizado na semana atual.
         if (finais >= -1e-9).all():
             atendimento_map[int(code)] = semana_atual
-        # Se terminou negativo, nunca normalizou definitivamente.
         elif float(finais.iloc[-1]) < -1e-9:
             atendimento_map[int(code)] = "NN"
-        # Se houve saldo negativo e depois recuperou, a normalização é a última semana
-        # em que o Resumo Final ficou igual ou maior que zero.
         else:
             normalizados = g[finais >= -1e-9]
             atendimento_map[int(code)] = int(normalizados.iloc[-1]["Semana"]) if len(normalizados) else "NN"
 else:
     atendimento_map = {}
 
-# Materiais que só possuem estoque e não possuem nenhuma demanda/entrada
-# já estão normalizados na semana atual.
 if len(macro):
     for _, row in macro.iterrows():
         code = int(row["Código"])
@@ -305,17 +303,144 @@ macro["Período de Atendimento"] = macro["Semana de Atendimento"].apply(
     lambda x: "NN" if str(x).strip().upper() == "NN" else periodo_semana(x)
 )
 
+# -------------------- DEMANDA POR PROJETO --------------------
+# A Pré Nota é somente visual e jamais entra no cálculo de disponibilidade.
+pre_nota_por_codigo = cp.groupby("Código", as_index=False)["Saldo em Pré Nota"].max()
+
 ultima_solicitacao = rg.groupby("Projeto", as_index=False)["Data Solicitação"].max().rename(
     columns={"Data Solicitação": "Última Solicitação"}
 )
 ultima_solicitacao["Última Solicitação"] = ultima_solicitacao["Última Solicitação"].apply(formatar_data_br)
 
-demanda_projeto = rg_mrp[
-    ~rg_mrp["Código"].isin(codigos_ii) & rg_mrp["Pendência"].ne(0)
-][["Código", "Projeto", "Pendência", "Semana"]].rename(columns={"Pendência": "Quantidade"})
-demanda_projeto = demanda_projeto.merge(ultima_solicitacao, on="Projeto", how="left")
-demanda_projeto = demanda_projeto.sort_values(["Código", "Semana", "Projeto"])
+# Pendência 0 não entra. Tipo II também não gera demanda, conforme regra do MRP.
+projeto_base = rg_mrp[
+    ~rg_mrp["Código"].isin(codigos_ii) & rg_mrp["Pendência"].gt(0)
+][["Projeto", "Código", "Pendência", "Semana", "Data Solicitação"]].copy()
+projeto_base = projeto_base.rename(columns={
+    "Código": "Produto",
+    "Pendência": "Qnt Necessária",
+    "Semana": "Semana de Necessidade"
+})
+projeto_base = projeto_base.merge(
+    cad[["Código", "Descrição"]], left_on="Produto", right_on="Código", how="left"
+).drop(columns=["Código"])
+projeto_base = projeto_base.merge(ultima_solicitacao, on="Projeto", how="left")
+projeto_base = projeto_base.merge(
+    pre_nota_por_codigo, left_on="Produto", right_on="Código", how="left"
+).drop(columns=["Código"])
+projeto_base["Saldo em Pré Nota"] = projeto_base["Saldo em Pré Nota"].fillna(0.0)
 
+projeto_base = projeto_base.groupby(
+    ["Projeto", "Produto", "Descrição", "Última Solicitação", "Semana de Necessidade", "Saldo em Pré Nota"],
+    as_index=False
+)["Qnt Necessária"].sum()
+projeto_base = projeto_base.sort_values(
+    ["Produto", "Semana de Necessidade", "Projeto"], kind="stable"
+).reset_index(drop=True)
+
+pc_por_produto = {
+    int(code): g.sort_values("Semana").set_index("Semana")["P.C."].to_dict()
+    for code, g in pc_week.groupby("Código")
+}
+sc_por_produto = {
+    int(code): g.sort_values("Semana").set_index("Semana")["S.C."].to_dict()
+    for code, g in sc_week.groupby("Código")
+}
+fab_por_produto = {
+    int(code): g.sort_values("Semana").set_index("Semana")["Produzindo"].to_dict()
+    for code, g in fab_week.groupby("Código")
+}
+
+
+def alocar_demanda_projeto(df):
+    """Aloca cada demanda por produto na ordem Estoque > P.C. > Fabricação > S.C."""
+    if df.empty:
+        return pd.DataFrame(columns=list(df.columns) + [
+            "Saldo em Estoque", "P.C.", "Fabricação", "S.C.", "Semana de Atendimento", "Ação"
+        ])
+
+    resultado = []
+    for produto, grupo in df.groupby("Produto", sort=False):
+        grupo = grupo.sort_values(["Semana de Necessidade", "Projeto"], kind="stable")
+        produto = int(produto)
+        estoque_restante = float(stock_map.get(produto, 0.0))
+        pc_disponivel = dict(pc_por_produto.get(produto, {}))
+        fab_disponivel = dict(fab_por_produto.get(produto, {}))
+        sc_disponivel = dict(sc_por_produto.get(produto, {}))
+
+        for _, row in grupo.iterrows():
+            necessidade = float(row["Qnt Necessária"])
+            semana_necessidade = int(row["Semana de Necessidade"])
+            restante = necessidade
+            consumos = []
+
+            usado = min(restante, max(estoque_restante, 0.0))
+            estoque_restante -= usado
+            restante -= usado
+            if usado > 1e-9:
+                consumos.append((semana_atual, "Estoque", usado))
+
+            for semana in sorted(pc_disponivel):
+                if semana > semana_necessidade or restante <= 1e-9:
+                    break
+                disponivel = max(float(pc_disponivel.get(semana, 0.0)), 0.0)
+                usado = min(restante, disponivel)
+                pc_disponivel[semana] = disponivel - usado
+                restante -= usado
+                if usado > 1e-9:
+                    consumos.append((int(semana), "P.C.", usado))
+
+            for semana in sorted(fab_disponivel):
+                if semana > semana_necessidade or restante <= 1e-9:
+                    break
+                disponivel = max(float(fab_disponivel.get(semana, 0.0)), 0.0)
+                usado = min(restante, disponivel)
+                fab_disponivel[semana] = disponivel - usado
+                restante -= usado
+                if usado > 1e-9:
+                    consumos.append((int(semana), "Fabricação", usado))
+
+            for semana in sorted(sc_disponivel):
+                if semana > semana_necessidade or restante <= 1e-9:
+                    break
+                disponivel = max(float(sc_disponivel.get(semana, 0.0)), 0.0)
+                usado = min(restante, disponivel)
+                sc_disponivel[semana] = disponivel - usado
+                restante -= usado
+                if usado > 1e-9:
+                    consumos.append((int(semana), "S.C.", usado))
+
+            if restante <= 1e-9:
+                semana_atendimento = max(x[0] for x in consumos) if consumos else semana_atual
+                partes = [f"{origem}: {qtd:g} ({semana})" for semana, origem, qtd in consumos]
+                acao = "Atendido — " + " + ".join(partes)
+            else:
+                semana_atendimento = semana_necessidade
+                partes = [f"{origem}: {qtd:g} ({semana})" for semana, origem, qtd in consumos]
+                acao_base = " + ".join(partes) if partes else "Sem cobertura"
+                acao = f"{acao_base} | CRIAR S.C. de {restante:g} para semana {semana_necessidade}"
+
+            nova = row.to_dict()
+            # Os campos de origem mostram quanto foi efetivamente consumido desta linha.
+            nova["Saldo em Estoque"] = max(usado if False else 0.0, 0.0)
+            nova["Saldo em Estoque"] = sum(q for semana, origem, q in consumos if origem == "Estoque")
+            nova["P.C."] = sum(q for semana, origem, q in consumos if origem == "P.C.")
+            nova["Fabricação"] = sum(q for semana, origem, q in consumos if origem == "Fabricação")
+            nova["S.C."] = sum(q for semana, origem, q in consumos if origem == "S.C.")
+            nova["Semana de Atendimento"] = semana_atendimento
+            nova["Ação"] = acao
+            resultado.append(nova)
+
+    return pd.DataFrame(resultado)
+
+
+demanda_projeto_alocada = alocar_demanda_projeto(projeto_base)
+if not demanda_projeto_alocada.empty:
+    demanda_projeto_alocada["Período de Atendimento"] = demanda_projeto_alocada["Semana de Atendimento"].apply(
+        lambda x: periodo_semana(x)
+    )
+
+# -------------------- DETALHAMENTOS --------------------
 pc_det = cp[cp["Quantidade P.C."] > 0].sort_values(["Código", "Semana P.C."]).copy()
 sc_det = cp[cp["Quantidade S.C."] > 0].sort_values(["Código", "Semana S.C."]).copy()
 fab_det = op[["ORDEM DE PRODUÇÃO", "Código Produto", "Semana Entrega"]].sort_values(
@@ -387,10 +512,15 @@ with tab1:
                 use_container_width=True, hide_index=True
             )
 
-        d = demanda_projeto[demanda_projeto["Código"] == code]
+        d = demanda_projeto_alocada[demanda_projeto_alocada["Produto"] == code]
         if len(d):
             st.markdown("**S.A. — projetos que geram a demanda**")
-            st.dataframe(d, use_container_width=True, hide_index=True)
+            colunas_sa = [
+                "Projeto", "Produto", "Descrição", "Última Solicitação", "Semana de Necessidade",
+                "Qnt Necessária", "Saldo em Estoque", "Saldo em Pré Nota", "P.C.", "Fabricação", "S.C.",
+                "Semana de Atendimento", "Ação"
+            ]
+            st.dataframe(d[colunas_sa], use_container_width=True, hide_index=True)
 
         compras = cp[
             (cp["Código"] == code)
@@ -399,10 +529,8 @@ with tab1:
         if len(compras):
             st.markdown("**Compras**")
             st.dataframe(
-                compras[
-                    ["Código", "Nº S.C.", "Quantidade S.C.", "Semana S.C.",
-                     "Nº P.C.", "Quantidade P.C.", "Semana P.C."]
-                ],
+                compras[["Código", "Nº S.C.", "Quantidade S.C.", "Semana S.C.",
+                         "Nº P.C.", "Quantidade P.C.", "Semana P.C."]],
                 use_container_width=True, hide_index=True
             )
             st.caption("S.C. sem semana permanece no macro, mas não entra no cálculo semanal até possuir previsão definida.")
@@ -418,17 +546,26 @@ with tab2:
     with c1:
         busca2 = st.text_input("Código / projeto")
     with c2:
-        semana_filtro = st.multiselect("Semanas", sorted(demanda_projeto["Semana"].unique().tolist()))
-    d = demanda_projeto
+        semana_filtro = st.multiselect(
+            "Semanas de necessidade",
+            sorted(demanda_projeto_alocada["Semana de Necessidade"].unique().tolist()) if not demanda_projeto_alocada.empty else []
+        )
+    d = demanda_projeto_alocada.copy()
     if busca2:
         b2 = busca2.strip()
         d = d[
-            d["Código"].astype(str).str.contains(b2, na=False)
+            d["Produto"].astype(str).str.contains(b2, na=False)
             | d["Projeto"].str.contains(b2, case=False, na=False)
         ]
     if semana_filtro:
-        d = d[d["Semana"].isin(semana_filtro)]
-    st.dataframe(d, use_container_width=True, height=600, hide_index=True)
+        d = d[d["Semana de Necessidade"].isin(semana_filtro)]
+
+    colunas_projeto = [
+        "Projeto", "Produto", "Descrição", "Última Solicitação", "Semana de Necessidade",
+        "Qnt Necessária", "Saldo em Estoque", "Saldo em Pré Nota", "P.C.", "Fabricação", "S.C.",
+        "Semana de Atendimento", "Período de Atendimento", "Ação"
+    ]
+    st.dataframe(d[colunas_projeto], use_container_width=True, height=600, hide_index=True)
 
 st.divider()
 st.subheader("Exportação de relatórios")
@@ -449,7 +586,7 @@ export_proj = export_proj[
 sheets = {
     "MRP_Geral": export_macro,
     "Projecao_Semanal": export_proj,
-    "Demanda_Projeto": demanda_projeto,
+    "Demanda_Projeto": demanda_projeto_alocada,
     "Compras": cp,
     "Fabricacao": fab_det,
     "Cadastro_Base": cad,

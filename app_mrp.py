@@ -4,6 +4,7 @@ from io import BytesIO
 from zipfile import ZipFile, ZIP_DEFLATED
 import unicodedata
 import re
+from datetime import date, timedelta
 
 st.set_page_config(page_title="MRP | SETTA", page_icon="📦", layout="wide")
 
@@ -18,19 +19,6 @@ def col_by_pos(df, pos, name):
     if df.shape[1] <= pos:
         raise ValueError(f"A base MRP_TC_TP não possui a coluna {name} na posição esperada.")
     df[name] = num(df.iloc[:, pos])
-
-def find_identifier_col(df, exact_candidates, fallback_pos):
-    normalized = {c: norm_header(c) for c in df.columns}
-    candidates = {norm_header(x) for x in exact_candidates}
-    for c, n in normalized.items():
-        if n in candidates:
-            return df[c]
-    for c, n in normalized.items():
-        if any(n.startswith(x + " ") or n.endswith(" " + x) for x in candidates if x):
-            return df[c]
-    if df.shape[1] > fallback_pos:
-        return df.iloc[:, fallback_pos]
-    return pd.Series([""] * len(df), index=df.index)
 
 def excel_bytes(sheets):
     bio = BytesIO()
@@ -50,6 +38,27 @@ def zip_bytes(files):
             z.writestr(name, data)
     bio.seek(0)
     return bio.getvalue()
+
+def periodo_semana(semana, ano=2026):
+    """Retorna o período da semana no padrão domingo a sábado usado nos relatórios."""
+    try:
+        semana = int(semana)
+    except (TypeError, ValueError):
+        return ""
+    if not 1 <= semana <= 53:
+        return ""
+    # O calendário do MRP considera domingo como primeiro dia da semana.
+    primeiro_domingo = date(ano, 1, 1)
+    primeiro_domingo += timedelta(days=(6 - primeiro_domingo.weekday()) % 7)
+    inicio = primeiro_domingo + timedelta(weeks=semana - 1)
+    fim = inicio + timedelta(days=6)
+    return f"{inicio.strftime('%d/%m/%Y')} a {fim.strftime('%d/%m/%Y')}"
+
+def formatar_data_br(s):
+    dt = pd.to_datetime(s, errors="coerce", dayfirst=True)
+    if pd.isna(dt):
+        return ""
+    return dt.strftime("%d/%m/%Y")
 
 @st.cache_data(show_spinner=False)
 def load_sources(cb, eb, gb, pb, mb):
@@ -84,30 +93,22 @@ def load_sources(cb, eb, gb, pb, mb):
     rg_mrp["Semana"] = rg_mrp["Semana"].astype("int64")
 
     cr = pd.read_excel(BytesIO(pb), sheet_name="ComprasTratado")
+    if cr.shape[1] <= 8:
+        raise ValueError("A base Compras_Tratado não possui a coluna I para o número do P.C.")
     cp = pd.DataFrame({
         "Código": num(cr.iloc[:, 0]),
         "Quantidade S.C.": num(cr.iloc[:, 3]).fillna(0),
         "Semana S.C.": num(cr.iloc[:, 5]),
         "Quantidade P.C.": num(cr.iloc[:, 9]).fillna(0),
         "Semana P.C.": num(cr.iloc[:, 11]),
-        "Nº S.C.": find_identifier_col(
-            cr,
-            ["N S C", "N SC", "NUMERO S C", "NUMERO SC", "NR S C", "NR SC",
-             "NUM S C", "NUM SC", "N SOLICITACAO", "NUMERO SOLICITACAO",
-             "SOLICITACAO DE COMPRA", "SOLICITACAO"],
-            2
-        ),
-        "Nº P.C.": find_identifier_col(
-            cr,
-            ["N P C", "N PC", "NUMERO P C", "NUMERO PC", "NR P C", "NR PC",
-             "NUM P C", "NUM PC", "N PEDIDO", "NUMERO PEDIDO", "PEDIDO",
-             "PEDIDO DE COMPRA", "NUMERO DO PEDIDO"],
-            6
-        )
+        # S.C. permanece na coluna C, que já estava correta.
+        "Nº S.C.": cr.iloc[:, 2],
+        # O número do P.C. é explicitamente a coluna I do ComprasTratado.
+        "Nº P.C.": cr.iloc[:, 8]
     }).dropna(subset=["Código"])
     cp["Código"] = cp["Código"].astype("int64")
-    cp["Nº S.C."] = cp["Nº S.C."].fillna("").astype(str).str.replace(r"\.0$", "", regex=True)
-    cp["Nº P.C."] = cp["Nº P.C."].fillna("").astype(str).str.replace(r"\.0$", "", regex=True)
+    cp["Nº S.C."] = cp["Nº S.C."].fillna("").astype(str).str.replace(r"\.0$", "", regex=True).str.strip()
+    cp["Nº P.C."] = cp["Nº P.C."].fillna("").astype(str).str.replace(r"\.0$", "", regex=True).str.strip()
 
     mt = pd.read_excel(BytesIO(mb), sheet_name="MRP_TC_TP")
     col_by_pos(mt, 1, "Código Produto")
@@ -297,12 +298,17 @@ if len(macro):
             atendimento_map[code] = semana_atual
 
 macro["Semana de Atendimento"] = macro["Código"].map(atendimento_map).fillna("")
+macro["Período de Atendimento"] = macro["Semana de Atendimento"].apply(
+    lambda x: "NN" if str(x).strip().upper() == "NN" else periodo_semana(x)
+)
 
 # DETALHAMENTOS
 # S.A.: sem descrição, conforme solicitado.
 ultima_solicitacao = rg.groupby("Projeto", as_index=False)["Data Solicitação"].max().rename(
     columns={"Data Solicitação": "Última Solicitação"}
 )
+ultima_solicitacao["Última Solicitação"] = ultima_solicitacao["Última Solicitação"].apply(formatar_data_br)
+
 demanda_projeto = rg_mrp[
     ~rg_mrp["Código"].isin(codigos_ii) & rg_mrp["Pendência"].ne(0)
 ][["Código", "Projeto", "Pendência", "Semana"]].rename(columns={"Pendência": "Quantidade"})
@@ -327,7 +333,8 @@ m[4].metric("Criar S.C.", f"{criar_sc_total:,.0f}")
 tab1, tab2 = st.tabs(["DEMANDA GERAL", "DEMANDA POR PROJETO"])
 macro_cols = [
     "Código", "Descrição", "Tipo", "Saldo em Estoque", "Demanda",
-    "P.C.", "S.C.", "Produzindo", "DIV", "Status", "Semana de Atendimento"
+    "P.C.", "S.C.", "Produzindo", "DIV", "Status", "Semana de Atendimento",
+    "Período de Atendimento"
 ]
 
 with tab1:
@@ -372,8 +379,9 @@ with tab1:
         w = proj[proj["Código"] == code].copy()
         if len(w):
             st.markdown("**Projeção semanal**")
+            w["Período da Semana"] = w["Semana"].apply(periodo_semana)
             st.dataframe(
-                w[["Código", "Descrição", "Tipo", "Semana", "Saldo Inicial", "Demanda",
+                w[["Código", "Descrição", "Tipo", "Semana", "Período da Semana", "Saldo Inicial", "Demanda",
                    "P.C.", "S.C.", "Produzindo", "Resumo Final"]],
                 use_container_width=True, hide_index=True
             )
@@ -429,8 +437,11 @@ export_macro = macro[macro_cols].sort_values(
     ["Status", "Código"],
     key=lambda s: s.map({"CRIAR S.C.": 0, "OK": 1}).fillna(2) if s.name == "Status" else s
 ).copy()
-export_proj = proj[
-    ["Código", "Descrição", "Tipo", "Semana", "Saldo Inicial", "Demanda",
+export_proj = proj.copy()
+if len(export_proj):
+    export_proj["Período da Semana"] = export_proj["Semana"].apply(periodo_semana)
+export_proj = export_proj[
+    ["Código", "Descrição", "Tipo", "Semana", "Período da Semana", "Saldo Inicial", "Demanda",
      "P.C.", "S.C.", "Produzindo", "Resumo Final"]
 ].sort_values(["Código", "Semana"]).copy()
 

@@ -40,7 +40,7 @@ def zip_bytes(files):
 
 @st.cache_data(show_spinner=False)
 def load_sources(cb, eb, gb, pb, mb):
-    # CADASTRO: linha 1 em branco; cabeçalho na linha 2.
+    # CADASTRO: primeira linha em branco; cabeçalho na linha 02.
     raw = pd.read_excel(BytesIO(cb), sheet_name="Listagem do Browse", header=None)
     cad = raw.iloc[2:, [1, 2, 3]].copy()
     cad.columns = ["Código", "Descrição", "Tipo"]
@@ -91,8 +91,6 @@ def load_sources(cb, eb, gb, pb, mb):
     mt["Material"] = mt["Material"].fillna(0).astype("int64")
     mt["Semana Necessidade"] = mt["Semana Necessidade"].fillna(0).astype("int64")
     mt["Quantidade"] = mt["Quantidade"].fillna(0.0)
-
-    # A ordem de produção é utilizada somente para detalhamento/contagem.
     if "ORDEM DE PRODUÇÃO" not in mt.columns:
         mt["ORDEM DE PRODUÇÃO"] = mt.index + 1
 
@@ -127,13 +125,7 @@ except Exception as e:
 # SEMANA ATUAL — menor semana válida encontrada nas bases.
 # ============================================================
 semanas_base = []
-for s in [
-    rg_mrp["Semana"],
-    cp["Semana P.C."],
-    cp["Semana S.C."],
-    mt["Semana Entrega"],
-    mt["Semana Necessidade"],
-]:
+for s in [rg_mrp["Semana"], cp["Semana P.C."], cp["Semana S.C."], mt["Semana Entrega"], mt["Semana Necessidade"]]:
     v = num(s).dropna()
     v = v[(v >= 1) & (v <= 53)]
     if len(v):
@@ -144,7 +136,6 @@ if not semanas_base:
     st.stop()
 
 semana_atual = min(int(s.min()) for s in semanas_base)
-
 with st.sidebar:
     st.divider()
     st.markdown("**Semana atual identificada nas bases**")
@@ -153,46 +144,35 @@ with st.sidebar:
 # ============================================================
 # DEMANDA
 # ============================================================
-# O MRP acompanha somente materiais Tipo II.
+# REGRA CORRETA:
+# - Tipo II: demanda exibida/calculada no MRP = 0.
+# - Tipo diferente de II: demanda real das bases.
+# Os demais pilares (estoque, PC, SC e produzindo) permanecem reais para TODOS os tipos.
 codigos_ii = set(cad.loc[cad["Tipo"].str.upper().eq("II"), "Código"])
 
-sa_week = rg_mrp[rg_mrp["Código"].isin(codigos_ii)].groupby(
-    ["Código", "Semana"], as_index=False
-)["Pendência"].sum().rename(columns={"Pendência": "Demanda S.A."})
+# S.A.: RelatorioGeral_Tratado — C, G e N.
+sa_week = rg_mrp.groupby(["Código", "Semana"], as_index=False)["Pendência"].sum().rename(columns={"Pendência": "Demanda S.A."})
 
-# Demanda de materiais para fabricar TC/TP: H=material, J=quantidade, L=semana.
-tc_rows = mt[(mt["Material"] > 0) & mt["Semana Necessidade"].between(1, 53)]
-tc_rows = tc_rows[tc_rows["Material"].isin(codigos_ii)]
-tc_week = tc_rows.groupby(
-    ["Material", "Semana Necessidade"], as_index=False
-)["Quantidade"].sum()
+# Demanda para fabricação de TC/TP: MRP_TC_TP_Tratado — H, J e L.
+tc_rows = mt[(mt["Material"] > 0) & mt["Semana Necessidade"].between(1, 53)].copy()
+tc_week = tc_rows.groupby(["Material", "Semana Necessidade"], as_index=False)["Quantidade"].sum()
 tc_week.columns = ["Código", "Semana", "Demanda TC/TP"]
 
-# ============================================================
-# ENTRADAS
-# ============================================================
-pc_week = cp[
-    (cp["Quantidade P.C."] > 0)
-    & cp["Semana P.C."].between(1, 53)
-].groupby(["Código", "Semana P.C."], as_index=False)["Quantidade P.C."].sum()
+# Entradas programadas.
+pc_week = cp[(cp["Quantidade P.C."] > 0) & cp["Semana P.C."].between(1, 53)].groupby(
+    ["Código", "Semana P.C."], as_index=False)["Quantidade P.C."].sum()
 pc_week.columns = ["Código", "Semana", "P.C."]
 
-# S.C. total inclui S.C. sem semana no MACRO.
-sc_all = cp[cp["Quantidade S.C."] > 0].groupby("Código", as_index=False)["Quantidade S.C."].sum()
-sc_all = sc_all.rename(columns={"Quantidade S.C.": "S.C."})
+# S.C. total no macro inclui solicitações sem semana definida.
+sc_all = cp[cp["Quantidade S.C."] > 0].groupby("Código", as_index=False)["Quantidade S.C."].sum().rename(columns={"Quantidade S.C.": "S.C."})
 
-# Na projeção, somente S.C. com semana definida é entrada programada.
-sc_week = cp[
-    (cp["Quantidade S.C."] > 0)
-    & cp["Semana S.C."].between(1, 53)
-].groupby(["Código", "Semana S.C."], as_index=False)["Quantidade S.C."].sum()
+# Na projeção, S.C. só entra quando possui semana definida.
+sc_week = cp[(cp["Quantidade S.C."] > 0) & cp["Semana S.C."].between(1, 53)].groupby(
+    ["Código", "Semana S.C."], as_index=False)["Quantidade S.C."].sum()
 sc_week.columns = ["Código", "Semana", "S.C."]
 
-# Produzindo: cada OP = 1 peça, conforme regra do MRP TC/TP.
-op = mt[
-    (mt["Código Produto"] > 0)
-    & mt["Semana Entrega"].between(1, 53)
-].copy()
+# Produzindo: cada OP corresponde a 1 peça.
+op = mt[(mt["Código Produto"] > 0) & mt["Semana Entrega"].between(1, 53)].copy()
 fab_week = op.groupby(["Código Produto", "Semana Entrega"]).size().reset_index(name="Produzindo")
 fab_week.columns = ["Código", "Semana", "Produzindo"]
 
@@ -212,17 +192,15 @@ for df in [
 for c in ["Saldo em Estoque", "Demanda S.A.", "Demanda TC/TP", "P.C.", "S.C.", "Produzindo"]:
     macro[c] = macro[c].fillna(0.0)
 
+# Demanda real é mantida nos componentes para rastreabilidade, mas o campo MRP DEMANDA
+# é zerado exclusivamente para Tipo II.
 macro["Demanda"] = macro["Demanda S.A."] + macro["Demanda TC/TP"]
-macro["DIV"] = (
-    macro["Saldo em Estoque"]
-    + macro["P.C."]
-    + macro["S.C."]
-    + macro["Produzindo"]
-    - macro["Demanda"]
-)
+macro.loc[macro["Tipo"].str.upper().eq("II"), "Demanda"] = 0.0
+
+macro["DIV"] = macro["Saldo em Estoque"] + macro["P.C."] + macro["S.C."] + macro["Produzindo"] - macro["Demanda"]
 macro["Status"] = macro["DIV"].apply(lambda x: "CRIAR S.C." if x < -1e-9 else "OK")
 
-# Retira materiais que não têm absolutamente nada para analisar.
+# Retira somente materiais sem qualquer informação útil para análise.
 atividade = ["Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo"]
 macro = macro[macro[atividade].abs().sum(axis=1) > 1e-9].copy()
 
@@ -237,16 +215,14 @@ events = pd.concat([
     fab_week.assign(Demanda=0.0, Supply=fab_week["Produzindo"])[["Código", "Semana", "Demanda", "Supply"]],
 ], ignore_index=True)
 
-events = events[events["Semana"] >= semana_atual]
+events = events[events["Semana"] >= semana_atual].copy()
+# Tipo II não possui demanda MRP também na projeção; seus outros movimentos permanecem reais.
+events.loc[events["Código"].isin(codigos_ii), "Demanda"] = 0.0
 events = events.groupby(["Código", "Semana"], as_index=False)[["Demanda", "Supply"]].sum()
 
-# Materializações por semana para preencher os pilares da tela detalhada.
-sa_idx = sa_week.set_index(["Código", "Semana"])["Demanda S.A."]
-tc_idx = tc_week.set_index(["Código", "Semana"])["Demanda TC/TP"]
 pc_idx = pc_week.set_index(["Código", "Semana"])["P.C."]
 sc_idx = sc_week.set_index(["Código", "Semana"])["S.C."]
 fab_idx = fab_week.set_index(["Código", "Semana"])["Produzindo"]
-
 stock_map = est.set_index("Código")["Saldo em Estoque"].to_dict()
 proj_parts = []
 
@@ -254,8 +230,6 @@ for code, g0 in events.groupby("Código", sort=False):
     g0 = g0.sort_values("Semana")
     if not len(g0):
         continue
-
-    # Mostra todas as semanas entre a semana atual e a última semana relevante.
     ultima_semana = int(g0["Semana"].max())
     semanas = pd.DataFrame({"Semana": range(semana_atual, ultima_semana + 1)})
     g = semanas.merge(g0, on="Semana", how="left")
@@ -265,33 +239,33 @@ for code, g0 in events.groupby("Código", sort=False):
 
     saldo_inicial = float(stock_map.get(code, 0.0))
     saldos = []
-    saldos_finais = []
+    finais = []
     for _, row in g.iterrows():
         saldos.append(saldo_inicial)
         saldo_final = saldo_inicial + float(row["Supply"]) - float(row["Demanda"])
-        saldos_finais.append(saldo_final)
+        finais.append(saldo_final)
         saldo_inicial = saldo_final
-
     g["Saldo Inicial"] = saldos
-    g["Resumo Final"] = saldos_finais
-    proj_parts.append(g[["Código", "Semana", "Saldo Inicial", "Demanda", "Supply", "Resumo Final"]])
+    g["Resumo Final"] = finais
+    proj_parts.append(g[["Código", "Semana", "Saldo Inicial", "Demanda", "Resumo Final"]])
 
-proj = pd.concat(proj_parts, ignore_index=True) if proj_parts else pd.DataFrame(
-    columns=["Código", "Semana", "Saldo Inicial", "Demanda", "Supply", "Resumo Final"]
-)
+proj = pd.concat(proj_parts, ignore_index=True) if proj_parts else pd.DataFrame(columns=["Código", "Semana", "Saldo Inicial", "Demanda", "Resumo Final"])
 
 if len(proj):
     keys = pd.MultiIndex.from_frame(proj[["Código", "Semana"]])
     proj["P.C."] = pc_idx.reindex(keys).fillna(0.0).to_numpy()
     proj["S.C."] = sc_idx.reindex(keys).fillna(0.0).to_numpy()
     proj["Produzindo"] = fab_idx.reindex(keys).fillna(0.0).to_numpy()
-    proj["Descrição"] = proj["Código"].map(cad.set_index("Código")["Descrição"])
-    proj["Tipo"] = proj["Código"].map(cad.set_index("Código")["Tipo"])
+    desc_map = cad.set_index("Código")["Descrição"].to_dict()
+    tipo_map = cad.set_index("Código")["Tipo"].to_dict()
+    proj["Descrição"] = proj["Código"].map(desc_map)
+    proj["Tipo"] = proj["Código"].map(tipo_map)
 
 # ============================================================
 # DETALHAMENTOS
 # ============================================================
-demanda_projeto = rg_mrp[rg_mrp["Código"].isin(codigos_ii)][
+# Somente itens diferentes de II possuem demanda MRP e aparecem nos projetos geradores.
+demanda_projeto = rg_mrp[~rg_mrp["Código"].isin(codigos_ii)][
     ["Código", "Projeto", "Pendência", "Semana"]
 ].rename(columns={"Pendência": "Quantidade"}).sort_values(["Código", "Semana", "Projeto"])
 
@@ -310,13 +284,11 @@ m[0].metric("Materiais no MRP", f"{len(macro):,}")
 m[1].metric("Demanda total", f"{macro['Demanda'].sum():,.0f}")
 m[2].metric("P.C.", f"{macro['P.C.'].sum():,.0f}")
 m[3].metric("S.C.", f"{macro['S.C.'].sum():,.0f}")
-m[4].metric("Criar S.C.", f"{macro.loc[macro['Status'].eq('CRIAR S.C.'), 'Demanda'].sum():,.0f}")
+criar_sc_total = (-macro.loc[macro["DIV"] < 0, "DIV"]).sum()
+m[4].metric("Criar S.C.", f"{criar_sc_total:,.0f}")
 
 tab1, tab2 = st.tabs(["DEMANDA GERAL", "DEMANDA POR PROJETO"])
-macro_cols = [
-    "Código", "Descrição", "Tipo", "Saldo em Estoque", "Demanda",
-    "P.C.", "S.C.", "Produzindo", "DIV", "Status"
-]
+macro_cols = ["Código", "Descrição", "Tipo", "Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo", "DIV", "Status"]
 
 with tab1:
     st.subheader("Demanda Geral")
@@ -331,15 +303,11 @@ with tab1:
     v = macro.copy()
     if busca:
         b = busca.strip()
-        v = v[
-            v["Código"].astype(str).str.contains(b, na=False)
-            | v["Descrição"].str.contains(b, case=False, na=False)
-        ]
+        v = v[v["Código"].astype(str).str.contains(b, na=False) | v["Descrição"].str.contains(b, case=False, na=False)]
     if status:
         v = v[v["Status"].isin(status)]
     if tipos:
         v = v[v["Tipo"].isin(tipos)]
-
     v["_ord_status"] = v["Status"].map({"CRIAR S.C.": 0, "OK": 1}).fillna(2)
     v = v.sort_values(["_ord_status", "Código"]).drop(columns="_ord_status")
     st.dataframe(v[macro_cols], use_container_width=True, height=500, hide_index=True)
@@ -348,19 +316,11 @@ with tab1:
         st.divider()
         st.subheader("Detalhamento do material")
         desc_map = cad.set_index("Código")["Descrição"].to_dict()
-        code = st.selectbox(
-            "Material",
-            v["Código"].tolist(),
-            format_func=lambda x: f"{x} — {desc_map.get(x, '')}",
-        )
+        code = st.selectbox("Material", v["Código"].tolist(), format_func=lambda x: f"{x} — {desc_map.get(x, '')}")
 
-        # Apenas as colunas solicitadas e saldo rolante semana a semana.
         w = proj[proj["Código"] == code].copy()
         if len(w):
-            w = w[[
-                "Código", "Descrição", "Tipo", "Semana", "Saldo Inicial",
-                "Demanda", "P.C.", "S.C.", "Produzindo", "Resumo Final"
-            ]]
+            w = w[["Código", "Descrição", "Tipo", "Semana", "Saldo Inicial", "Demanda", "P.C.", "S.C.", "Produzindo", "Resumo Final"]]
             st.markdown("**Projeção semanal**")
             st.dataframe(w, use_container_width=True, hide_index=True)
 
@@ -392,14 +352,10 @@ with tab2:
         busca2 = st.text_input("Código / projeto")
     with c2:
         semana_filtro = st.multiselect("Semanas", sorted(demanda_projeto["Semana"].unique().tolist()))
-
     d = demanda_projeto
     if busca2:
         b2 = busca2.strip()
-        d = d[
-            d["Código"].astype(str).str.contains(b2, na=False)
-            | d["Projeto"].str.contains(b2, case=False, na=False)
-        ]
+        d = d[d["Código"].astype(str).str.contains(b2, na=False) | d["Projeto"].str.contains(b2, case=False, na=False)]
     if semana_filtro:
         d = d[d["Semana"].isin(semana_filtro)]
     st.dataframe(d, use_container_width=True, height=600, hide_index=True)
@@ -412,10 +368,7 @@ st.subheader("Exportação de relatórios")
 st.caption("Os relatórios são exportados com os mesmos dados calculados na tela.")
 
 export_macro = macro[macro_cols].sort_values(["Status", "Código"], key=lambda s: s.map({"CRIAR S.C.": 0, "OK": 1}).fillna(2) if s.name == "Status" else s).copy()
-export_proj = proj[[
-    "Código", "Descrição", "Tipo", "Semana", "Saldo Inicial", "Demanda",
-    "P.C.", "S.C.", "Produzindo", "Resumo Final"
-]].sort_values(["Código", "Semana"]).copy()
+export_proj = proj[["Código", "Descrição", "Tipo", "Semana", "Saldo Inicial", "Demanda", "P.C.", "S.C.", "Produzindo", "Resumo Final"]].sort_values(["Código", "Semana"]).copy()
 
 sheets = {
     "MRP_Geral": export_macro,
@@ -432,18 +385,8 @@ zip_data = zip_bytes({name + ".csv": csv_bytes(df) for name, df in sheets.items(
 
 b1, b2, b3 = st.columns(3)
 with b1:
-    st.download_button(
-        "BAIXAR TODOS — EXCEL", excel_data, "MRP_Relatorios_Completos.xlsx",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True,
-    )
+    st.download_button("BAIXAR TODOS — EXCEL", excel_data, "MRP_Relatorios_Completos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 with b2:
-    st.download_button(
-        "BAIXAR TODOS — ZIP/CSV", zip_data, "MRP_Relatorios_Completos.zip",
-        "application/zip", use_container_width=True,
-    )
+    st.download_button("BAIXAR TODOS — ZIP/CSV", zip_data, "MRP_Relatorios_Completos.zip", "application/zip", use_container_width=True)
 with b3:
-    st.download_button(
-        "BAIXAR MRP GERAL — CSV", csv_bytes(export_macro), "MRP_Geral.csv",
-        "text/csv", use_container_width=True,
-    )
+    st.download_button("BAIXAR MRP GERAL — CSV", csv_bytes(export_macro), "MRP_Geral.csv", "text/csv", use_container_width=True)

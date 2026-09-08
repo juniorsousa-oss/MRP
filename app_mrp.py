@@ -85,17 +85,18 @@ for _,row in macro.iterrows():
     if float(row["Saldo em Estoque"])>1e-9 and all(abs(float(row[c]))<=1e-9 for c in ["Demanda","P.C.","S.C.","Produzindo"]): atendimento_map[int(row["Código"])] = semana_atual
 macro["Semana de Atendimento"]=macro["Código"].map(atendimento_map).fillna(""); macro["Período de Atendimento"]=macro["Semana de Atendimento"].apply(lambda x:"NN" if str(x).strip().upper()=="NN" else periodo_semana(x))
 ultima_solicitacao=rg.groupby("Projeto",as_index=False)["Data Solicitação"].max().rename(columns={"Data Solicitação":"Última Solicitação"}); ultima_solicitacao["Última Solicitação"]=ultima_solicitacao["Última Solicitação"].apply(formatar_data_br)
-demanda_projeto_base=rg_mrp[(~rg_mrp["Código"].isin(codigos_ii))&rg_mrp["Pendência"].ne(0)].copy(); demanda_projeto_base=demanda_projeto_base[["Projeto","Código","Pendência","Semana"]].rename(columns={"Código":"Produto","Pendência":"Qnt Necessária","Semana":"Semana de Necessidade"}); demanda_projeto_base=demanda_projeto_base.merge(cad[["Código","Descrição"]].rename(columns={"Código":"Produto"}),on="Produto",how="left"); demanda_projeto_base=demanda_projeto_base.merge(ultima_solicitacao,on="Projeto",how="left"); demanda_projeto_base=demanda_projeto_base.sort_values(["Produto","Semana de Necessidade","Projeto"]).reset_index(drop=True)
+demanda_projeto_base=rg_mrp[(~rg_mrp["Código"].isin(codigos_ii))&rg_mrp["Pendência"].ne(0)].copy(); demanda_projeto_base=demanda_projeto_base[["Projeto","Código","Pendência","Semana"]].rename(columns={"Código":"Produto","Pendência":"Necessidade","Semana":"Semana de Necessidade"}); demanda_projeto_base=demanda_projeto_base.merge(cad[["Código","Descrição"]].rename(columns={"Código":"Produto"}),on="Produto",how="left"); demanda_projeto_base=demanda_projeto_base.merge(ultima_solicitacao,on="Projeto",how="left"); demanda_projeto_base=demanda_projeto_base.sort_values(["Produto","Semana de Necessidade","Projeto"]).reset_index(drop=True)
 pre_nota_map=cp.groupby("Código")["Saldo em Pré Nota"].max().to_dict(); stock_pool=est.set_index("Código")["Saldo em Estoque"].to_dict()
 def calcular_demanda_projeto(df):
-    if df.empty: return pd.DataFrame(columns=["Projeto","Produto","Descrição","Última Solicitação","Semana de Necessidade","Qnt Necessária","Saldo em Estoque","Saldo em Pré Nota","P.C.","Fabricação","S.C.","Semana de Atendimento","Ação"])
+    cols=["Projeto","Produto","Descrição","Última Solicitação","Semana de Necessidade","Semana de Atendimento","Necessidade","Estoque","Pré Nota","P.C.","Fabricação","S.C.","Ação"]
+    if df.empty: return pd.DataFrame(columns=cols)
     out=[]
     for code,rows in df.groupby("Produto",sort=False):
         rows=rows.sort_values(["Semana de Necessidade","Projeto"]).copy(); estoque_restante=float(stock_pool.get(int(code),0.0)); pc_pool=[{"qty":float(r["Quantidade P.C."]),"week":r["Semana P.C."]} for _,r in cp[(cp["Código"]==int(code))&(cp["Quantidade P.C."]>0)].sort_values("Semana P.C.",na_position="last").iterrows()]; fab_pool=[{"qty":1.0,"week":r["Semana Entrega"]} for _,r in op[op["Código Produto"]==int(code)].sort_values("Semana Entrega",na_position="last").iterrows()]; sc_pool=[{"qty":float(r["Quantidade S.C."]),"week":r["Semana S.C."]} for _,r in cp[(cp["Código"]==int(code))&(cp["Quantidade S.C."]>0)].sort_values("Semana S.C.",na_position="last").iterrows()]
         for _,r in rows.iterrows():
-            necessidade=float(r["Qnt Necessária"]); restante=necessidade; saldo_estoque_inicial=estoque_restante; usados={"Saldo em Estoque":0.0,"P.C.":0.0,"Fabricação":0.0,"S.C.":0.0}; ultima_semana=None; acoes=[]
+            necessidade=float(r["Necessidade"]); restante=necessidade; saldo_estoque_inicial=estoque_restante; usados={"Estoque":0.0,"P.C.":0.0,"Fabricação":0.0,"S.C.":0.0}; ultima_semana=None; acoes=[]
             if restante>1e-9 and estoque_restante>1e-9:
-                take=min(restante,estoque_restante); estoque_restante-=take; restante-=take; usados["Saldo em Estoque"]+=take; ultima_semana=semana_atual; acoes.append(f"Estoque {take:g}")
+                take=min(restante,estoque_restante); estoque_restante-=take; restante-=take; usados["Estoque"]+=take; ultima_semana=semana_atual; acoes.append(f"Estoque {take:g}")
             for pool,key,label in [(pc_pool,"P.C.","P.C."),(fab_pool,"Fabricação","Fabricação"),(sc_pool,"S.C.","S.C.")]:
                 while restante>1e-9 and pool:
                     item=pool[0]
@@ -103,10 +104,10 @@ def calcular_demanda_projeto(df):
                     take=min(restante,item["qty"]); item["qty"]-=take; restante-=take; usados[key]+=take; ultima_semana=item["week"] if pd.notna(item["week"]) and float(item["week"])>0 else None; semana_txt=str(int(float(item["week"]))) if pd.notna(item["week"]) and float(item["week"])>0 else "a definir"; acoes.append(f"{label} {take:g} (sem. {semana_txt})")
                     if item["qty"]<=1e-9: pool.pop(0)
             if restante>1e-9:
-                semana_criacao=int(r["Semana de Necessidade"]); acoes.append(f"CRIAR S.C. {restante:g} para semana {semana_criacao}"); semana_atendimento=str(semana_criacao)
+                semana_criacao=int(r["Semana de Necessidade"]); acoes.append(f"CRIAR S.C. {restante:g} para semana {semana_criacao}"); semana_atendimento="NN"
             else: semana_atendimento="A definir" if ultima_semana is None else str(int(float(ultima_semana)))
-            out.append({"Projeto":r["Projeto"],"Produto":int(code),"Descrição":r["Descrição"],"Última Solicitação":r["Última Solicitação"],"Semana de Necessidade":int(r["Semana de Necessidade"]),"Qnt Necessária":necessidade,"Saldo em Estoque":saldo_estoque_inicial,"Saldo em Pré Nota":float(pre_nota_map.get(int(code),0.0)),"P.C.":usados["P.C."],"Fabricação":usados["Fabricação"],"S.C.":usados["S.C."],"Semana de Atendimento":semana_atendimento,"Ação":"; ".join(acoes) if acoes else "OK"})
-    return pd.DataFrame(out).sort_values(["Produto","Semana de Necessidade","Projeto"]).reset_index(drop=True)
+            out.append({"Projeto":r["Projeto"],"Produto":int(code),"Descrição":r["Descrição"],"Última Solicitação":r["Última Solicitação"],"Semana de Necessidade":int(r["Semana de Necessidade"]),"Semana de Atendimento":semana_atendimento,"Necessidade":necessidade,"Estoque":saldo_estoque_inicial,"Pré Nota":float(pre_nota_map.get(int(code),0.0)),"P.C.":usados["P.C."],"Fabricação":usados["Fabricação"],"S.C.":usados["S.C."],"Ação":"; ".join(acoes) if acoes else "OK"})
+    return pd.DataFrame(out)[cols].sort_values(["Produto","Semana de Necessidade","Projeto"]).reset_index(drop=True)
 demanda_projeto=calcular_demanda_projeto(demanda_projeto_base)
 fab_det=op[["ORDEM DE PRODUÇÃO","Código Produto","Semana Entrega"]].sort_values(["Código Produto","Semana Entrega","ORDEM DE PRODUÇÃO"]).copy(); fab_det["Quantidade"]=1
 m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.",f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.",f"{macro['S.C.'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro['DIV']<0,'DIV']).sum():,.0f}")

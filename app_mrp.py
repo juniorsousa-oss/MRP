@@ -2,10 +2,100 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from io import BytesIO
+from zipfile import ZipFile, ZIP_DEFLATED
 
-st.set_page_config(page_title='MRP | SETTA', page_icon='📦', layout='wide')
+st.set_page_config(page_title='MRP | SETTA', page_icon='📦', layout='wide', initial_sidebar_state='expanded')
+
+# ===================== UTILITÁRIOS =====================
+def num(s):
+    return pd.to_numeric(s, errors='coerce')
+
+def col_by_pos(df, pos, name):
+    if df.shape[1] <= pos:
+        raise ValueError(f'A base MRP_TC_TP não possui a coluna {name} na posição esperada.')
+    df[name] = num(df.iloc[:, pos])
+
+def excel_bytes(sheets):
+    bio = BytesIO()
+    with pd.ExcelWriter(bio, engine='openpyxl') as writer:
+        for name, df in sheets.items():
+            df.to_excel(writer, sheet_name=name[:31], index=False)
+    bio.seek(0)
+    return bio.getvalue()
+
+def csv_bytes(df):
+    return df.to_csv(index=False, sep=';', decimal=',').encode('utf-8-sig')
+
+def zip_bytes(files):
+    bio = BytesIO()
+    with ZipFile(bio, 'w', ZIP_DEFLATED) as z:
+        for name, data in files.items():
+            z.writestr(name, data)
+    bio.seek(0)
+    return bio.getvalue()
+
+# ===================== LEITURA DAS BASES =====================
+@st.cache_data(show_spinner=False)
+def load_sources(cb, eb, gb, pb, mb):
+    # CADASTRO: primeira linha vazia; cabeçalho na linha 02. B/C/D = Código/Descrição/Tipo.
+    raw = pd.read_excel(BytesIO(cb), sheet_name='Listagem do Browse', header=None)
+    cad = raw.iloc[2:, [1, 2, 3]].copy()
+    cad.columns = ['Código', 'Descrição', 'Tipo']
+    cad['Código'] = num(cad['Código'])
+    cad = cad.dropna(subset=['Código']).copy()
+    cad['Código'] = cad['Código'].astype('int64')
+    cad['Descrição'] = cad['Descrição'].fillna('').astype(str).str.strip()
+    cad['Tipo'] = cad['Tipo'].fillna('').astype(str).str.strip()
+    cad = cad.drop_duplicates('Código', keep='first').reset_index(drop=True)
+
+    # ESTOQUE: A = código material; E = saldo disponível.
+    er = pd.read_excel(BytesIO(eb), sheet_name='EstoqueTratado')
+    est = pd.DataFrame({'Código': num(er.iloc[:, 0]), 'Saldo em Estoque': num(er.iloc[:, 4]).fillna(0)})
+    est = est.dropna(subset=['Código'])
+    est['Código'] = est['Código'].astype('int64')
+    est = est.groupby('Código', as_index=False)['Saldo em Estoque'].sum()
+
+    # RELATÓRIO GERAL: C = código; G = pendência; N = semana de necessidade.
+    gr = pd.read_excel(BytesIO(gb), sheet_name='RelatorioTratado')
+    projeto_col = gr.iloc[:, 0] if gr.shape[1] else pd.Series('', index=gr.index)
+    rg = pd.DataFrame({
+        'Código': num(gr.iloc[:, 2]),
+        'Pendência': num(gr.iloc[:, 6]).fillna(0),
+        'Semana': num(gr.iloc[:, 13]),
+        'Projeto': projeto_col.fillna('').astype(str)
+    }).dropna(subset=['Código'])
+    rg['Código'] = rg['Código'].astype('int64')
+    rg_mrp = rg[rg['Semana'].notna() & rg['Semana'].between(1, 53)].copy()
+    rg_mrp['Semana'] = rg_mrp['Semana'].astype('int64')
+
+    # COMPRAS: A = código; D/F = S.C.; J/L = P.C.
+    cr = pd.read_excel(BytesIO(pb), sheet_name='ComprasTratado')
+    cp = pd.DataFrame({
+        'Código': num(cr.iloc[:, 0]),
+        'Quantidade S.C.': num(cr.iloc[:, 3]).fillna(0),
+        'Semana S.C.': num(cr.iloc[:, 5]),
+        'Quantidade P.C.': num(cr.iloc[:, 9]).fillna(0),
+        'Semana P.C.': num(cr.iloc[:, 11])
+    }).dropna(subset=['Código'])
+    cp['Código'] = cp['Código'].astype('int64')
+
+    # MRP TC/TP: posições físicas B/E/H/J/L.
+    mt = pd.read_excel(BytesIO(mb), sheet_name='MRP_TC_TP')
+    col_by_pos(mt, 1, 'Código Produto')
+    col_by_pos(mt, 4, 'Semana Entrega')
+    col_by_pos(mt, 7, 'Material')
+    col_by_pos(mt, 9, 'Quantidade')
+    col_by_pos(mt, 11, 'Semana Necessidade')
+    mt['Código Produto'] = mt['Código Produto'].fillna(0).astype('int64')
+    mt['Semana Entrega'] = mt['Semana Entrega'].fillna(0).astype('int64')
+    mt['Material'] = mt['Material'].fillna(0).astype('int64')
+    mt['Semana Necessidade'] = mt['Semana Necessidade'].fillna(0).astype('int64')
+    mt['Quantidade'] = mt['Quantidade'].fillna(0)
+    return cad, est, rg, rg_mrp, cp, mt
+
+# ===================== INTERFACE =====================
 st.title('MRP — Planejamento de Necessidades de Materiais')
-st.caption('Aplicativo alimentado pelo Cadastro + Estoque + Relatório Geral + Compras + MRP TC/TP. A projeção é calculada semana a semana.')
+st.caption('Aplicativo alimentado pelo Cadastro + Estoque + Relatório Geral + Compras + MRP TC/TP.')
 
 with st.sidebar:
     st.header('Bases do MRP')
@@ -21,217 +111,199 @@ if not all([cadastro_file, estoque_file, geral_file, compras_file, mt_file]):
     st.info('Envie as 5 planilhas tratadas + o Cadastro para iniciar o MRP.')
     st.stop()
 
-def num(s):
-    return pd.to_numeric(s, errors='coerce')
-
-def col_by_pos(df, pos, name):
-    if df.shape[1] <= pos:
-        raise ValueError(f'A planilha MRP_TC_TP não possui a coluna esperada {name} (posição {pos+1}).')
-    df[name] = num(df.iloc[:, pos])
-
-@st.cache_data(show_spinner=False)
-def load_sources(cb, eb, gb, pb, mb):
-    # CADASTRO: linha 1 vazia; cabeçalho na linha 2. B/C/D = Código/Descrição/Tipo.
-    raw = pd.read_excel(BytesIO(cb), sheet_name='Listagem do Browse', header=None)
-    cad = raw.iloc[2:, [1, 2, 3]].copy()
-    cad.columns = ['Código', 'Descrição', 'Tipo']
-    cad['Código'] = num(cad['Código'])
-    cad = cad.dropna(subset=['Código']).copy()
-    cad['Código'] = cad['Código'].astype(int)
-    cad['Descrição'] = cad['Descrição'].fillna('').astype(str).str.strip()
-    cad['Tipo'] = cad['Tipo'].fillna('').astype(str).str.strip()
-    cad = cad.drop_duplicates('Código', keep='first')
-
-    # ESTOQUE: A = Código Material; E = Saldo Disponível.
-    est = pd.read_excel(BytesIO(eb), sheet_name='EstoqueTratado')
-    est['COD_MATERIAL'] = num(est['COD_MATERIAL'])
-    est['SALDO_DISPONIVEL'] = num(est['SALDO_DISPONIVEL']).fillna(0)
-    est = est.dropna(subset=['COD_MATERIAL']).copy()
-    est['COD_MATERIAL'] = est['COD_MATERIAL'].astype(int)
-
-    # RELATÓRIO GERAL: C = Código; G = Pendência; N = Semana de Necessidade.
-    rg = pd.read_excel(BytesIO(gb), sheet_name='RelatorioTratado')
-    rg['Código'] = num(rg['Código'])
-    rg['Semana'] = num(rg['SEMANA DE NECESSIDADE'])
-    rg['Pendência'] = num(rg['Pendência']).fillna(0)
-    rg['Projeto'] = rg['Projeto'].fillna('').astype(str)
-    rg = rg.dropna(subset=['Código']).copy()
-    rg['Código'] = rg['Código'].astype(int)
-    rg['Semana válida'] = rg['Semana'].notna() & rg['Semana'].between(1, 53)
-    rg_mrp = rg[rg['Semana válida']].copy()
-    rg_mrp['Semana'] = rg_mrp['Semana'].astype(int)
-
-    # COMPRAS: A = Código; D/F = S.C.; J/L = P.C.
-    cp = pd.read_excel(BytesIO(pb), sheet_name='ComprasTratado')
-    cp['CÓD'] = num(cp['CÓD'])
-    for c in ['QUANTIDADE S.C', 'SEMANA DE ATENDIMENTO S.C', 'QUANTIDADE P.C', 'SEMANA DE ATENDIMENTO P.C']:
-        cp[c] = num(cp[c]).fillna(0)
-    cp = cp.dropna(subset=['CÓD']).copy()
-    cp['CÓD'] = cp['CÓD'].astype(int)
-
-    # MRP TC/TP: usar POSIÇÕES da planilha, conforme especificação do usuário.
-    # B = Código Produto, E = Semana Entrega, H = Material, J = Quantidade, L = Semana Necessidade.
-    mt = pd.read_excel(BytesIO(mb), sheet_name='MRP_TC_TP')
-    col_by_pos(mt, 1, 'CÓDIGO PRODUTO')
-    col_by_pos(mt, 4, 'SEMANA DE ENTREGA')
-    col_by_pos(mt, 7, 'MATERIAL')
-    col_by_pos(mt, 9, 'QUANTIDADE')
-    col_by_pos(mt, 11, 'SEMANA DE NECESSIDADE')
-    mt['CÓDIGO PRODUTO'] = mt['CÓDIGO PRODUTO'].fillna(0).astype(int)
-    mt['MATERIAL'] = mt['MATERIAL'].fillna(0).astype(int)
-    mt['SEMANA DE ENTREGA'] = mt['SEMANA DE ENTREGA'].fillna(0).astype(int)
-    mt['SEMANA DE NECESSIDADE'] = mt['SEMANA DE NECESSIDADE'].fillna(0).astype(int)
-    mt['QUANTIDADE'] = mt['QUANTIDADE'].fillna(0)
-    return cad, est, rg, rg_mrp, cp, mt
-
 try:
     cad, est, rg, rg_mrp, cp, mt = load_sources(cadastro_file.getvalue(), estoque_file.getvalue(), geral_file.getvalue(), compras_file.getvalue(), mt_file.getvalue())
 except Exception as e:
     st.error(f'Erro ao carregar as bases: {e}')
     st.stop()
 
-# ===================== MOTOR =====================
-# S.A.: G somente quando N é numérico.
-sa_week = rg_mrp.groupby(['Código', 'Semana'])['Pendência'].sum()
+# ===================== MOTOR MRP VETORIZADO =====================
+# DEMANDA S.A.: G somente quando N é numérica.
+sa_week = rg_mrp.groupby(['Código', 'Semana'], as_index=False)['Pendência'].sum()
+sa_week = sa_week.rename(columns={'Pendência':'Demanda S.A.'})
 
-# TC/TP: H = material, J = quantidade, L = semana de necessidade.
-tc_rows = mt[(mt['MATERIAL'] > 0) & (mt['SEMANA DE NECESSIDADE'].between(1, 53))]
-tc_week = tc_rows.groupby(['MATERIAL', 'SEMANA DE NECESSIDADE'])['QUANTIDADE'].sum()
-tc_week.index.names = ['Código', 'Semana']
+# DEMANDA TC/TP: H = material, J = quantidade, L = semana.
+tc_rows = mt[(mt['Material'] > 0) & mt['Semana Necessidade'].between(1, 53)]
+tc_week = tc_rows.groupby(['Material', 'Semana Necessidade'], as_index=False)['Quantidade'].sum()
+tc_week.columns = ['Código', 'Semana', 'Demanda TC/TP']
 
 # P.C.: J por L.
-pc_week = cp[(cp['QUANTIDADE P.C'] > 0) & (cp['SEMANA DE ATENDIMENTO P.C'].between(1, 53))].groupby(['CÓD', 'SEMANA DE ATENDIMENTO P.C'])['QUANTIDADE P.C'].sum()
-pc_week.index.names = ['Código', 'Semana']
-pc_total = cp[cp['QUANTIDADE P.C'] > 0].groupby('CÓD')['QUANTIDADE P.C'].sum()
+pc_week = cp[(cp['Quantidade P.C.'] > 0) & cp['Semana P.C.'].between(1, 53)].groupby(['Código','Semana P.C.'], as_index=False)['Quantidade P.C.'].sum()
+pc_week.columns = ['Código','Semana','P.C.']
 
-# S.C.: D entra no total; somente F numérica entra na cobertura da projeção.
-sc_all = cp[cp['QUANTIDADE S.C'] > 0].groupby('CÓD')['QUANTIDADE S.C'].sum()
-sc_week = cp[(cp['QUANTIDADE S.C'] > 0) & (cp['SEMANA DE ATENDIMENTO S.C'].between(1, 53))].groupby(['CÓD', 'SEMANA DE ATENDIMENTO S.C'])['QUANTIDADE S.C'].sum()
-sc_week.index.names = ['Código', 'Semana']
+# S.C.: D é total aberto; F só entra na projeção se houver semana.
+sc_all = cp[cp['Quantidade S.C.'] > 0].groupby('Código', as_index=False)['Quantidade S.C.'].sum().rename(columns={'Quantidade S.C.':'S.C. Aberta Total'})
+sc_week = cp[(cp['Quantidade S.C.'] > 0) & cp['Semana S.C.'].between(1, 53)].groupby(['Código','Semana S.C.'], as_index=False)['Quantidade S.C.'].sum()
+sc_week.columns = ['Código','Semana','S.C. com Semana']
 
-# Fabricação: B + E. Cada OP corresponde a uma peça.
-op = mt[(mt['CÓDIGO PRODUTO'] > 0) & (mt['SEMANA DE ENTREGA'].between(1, 53))][['ORDEM DE PRODUÇÃO', 'CÓDIGO PRODUTO', 'SEMANA DE ENTREGA']].drop_duplicates()
-fab_week = op.groupby(['CÓDIGO PRODUTO', 'SEMANA DE ENTREGA']).size().astype(float)
-fab_week.index.names = ['Código', 'Semana']
+# FABRICAÇÃO: B = código produto, E = semana entrega. Cada OP = 1 peça.
+op = mt[(mt['Código Produto'] > 0) & mt['Semana Entrega'].between(1, 53)][['ORDEM DE PRODUÇÃO','Código Produto','Semana Entrega']].drop_duplicates()
+fab_week = op.groupby(['Código Produto','Semana Entrega']).size().reset_index(name='Fabricação')
+fab_week.columns = ['Código','Semana','Fabricação']
 
-keys = set(sa_week.index) | set(tc_week.index) | set(pc_week.index) | set(sc_week.index) | set(fab_week.index)
-weeks = sorted({int(w) for _, w in keys if 1 <= int(w) <= 53})
-if semana_atual not in weeks:
-    weeks = sorted(set(weeks) | {int(semana_atual)})
+# Macro: visão completa do cadastro.
+macro = cad.merge(est, on='Código', how='left')
+for df in [sa_week.groupby('Código',as_index=False)['Demanda S.A.'].sum(), tc_week.groupby('Código',as_index=False)['Demanda TC/TP'].sum(),
+           pc_week.groupby('Código',as_index=False)['P.C.'].sum(), sc_all, fab_week.groupby('Código',as_index=False)['Fabricação'].sum()]:
+    macro = macro.merge(df, on='Código', how='left')
+for c in ['Saldo em Estoque','Demanda S.A.','Demanda TC/TP','P.C.','S.C. Aberta Total','Fabricação']:
+    macro[c] = macro[c].fillna(0.0)
+macro['Demanda Total'] = macro['Demanda S.A.'] + macro['Demanda TC/TP']
+macro['Saldo Macro'] = macro['Saldo em Estoque'] + macro['P.C.'] + macro['S.C. Aberta Total'] + macro['Fabricação'] - macro['Demanda Total']
 
-stock = est.groupby('COD_MATERIAL')['SALDO_DISPONIVEL'].sum()
-desc = cad.set_index('Código')['Descrição'].to_dict()
-tipo = cad.set_index('Código')['Tipo'].to_dict()
+# ===================== PROJEÇÃO =====================
+# A projeção começa na semana atual. S.C. sem semana não cobre a projeção.
+events = pd.concat([
+    sa_week.assign(Supply=0)[['Código','Semana','Demanda S.A.']].rename(columns={'Demanda S.A.':'Demanda'}),
+    tc_week.assign(Supply=0)[['Código','Semana','Demanda TC/TP']].rename(columns={'Demanda TC/TP':'Demanda'}),
+    pc_week.assign(Demanda=0)[['Código','Semana','Demanda','P.C.']].rename(columns={'P.C.':'Supply'}),
+    sc_week.assign(Demanda=0)[['Código','Semana','S.C. com Semana']].rename(columns={'S.C. com Semana':'Supply'}),
+    fab_week.assign(Demanda=0)[['Código','Semana','Fabricação']].rename(columns={'Fabricação':'Supply'})
+], ignore_index=True)
+events = events[events['Semana'] >= int(semana_atual)]
+events = events.groupby(['Código','Semana'], as_index=False)[['Demanda','Supply']].sum()
 
-macro_rows = []
-week_rows = []
-for code in cad['Código']:
-    estoque = float(stock.get(code, 0))
-    saldo = estoque
-    first_short = None
-    total_new_sc = 0.0
-    total_d = total_pc = total_sc_dated = total_fab = 0.0
-    for wk in weeks:
-        dsa = float(sa_week.get((code, wk), 0))
-        dtc = float(tc_week.get((code, wk), 0))
-        demand = dsa + dtc
-        pc = float(pc_week.get((code, wk), 0))
-        sc = float(sc_week.get((code, wk), 0))
-        fab = float(fab_week.get((code, wk), 0))
-        saldo_antes = saldo + pc + sc + fab - demand
-        new_sc = max(0.0, -saldo_antes)
-        saldo_final = saldo_antes + new_sc
-        if new_sc > 0 and first_short is None:
-            first_short = wk
-        total_new_sc += new_sc
-        total_d += demand
-        total_pc += pc
-        total_sc_dated += sc
-        total_fab += fab
-        week_rows.append([code, desc.get(code, ''), tipo.get(code, ''), wk, saldo, dsa, dtc, demand, pc, sc, fab, saldo_antes, new_sc, saldo_final, 'CRIAR S.C' if new_sc > 0 else 'OK'])
-        saldo = saldo_final
-    macro_rows.append([code, desc.get(code, ''), tipo.get(code, ''), estoque, total_d, total_pc, total_sc_dated, float(sc_all.get(code, 0)), total_fab, estoque + total_pc + total_sc_dated + total_fab - total_d, total_new_sc, first_short or '', 'CRIAR S.C' if total_new_sc > 0 else 'OK'])
+stock_map = est.set_index('Código')['Saldo em Estoque'].to_dict()
+proj_parts=[]
+for code, g in events.groupby('Código', sort=False):
+    g = g.sort_values('Semana').copy()
+    stock0 = float(stock_map.get(code, 0))
+    g['Saldo Inicial'] = stock0
+    g['Saldo antes Nova S.C.'] = stock0 + (g['Supply'] - g['Demanda']).cumsum()
+    # Nova S.C. só é criada quando o saldo projetado atinge nova falta.
+    running_min = g['Saldo antes Nova S.C.'].cummin().clip(upper=0)
+    previous_min = running_min.shift(1).fillna(0)
+    g['Nova S.C.'] = (previous_min - running_min).clip(lower=0)
+    g['Saldo Final'] = g['Saldo antes Nova S.C.'] + g['Nova S.C.']
+    g['Status'] = np.where(g['Nova S.C.'] > 0, 'CRIAR S.C', 'OK')
+    proj_parts.append(g)
 
-macro = pd.DataFrame(macro_rows, columns=['Código', 'Descrição', 'Tipo', 'Saldo em Estoque', 'Demanda Total', 'Pedido de Compra', 'S.C. com Semana', 'S.C. Aberta Total', 'Fabricação', 'Saldo Macro sem Nova S.C', 'Criar S.C', 'Primeira Falta', 'Status'])
-weekly = pd.DataFrame(week_rows, columns=['Código', 'Descrição', 'Tipo', 'Semana', 'Saldo Inicial', 'Demanda S.A.', 'Demanda TC/TP', 'Demanda Total', 'P.C.', 'S.C.', 'Fabricação', 'Saldo antes da Nova S.C', 'Criar S.C', 'Saldo Final', 'Status'])
+proj = pd.concat(proj_parts, ignore_index=True) if proj_parts else pd.DataFrame(columns=['Código','Semana','Demanda','Supply','Saldo Inicial','Saldo antes Nova S.C.','Nova S.C.','Saldo Final','Status'])
 
-active = macro[(macro['Saldo em Estoque'] != 0) | (macro['Demanda Total'] != 0) | (macro['Pedido de Compra'] != 0) | (macro['S.C. Aberta Total'] != 0) | (macro['Fabricação'] != 0)].copy()
+# Detalhamento por pilar na projeção.
+if len(proj):
+    keys = pd.MultiIndex.from_frame(proj[['Código','Semana']])
+    for src, value, name in [
+        (sa_week.set_index(['Código','Semana'])['Demanda S.A.'], 'Demanda S.A.', 'Demanda S.A.'),
+        (tc_week.set_index(['Código','Semana'])['Demanda TC/TP'], 'Demanda TC/TP', 'Demanda TC/TP'),
+        (pc_week.set_index(['Código','Semana'])['P.C.'], 'P.C.', 'P.C.'),
+        (sc_week.set_index(['Código','Semana'])['S.C. com Semana'], 'S.C. com Semana', 'S.C. com Semana'),
+        (fab_week.set_index(['Código','Semana'])['Fabricação'], 'Fabricação', 'Fabricação')]:
+        proj[name] = src.reindex(keys).fillna(0).to_numpy()
+proj = proj.merge(cad, on='Código', how='left')
+
+# Primeira falta e total de novas S.C. por material.
+if len(proj):
+    faltas = proj[proj['Nova S.C.'] > 0].groupby('Código').agg(**{'Primeira Falta':('Semana','min'),'Criar S.C.':('Nova S.C.','sum')}).reset_index()
+else:
+    faltas = pd.DataFrame(columns=['Código','Primeira Falta','Criar S.C.'])
+macro = macro.merge(faltas, on='Código', how='left')
+macro['Primeira Falta'] = macro['Primeira Falta'].fillna('')
+macro['Criar S.C.'] = macro['Criar S.C.'].fillna(0.0)
+macro['Status'] = np.where(macro['Criar S.C.'] > 0, 'CRIAR S.C', 'OK')
+
+# ===================== DETALHES =====================
+demanda_projeto = rg_mrp[['Código','Projeto','Pendência','Semana']].rename(columns={'Pendência':'Quantidade'}).sort_values(['Código','Semana','Projeto'])
+pc_det = cp[cp['Quantidade P.C.'] > 0].sort_values(['Código','Semana P.C.']).copy()
+sc_det = cp[cp['Quantidade S.C.'] > 0].sort_values(['Código','Semana S.C.']).copy()
+fab_det = op.sort_values(['Código Produto','Semana Entrega','ORDEM DE PRODUÇÃO']).copy()
+fab_det['Quantidade'] = 1
+
+# ===================== TELA =====================
+active = macro[(macro['Código'].isin(set(events['Código']))) | (macro['Saldo em Estoque'] != 0) | (macro['S.C. Aberta Total'] != 0)].copy()
 
 m = st.columns(5)
 m[0].metric('Materiais no cadastro', f'{len(cad):,}')
 m[1].metric('Demanda total', f'{macro["Demanda Total"].sum():,.0f}')
-m[2].metric('P.C.', f'{macro["Pedido de Compra"].sum():,.0f}')
+m[2].metric('P.C.', f'{macro["P.C."].sum():,.0f}')
 m[3].metric('S.C. aberta', f'{macro["S.C. Aberta Total"].sum():,.0f}')
-m[4].metric('Criar S.C.', f'{macro["Criar S.C"].sum():,.0f}')
+m[4].metric('Criar S.C.', f'{macro["Criar S.C."].sum():,.0f}')
 
-tab1, tab2 = st.tabs(['DEMANDA GERAL', 'DEMANDA POR PROJETO'])
+tab1, tab2 = st.tabs(['DEMANDA GERAL','DEMANDA POR PROJETO'])
 
 with tab1:
     st.subheader('Demanda Geral')
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        busca = st.text_input('Código / descrição')
-    with c2:
-        status = st.multiselect('Status', ['OK', 'CRIAR S.C'], default=['OK', 'CRIAR S.C'])
-    with c3:
-        tipos = st.multiselect('Tipo', [x for x in sorted(cad['Tipo'].unique()) if x])
-    v = active.copy()
+    c1,c2,c3 = st.columns(3)
+    with c1: busca = st.text_input('Código / descrição')
+    with c2: status = st.multiselect('Status', ['OK','CRIAR S.C'], default=['OK','CRIAR S.C'])
+    with c3: tipos = st.multiselect('Tipo', sorted([x for x in cad['Tipo'].unique() if x]))
+    v = active
     if busca:
-        v = v[v['Código'].astype(str).str.contains(busca, case=False, na=False) | v['Descrição'].str.contains(busca, case=False, na=False)]
-    if status:
-        v = v[v['Status'].isin(status)]
-    if tipos:
-        v = v[v['Tipo'].isin(tipos)]
-    st.dataframe(v.sort_values(['Status', 'Primeira Falta', 'Código']), use_container_width=True, height=520, hide_index=True)
+        b = busca.strip()
+        v = v[v['Código'].astype(str).str.contains(b, na=False) | v['Descrição'].str.contains(b, case=False, na=False)]
+    if status: v = v[v['Status'].isin(status)]
+    if tipos: v = v[v['Tipo'].isin(tipos)]
+    cols = ['Código','Descrição','Tipo','Saldo em Estoque','Demanda Total','P.C.','S.C. Aberta Total','Fabricação','Saldo Macro','Criar S.C.','Primeira Falta','Status']
+    st.dataframe(v[cols].sort_values(['Status','Primeira Falta','Código']), use_container_width=True, height=500, hide_index=True)
 
     if len(v):
         st.divider()
-        st.subheader('Projeção do material')
-        code = st.selectbox('Material', v['Código'].tolist(), format_func=lambda x: f'{x} — {desc.get(x, "")}')
-        w = weekly[weekly['Código'] == code].copy()
-        w = w[(w['Semana'] >= semana_atual) | ((w['Demanda Total'] != 0) | (w['P.C.'] != 0) | (w['S.C.'] != 0) | (w['Fabricação'] != 0))]
-        st.dataframe(w, use_container_width=True, hide_index=True)
+        st.subheader('Projeção e detalhes do material')
+        desc_map = cad.set_index('Código')['Descrição'].to_dict()
+        code = st.selectbox('Material', v['Código'].tolist(), format_func=lambda x: f'{x} — {desc_map.get(x, "")}')
+        w = proj[proj['Código'] == code].copy()
+        w = w[w['Semana'] >= int(semana_atual)]
+        wcols = ['Código','Descrição','Tipo','Semana','Saldo Inicial','Demanda S.A.','Demanda TC/TP','Demanda','P.C.','S.C. com Semana','Fabricação','Saldo antes Nova S.C.','Nova S.C.','Saldo Final','Status']
+        st.dataframe(w[wcols], use_container_width=True, hide_index=True)
 
-        d = rg_mrp[rg_mrp['Código'] == code][['Código', 'Projeto', 'Pendência', 'Semana']].sort_values(['Semana', 'Projeto'])
+        d = demanda_projeto[demanda_projeto['Código'] == code]
         if len(d):
-            st.markdown('**Demandas S.A. que compõem o material**')
+            st.markdown('**S.A. — projetos que geram a demanda**')
             st.dataframe(d, use_container_width=True, hide_index=True)
-
-        p = cp[cp['CÓD'] == code][['CÓD', 'DESCRIÇÃO', 'QUANTIDADE P.C', 'DATA DA P.C', 'SEMANA DE ATENDIMENTO P.C']]
+        p = pc_det[pc_det['Código'] == code]
         if len(p):
-            st.markdown('**Pedidos de compra que compõem o P.C.**')
-            st.dataframe(p.sort_values(['SEMANA DE ATENDIMENTO P.C']), use_container_width=True, hide_index=True)
-
-        s = cp[cp['CÓD'] == code][['CÓD', 'DESCRIÇÃO', 'QUANTIDADE S.C', 'DATA DA S.C', 'SEMANA DE ATENDIMENTO S.C']]
+            st.markdown('**P.C. — pedidos que compõem o total**')
+            st.dataframe(p, use_container_width=True, hide_index=True)
+        s = sc_det[sc_det['Código'] == code]
         if len(s):
-            st.markdown('**Solicitações de compra que compõem a S.C.**')
-            st.dataframe(s.sort_values(['SEMANA DE ATENDIMENTO S.C']), use_container_width=True, hide_index=True)
-            st.info('S.C. sem semana de atendimento não cobre a projeção; permanece visível como compromisso em aberto.')
-
-        f = op[op['CÓDIGO PRODUTO'] == code][['ORDEM DE PRODUÇÃO', 'CÓDIGO PRODUTO', 'SEMANA DE ENTREGA']].sort_values(['SEMANA DE ENTREGA', 'ORDEM DE PRODUÇÃO'])
+            st.markdown('**S.C. — solicitações que compõem o total**')
+            st.dataframe(s, use_container_width=True, hide_index=True)
+            st.caption('S.C. sem semana não cobre a projeção; permanece visível como S.C. aberta.')
+        f = fab_det[fab_det['Código Produto'] == code]
         if len(f):
-            st.markdown('**OPs que compõem a fabricação (1 OP = 1 peça)**')
+            st.markdown('**Fabricação — OPs (1 OP = 1 peça)**')
             st.dataframe(f, use_container_width=True, hide_index=True)
 
 with tab2:
     st.subheader('Demanda por Projeto')
-    st.caption('S.A.: G = Pendência e N = Semana de Necessidade. Sem N numérico, a linha não entra no MRP.')
-    codes = sorted(rg_mrp['Código'].unique())
-    if codes:
-        code2 = st.selectbox('Material', codes, format_func=lambda x: f'{x} — {desc.get(x, "")}', key='project_code')
-        d = rg_mrp[rg_mrp['Código'] == code2][['Código', 'Projeto', 'Pendência', 'Semana']].sort_values(['Semana', 'Projeto'])
-        st.dataframe(d, use_container_width=True, height=520, hide_index=True)
-        st.subheader('Resumo por semana')
-        r = d.groupby('Semana', as_index=False).agg(Projetos=('Projeto', 'nunique'), Demanda=('Pendência', 'sum'))
-        st.dataframe(r.sort_values('Semana'), use_container_width=True, hide_index=True)
+    c1,c2 = st.columns(2)
+    with c1: busca2 = st.text_input('Código / projeto')
+    with c2: semana_filtro = st.multiselect('Semanas', sorted(demanda_projeto['Semana'].unique().tolist()))
+    d = demanda_projeto
+    if busca2:
+        b2 = busca2.strip()
+        d = d[d['Código'].astype(str).str.contains(b2, na=False) | d['Projeto'].str.contains(b2, case=False, na=False)]
+    if semana_filtro: d = d[d['Semana'].isin(semana_filtro)]
+    st.dataframe(d, use_container_width=True, height=600, hide_index=True)
 
-with st.expander('Regras do motor V1'):
-    st.markdown('''
-- **Cadastro:** B Código, C Descrição, D Tipo; linha 1 vazia e cabeçalho na linha 2.
-- **Estoque:** A Código Material + E Saldo Disponível.
-- **S.A.:** C Código + G Pendência; só entra quando N Semana de Necessidade for numérica.
-- **P.C.:** A Código + J Quantidade; L define a semana de chegada.
-- **S.C.:** A Código + D Quantidade; F define a semana. S.C. sem F não entra na cobertura da projeção.
-- **Fabricação:** B Código Produto + E Semana de Entrega; cada OP distinta vale 1 peça.
-- **Demanda TC/TP:** H Material + J Quantidade + L Semana de Necessidade.
-''')
+# ===================== EXPORTAÇÃO =====================
+st.divider()
+st.subheader('Exportação de relatórios')
+st.caption('Todos os relatórios abaixo são exportados com os dados calculados pelo mesmo motor MRP da tela.')
+
+export_macro = macro[cols].sort_values(['Status','Primeira Falta','Código']).copy()
+export_proj = proj[['Código','Descrição','Tipo','Semana','Saldo Inicial','Demanda S.A.','Demanda TC/TP','Demanda','P.C.','S.C. com Semana','Fabricação','Saldo antes Nova S.C.','Nova S.C.','Saldo Final','Status']].sort_values(['Código','Semana']).copy()
+export_dem = demanda_projeto.copy()
+export_pc = pc_det.copy()
+export_sc = sc_det.copy()
+export_fab = fab_det.copy()
+
+sheets = {
+    'MRP_Geral': export_macro,
+    'Projecao_Semanal': export_proj,
+    'Demanda_Projeto': export_dem,
+    'PC_Detalhe': export_pc,
+    'SC_Detalhe': export_sc,
+    'Fabricacao': export_fab,
+    'Cadastro_Base': cad,
+}
+excel_data = excel_bytes(sheets)
+zip_data = zip_bytes({name + '.csv': csv_bytes(df) for name, df in sheets.items()})
+
+b1,b2,b3 = st.columns(3)
+with b1:
+    st.download_button('BAIXAR TODOS — EXCEL', excel_data, 'MRP_Relatorios_Completos.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', use_container_width=True)
+with b2:
+    st.download_button('BAIXAR TODOS — ZIP/CSV', zip_data, 'MRP_Relatorios_Completos.zip', 'application/zip', use_container_width=True)
+with b3:
+    st.download_button('BAIXAR MRP GERAL — CSV', csv_bytes(export_macro), 'MRP_Geral.csv', 'text/csv', use_container_width=True)

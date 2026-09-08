@@ -93,24 +93,25 @@ def calcular_demanda_projeto(df):
     for code,rows in df.groupby("Produto",sort=False):
         rows=rows.sort_values(["Semana de Necessidade","Projeto"]).copy(); estoque_restante=float(stock_pool.get(int(code),0.0)); pc_pool=[{"qty":float(r["Quantidade P.C."]),"week":r["Semana P.C."]} for _,r in cp[(cp["Código"]==int(code))&(cp["Quantidade P.C."]>0)].sort_values("Semana P.C.",na_position="last").iterrows()]; fab_pool=[{"qty":1.0,"week":r["Semana Entrega"]} for _,r in op[op["Código Produto"]==int(code)].sort_values("Semana Entrega",na_position="last").iterrows()]; sc_pool=[{"qty":float(r["Quantidade S.C."]),"week":r["Semana S.C."]} for _,r in cp[(cp["Código"]==int(code))&(cp["Quantidade S.C."]>0)].sort_values("Semana S.C.",na_position="last").iterrows()]
         for _,r in rows.iterrows():
-            necessidade=float(r["Qnt Necessária"]); restante=necessidade; usados={"Saldo em Estoque":0.0,"P.C.":0.0,"Fabricação":0.0,"S.C.":0.0}; ultima_semana=None; acoes=[]
-            if restante>1e-9 and estoque_restante>1e-9: take=min(restante,estoque_restante); estoque_restante-=take; restante-=take; usados["Saldo em Estoque"]+=take; ultima_semana=semana_atual; acoes.append(f"Estoque {take:g}")
+            necessidade=float(r["Qnt Necessária"]); restante=necessidade; saldo_estoque_inicial=estoque_restante; usados={"Saldo em Estoque":0.0,"P.C.":0.0,"Fabricação":0.0,"S.C.":0.0}; ultima_semana=None; acoes=[]
+            if restante>1e-9 and estoque_restante>1e-9:
+                take=min(restante,estoque_restante); estoque_restante-=take; restante-=take; usados["Saldo em Estoque"]+=take; ultima_semana=semana_atual; acoes.append(f"Estoque {take:g}")
             for pool,key,label in [(pc_pool,"P.C.","P.C."),(fab_pool,"Fabricação","Fabricação"),(sc_pool,"S.C.","S.C.")]:
                 while restante>1e-9 and pool:
                     item=pool[0]
                     if item["qty"]<=1e-9: pool.pop(0); continue
-                    take=min(restante,item["qty"]); item["qty"]-=take; restante-=take; usados[key]+=take
-                    if pd.notna(item["week"]) and float(item["week"])>0: ultima_semana=float(item["week"])
-                    semana_txt=str(int(float(item["week"]))) if pd.notna(item["week"]) and float(item["week"])>0 else "a definir"; acoes.append(f"{label} {take:g} (sem. {semana_txt})")
+                    take=min(restante,item["qty"]); item["qty"]-=take; restante-=take; usados[key]+=take; ultima_semana=item["week"] if pd.notna(item["week"]) and float(item["week"])>0 else None; semana_txt=str(int(float(item["week"]))) if pd.notna(item["week"]) and float(item["week"])>0 else "a definir"; acoes.append(f"{label} {take:g} (sem. {semana_txt})")
                     if item["qty"]<=1e-9: pool.pop(0)
-            if restante>1e-9: semana_atendimento=str(int(r["Semana de Necessidade"])); acoes.append(f"CRIAR S.C. {restante:g} para semana {int(r['Semana de Necessidade'])}"); acao="; ".join(acoes)
-            else: semana_atendimento="A definir" if ultima_semana is None else str(int(ultima_semana)); acao="; ".join(acoes) if acoes else "OK"
-            out.append({"Projeto":r["Projeto"],"Produto":int(code),"Descrição":r["Descrição"],"Última Solicitação":r["Última Solicitação"],"Semana de Necessidade":int(r["Semana de Necessidade"]),"Qnt Necessária":necessidade,"Saldo em Estoque":usados["Saldo em Estoque"],"Saldo em Pré Nota":float(pre_nota_map.get(int(code),0.0)),"P.C.":usados["P.C."],"Fabricação":usados["Fabricação"],"S.C.":usados["S.C."],"Semana de Atendimento":semana_atendimento,"Ação":acao})
+            if restante>1e-9:
+                semana_criacao=int(r["Semana de Necessidade"]); acoes.append(f"CRIAR S.C. {restante:g} para semana {semana_criacao}"); semana_atendimento=str(semana_criacao)
+            else: semana_atendimento="A definir" if ultima_semana is None else str(int(float(ultima_semana)))
+            out.append({"Projeto":r["Projeto"],"Produto":int(code),"Descrição":r["Descrição"],"Última Solicitação":r["Última Solicitação"],"Semana de Necessidade":int(r["Semana de Necessidade"]),"Qnt Necessária":necessidade,"Saldo em Estoque":saldo_estoque_inicial,"Saldo em Pré Nota":float(pre_nota_map.get(int(code),0.0)),"P.C.":usados["P.C."],"Fabricação":usados["Fabricação"],"S.C.":usados["S.C."],"Semana de Atendimento":semana_atendimento,"Ação":"; ".join(acoes) if acoes else "OK"})
     return pd.DataFrame(out).sort_values(["Produto","Semana de Necessidade","Projeto"]).reset_index(drop=True)
 demanda_projeto=calcular_demanda_projeto(demanda_projeto_base)
 fab_det=op[["ORDEM DE PRODUÇÃO","Código Produto","Semana Entrega"]].sort_values(["Código Produto","Semana Entrega","ORDEM DE PRODUÇÃO"]).copy(); fab_det["Quantidade"]=1
 m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.",f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.",f"{macro['S.C.'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro['DIV']<0,'DIV']).sum():,.0f}")
-tab1,tab2=st.tabs(["DEMANDA GERAL","DEMANDA POR PROJETO"]); macro_cols=["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status","Semana de Atendimento","Período de Atendimento"]
+tab1,tab2=st.tabs(["DEMANDA GERAL","DEMANDA POR PROJETO"])
+macro_cols=["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status","Semana de Atendimento","Período de Atendimento"]
 with tab1:
     st.subheader("Demanda Geral"); c1,c2,c3=st.columns(3)
     with c1: busca=st.text_input("Código / descrição")
@@ -121,14 +122,11 @@ with tab1:
         b=busca.strip(); v=v[v["Código"].astype(str).str.contains(b,na=False)|v["Descrição"].str.contains(b,case=False,na=False)]
     if status: v=v[v["Status"].isin(status)]
     if tipos: v=v[v["Tipo"].isin(tipos)]
-    v["_ord_status"]=v["Status"].map({"CRIAR S.C.":0,"OK":1}).fillna(2); v=v.sort_values(["_ord_status","Código"]).drop(columns="_ord_status").reset_index(drop=True)
+    v["_ord_status"]=v["Status"].map({"CRIAR S.C.":0,"OK":1}).fillna(2); v=v.sort_values(["_ord_status","Código"]).drop(columns="_ord_status")
     st.markdown("**Clique em uma linha para abrir o detalhamento do material.**")
     selecao=st.dataframe(v[macro_cols],use_container_width=True,height=500,hide_index=True,on_select="rerun",selection_mode="single-row",key="demanda_geral_tabela")
     linhas=selecao.selection.rows if selecao is not None else []
-    code=None
-    if linhas:
-        pos=linhas[0]
-        if isinstance(pos,int) and 0<=pos<len(v): code=int(v.iloc[pos]["Código"])
+    code=int(v.iloc[linhas[0]]["Código"]) if linhas and 0<=linhas[0]<len(v) else None
     if code is not None:
         st.divider(); st.subheader("Detalhamento do material"); desc_map=cad.set_index("Código")["Descrição"].to_dict(); st.markdown(f"**Material selecionado:** `{code}` — {desc_map.get(code,'')}")
         w=proj[proj["Código"]==code].copy()
@@ -153,7 +151,9 @@ st.divider(); st.subheader("Exportação de relatórios"); st.caption("Os relat�
 export_macro=macro[macro_cols].sort_values(["Status","Código"],key=lambda s:s.map({"CRIAR S.C.":0,"OK":1}).fillna(2) if s.name=="Status" else s).copy(); export_proj=proj.copy()
 if len(export_proj): export_proj["Período da Semana"]=export_proj["Semana"].apply(periodo_semana)
 export_proj=export_proj[["Código","Descrição","Tipo","Semana","Período da Semana","Saldo Inicial","Demanda","P.C.","S.C.","Produzindo","Resumo Final"]].sort_values(["Código","Semana"])
-sheets={"MRP_Geral":export_macro,"Projecao_Semanal":export_proj,"Demanda_Projeto":demanda_projeto,"Compras":cp,"Fabricacao":fab_det,"Cadastro_Base":cad}; excel_data=excel_bytes(sheets); zip_data=zip_bytes({name+".csv":csv_bytes(df) for name,df in sheets.items()}); b1,b2,b3=st.columns(3)
+sheets={"MRP_Geral":export_macro,"Projecao_Semanal":export_proj,"Demanda_Projeto":demanda_projeto,"Compras":cp,"Fabricacao":fab_det,"Cadastro_Base":cad}
+excel_data=excel_bytes(sheets); zip_data=zip_bytes({name+".csv":csv_bytes(df) for name,df in sheets.items()})
+b1,b2,b3=st.columns(3)
 with b1: st.download_button("BAIXAR TODOS — EXCEL",excel_data,"MRP_Relatorios_Completos.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
 with b2: st.download_button("BAIXAR TODOS — ZIP/CSV",zip_data,"MRP_Relatorios_Completos.zip","application/zip",use_container_width=True)
 with b3: st.download_button("BAIXAR MRP GERAL — CSV",csv_bytes(export_macro),"MRP_Geral.csv","text/csv",use_container_width=True)

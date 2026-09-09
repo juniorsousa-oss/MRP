@@ -1,0 +1,22 @@
+name: Corrigir posicionamento do login
+on: [push]
+permissions:
+  contents: write
+jobs:
+  fix-login:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar correção
+        run: python .github/scripts/fix_login_positions.py
+      - name: Validar Python
+        run: python -m py_compile app_mrp.py
+      - name: Commitar e limpar
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app_mrp.py
+          git commit -m 'Corrigir posicionamento interno do card de login'
+          git rm .github/workflows/fix-login-positions.yml .github/scripts/fix_login_positions.py
+          git commit -m 'Remover arquivos temporarios do login'
+          git push

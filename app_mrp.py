@@ -231,83 +231,102 @@ def render_mrp_history():
     except Exception as e: st.error(f"Erro ao gerar o comparativo: {e}")
 
 def render_consulta_view():
-    snap = load_latest_snapshot()
-    if not snap:
-        st.info("Ainda não há MRP salvo no banco compartilhado.")
+    """Visualização CONSULTA: mesma ordem de colunas do ADMIN, sem edição do MRP."""
+    try:
+        snap = load_latest_snapshot()
+    except Exception as e:
+        st.error(f"Não foi possível carregar o MRP compartilhado: {e}")
         return
-    macro = snapshot_df(snap, "mrp_geral").copy()
-    proj = snapshot_df(snap, "projecao_semanal").copy()
-    demanda_projeto = snapshot_df(snap, "demanda_projeto").copy()
-    compras_mrp = snapshot_df(snap, "compra_mrp").copy()
-    st.success(f"Último MRP compartilhado: semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
-    m = st.columns(5)
-    m[0].metric("Materiais no MRP", f"{len(macro):,}")
-    for i, col, label in [(1, "Demanda", "Demanda total"), (2, "P.C.", "P.C."), (3, "S.C.", "S.C.")]:
-        val = pd.to_numeric(macro.get(col, pd.Series(dtype=float)), errors="coerce").fillna(0).sum()
-        m[i].metric(label, f"{val:,.0f}")
-    divv = pd.to_numeric(macro.get("DIV", pd.Series(dtype=float)), errors="coerce").fillna(0)
-    m[4].metric("Criar S.C.", f"{(-divv[divv < 0]).sum():,.0f}")
-    tab1, tab2 = st.tabs(["DEMANDA GERAL", "DEMANDA POR PROJETO"])
-    macro_cols = [c for c in ["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status","Semana de Atendimento","Período de Atendimento"] if c in macro.columns]
-    with tab1:
-        st.subheader("Demanda Geral")
-        c1, c2, c3 = st.columns(3)
-        with c1: busca = st.text_input("Código / descrição", key="consulta_busca_geral")
-        with c2: status = st.multiselect("Status", ["OK", "CRIAR S.C."], default=["OK", "CRIAR S.C."], key="consulta_status")
-        with c3: tipos = st.multiselect("Tipo", sorted([str(x) for x in macro.get("Tipo", pd.Series(dtype=str)).dropna().unique() if str(x)]), key="consulta_tipos")
-        v = macro.copy()
-        if busca:
-            b = busca.strip()
-            v = v[v["Código"].astype(str).str.contains(b, na=False) | v["Descrição"].astype(str).str.contains(b, case=False, na=False)]
-        if status and "Status" in v: v = v[v["Status"].isin(status)]
-        if tipos and "Tipo" in v: v = v[v["Tipo"].isin(tipos)]
-        if "Status" in v.columns:
-            v["_ord_status"] = v["Status"].map({"CRIAR S.C.":0, "OK":1}).fillna(2)
-            v = v.sort_values(["_ord_status", "Código"]).drop(columns="_ord_status")
-        st.markdown("**Clique em uma linha para abrir o detalhamento do material.**")
-        sel = st.dataframe(v[macro_cols], use_container_width=True, height=500, hide_index=True, on_select="rerun", selection_mode="single-row", key="consulta_demanda_geral")
-        rows = sel.selection.rows if sel is not None else []
-        code = int(v.iloc[rows[0]]["Código"]) if rows and 0 <= rows[0] < len(v) else None
-        if code is not None:
-            st.divider(); st.subheader("Detalhamento do material")
-            if not proj.empty and "Código" in proj.columns:
-                w = proj[pd.to_numeric(proj["Código"], errors="coerce") == code].copy()
-                if len(w):
-                    if "Período da Semana" not in w.columns and "Semana" in w.columns: w["Período da Semana"] = w["Semana"].apply(periodo_semana)
-                    st.markdown("**Projeção semanal**")
-                    st.dataframe(w, use_container_width=True, hide_index=True)
-            if not demanda_projeto.empty and "Produto" in demanda_projeto.columns:
-                d = demanda_projeto[pd.to_numeric(demanda_projeto["Produto"], errors="coerce") == code].copy()
-                if len(d):
-                    st.markdown("**S.A. — projetos que geram a demanda**")
-                    st.dataframe(d, use_container_width=True, hide_index=True)
-    with tab2:
-        st.subheader("Demanda por Projeto")
-        c1, c2 = st.columns(2)
-        with c1: busca2 = st.text_input("Código / projeto", key="consulta_busca_projeto")
-        semanas = sorted(pd.to_numeric(demanda_projeto.get("Semana de Necessidade", pd.Series(dtype=float)), errors="coerce").dropna().astype(int).unique().tolist()) if not demanda_projeto.empty else []
-        with c2: semana_filtro = st.multiselect("Semanas", semanas, key="consulta_semanas")
-        d = demanda_projeto.copy()
-        if busca2:
-            b2 = busca2.strip()
-            d = d[d["Produto"].astype(str).str.contains(b2, na=False) | d["Projeto"].astype(str).str.contains(b2, case=False, na=False)]
-        if semana_filtro and "Semana de Necessidade" in d: d = d[d["Semana de Necessidade"].isin(semana_filtro)]
-        st.dataframe(d, use_container_width=True, height=600, hide_index=True)
-    st.divider(); st.subheader("Exportação de relatórios")
-    st.caption("Os relatórios disponíveis para consulta são os resultados finais do MRP compartilhado.")
-    sheets = {"MRP_Geral": macro, "Projecao_Semanal": proj, "Demanda_Projeto": demanda_projeto, "Compra_MRP": compras_mrp}
-    excel_data = excel_bytes(sheets)
-    zip_data = zip_bytes({name + ".csv": csv_bytes(df) for name, df in sheets.items()})
-    export_macro = macro[macro_cols] if macro_cols else macro
-    compra_excel_data = excel_bytes({"Compra_MRP": compras_mrp})
-    b1, b2, b3, b4 = st.columns(4)
-    with b1: st.download_button("BAIXAR TODOS — EXCEL", excel_data, "MRP_Relatorios_Completos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="consulta_download_excel")
-    with b2: st.download_button("BAIXAR TODOS — ZIP/CSV", zip_data, "MRP_Relatorios_Completos.zip", "application/zip", use_container_width=True, key="consulta_download_zip")
-    with b3: st.download_button("BAIXAR MRP GERAL — CSV", csv_bytes(export_macro), "MRP_Geral.csv", "text/csv", use_container_width=True, key="consulta_download_macro")
-    with b4: st.download_button("BAIXAR COMPRA MRP", compra_excel_data, "Compra_MRP.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="consulta_download_compra")
-    if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns).")
+    if not snap:
+        st.info("Ainda não existe MRP salvo para consulta.")
+        return
 
-@st.cache_data(show_spinner=False)
+    mg = snapshot_df(snap, "mrp_geral").copy()
+    proj = snapshot_df(snap, "projecao_semanal").copy()
+    dem = snapshot_df(snap, "demanda_projeto").copy()
+    comp = snapshot_df(snap, "compra_mrp").copy()
+
+    # Ordem oficial das colunas: nunca depender da ordem do JSON/Supabase.
+    MRP_COLS = ["Código", "Descrição", "Tipo", "Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo", "DIV", "Status", "Semana de Atendimento", "Período de Atendimento"]
+    PROJ_COLS = ["Código", "Descrição", "Tipo", "Semana", "Período da Semana", "Saldo Inicial", "Demanda", "P.C.", "S.C.", "Produzindo", "Resumo Final"]
+    DEM_COLS = ["Projeto", "Produto", "Descrição", "Última Solicitação", "Data CM", "Semana de Necessidade", "Semana de Atendimento", "Necessidade", "Estoque", "Pré Nota", "P.C.", "Fabricação", "S.C.", "Ação"]
+
+    def fix_columns(df, columns):
+        out = df.copy()
+        for c in columns:
+            if c not in out.columns:
+                out[c] = ""
+        return out.loc[:, columns]
+
+    mg = fix_columns(mg, MRP_COLS)
+    proj = fix_columns(proj, PROJ_COLS)
+    dem = fix_columns(dem, DEM_COLS)
+
+    st.subheader("Consulta do MRP")
+    st.caption(f"Último MRP salvo — semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
+
+    tab_geral, tab_projeto = st.tabs(["DEMANDA GERAL", "DEMANDA POR PROJETO"])
+
+    with tab_geral:
+        c1, c2, c3, c4 = st.columns(4)
+        cods = sorted(mg["Código"].dropna().astype(str).unique().tolist())
+        codigo = c1.selectbox("Código", ["Todos"] + cods, key="consulta_codigo")
+        descricoes = sorted(mg["Descrição"].fillna("").astype(str).unique().tolist())
+        descricao = c2.selectbox("Descrição", ["Todos"] + descricoes, key="consulta_descricao")
+        tipos = sorted(mg["Tipo"].fillna("").astype(str).unique().tolist())
+        tipo = c3.selectbox("Tipo", ["Todos"] + tipos, key="consulta_tipo")
+        status = c4.selectbox("Status", ["Todos"] + sorted(mg["Status"].fillna("").astype(str).unique().tolist()), key="consulta_status")
+
+        f = mg.copy()
+        if codigo != "Todos": f = f[f["Código"].astype(str) == codigo]
+        if descricao != "Todos": f = f[f["Descrição"].astype(str) == descricao]
+        if tipo != "Todos": f = f[f["Tipo"].astype(str) == tipo]
+        if status != "Todos": f = f[f["Status"].astype(str) == status]
+        f = fix_columns(f, MRP_COLS)
+        st.dataframe(f, use_container_width=True, hide_index=True, column_order=MRP_COLS)
+
+        if not f.empty:
+            opcoes = f["Código"].astype(str).drop_duplicates().tolist()
+            selecionado = st.selectbox("Material selecionado", opcoes, key="consulta_material")
+            d_proj = fix_columns(proj[proj["Código"].astype(str) == str(selecionado)], PROJ_COLS)
+            d_dem = fix_columns(dem[dem["Produto"].astype(str) == str(selecionado)], DEM_COLS)
+            desc = f.loc[f["Código"].astype(str) == str(selecionado), "Descrição"].iloc[0]
+            st.markdown("### Detalhamento do material")
+            st.caption(f"Material selecionado: {selecionado} — {desc}")
+            st.markdown("**Projeção semanal**")
+            st.dataframe(d_proj, use_container_width=True, hide_index=True, column_order=PROJ_COLS)
+            st.markdown("**S.A. — projetos que geram a demanda**")
+            st.dataframe(d_dem, use_container_width=True, hide_index=True, column_order=DEM_COLS)
+
+    with tab_projeto:
+        c1, c2, c3 = st.columns(3)
+        projetos = sorted(dem["Projeto"].fillna("").astype(str).unique().tolist())
+        produtos = sorted(dem["Produto"].fillna("").astype(str).unique().tolist())
+        semanas = sorted([x for x in dem["Semana de Necessidade"].dropna().astype(str).unique().tolist() if x])
+        projeto = c1.selectbox("Projeto", ["Todos"] + projetos, key="consulta_projeto")
+        produto = c2.selectbox("Produto", ["Todos"] + produtos, key="consulta_produto")
+        semana = c3.selectbox("Semana de Necessidade", ["Todas"] + semanas, key="consulta_semana")
+        f = dem.copy()
+        if projeto != "Todos": f = f[f["Projeto"].astype(str) == projeto]
+        if produto != "Todos": f = f[f["Produto"].astype(str) == produto]
+        if semana != "Todas": f = f[f["Semana de Necessidade"].astype(str) == semana]
+        f = fix_columns(f, DEM_COLS)
+        st.dataframe(f, use_container_width=True, hide_index=True, column_order=DEM_COLS)
+
+    st.markdown("### Exportação de relatórios")
+    sheets = {
+        "MRP_Geral": mg,
+        "Projecao_Semanal": proj,
+        "Demanda_Projeto": dem,
+        "Compra_MRP": comp,
+    }
+    c1, c2, c3, c4 = st.columns(4)
+    c1.download_button("BAIXAR TODOS — EXCEL", data=excel_bytes(sheets), file_name="MRP_Consulta.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+    c2.download_button("BAIXAR TODOS — ZIP/CSV", data=zip_bytes({f"{k}.csv": csv_bytes(v) for k,v in sheets.items()}), file_name="MRP_Consulta_CSV.zip", mime="application/zip", use_container_width=True)
+    c3.download_button("BAIXAR MRP GERAL — CSV", data=csv_bytes(mg), file_name="MRP_Geral.csv", mime="text/csv", use_container_width=True)
+    c4.download_button("BAIXAR COMPRA MRP", data=csv_bytes(comp), file_name="Compra_MRP.csv", mime="text/csv", use_container_width=True)
+
+
 def load_sources(cb,eb,gb,pb,mb):
     raw=pd.read_excel(BytesIO(cb),sheet_name="Listagem do Browse",header=None); cad=raw.iloc[2:,[1,2,3]].copy(); cad.columns=["Código","Descrição","Tipo"]; cad["Código"]=num(cad["Código"]); cad=cad.dropna(subset=["Código"]); cad["Código"]=cad["Código"].astype("int64"); cad["Descrição"]=cad["Descrição"].fillna("").astype(str).str.strip(); cad["Tipo"]=cad["Tipo"].fillna("").astype(str).str.strip(); cad=cad.drop_duplicates("Código",keep="first").reset_index(drop=True)
     er=pd.read_excel(BytesIO(eb),sheet_name="EstoqueTratado"); est=pd.DataFrame({"Código":num(er.iloc[:,0]),"Saldo em Estoque":num(er.iloc[:,4]).fillna(0)}).dropna(subset=["Código"]); est["Código"]=est["Código"].astype("int64"); est=est.groupby("Código",as_index=False)["Saldo em Estoque"].sum()

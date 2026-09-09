@@ -199,6 +199,29 @@ DEFAULT_UI_CONFIG = {
     "objective": "Planejamento de necessidades de materiais e acompanhamento da demanda.",
     "title_demanda_geral": "DEMANDA GERAL",
     "title_demanda_projeto": "DEMANDA POR PROJETO",
+    "section_main_title": "MRP — Planejamento de Necessidades de Materiais",
+    "section_main_description": "Cadastro + Estoque + Relatório Geral + Compras + MRP TC/TP. Projeção calculada semana a semana.",
+    "section_upload_title": "Bases do MRP",
+    "section_upload_description": "Carregue as 5 planilhas tratadas para gerar um novo MRP.",
+    "section_consulta_title": "Consulta do MRP",
+    "section_consulta_description": "Consulte o último MRP salvo, filtre os materiais e visualize seus detalhes.",
+    "section_detail_title": "Detalhamento do material",
+    "section_detail_description": "Selecione um material para consultar projeção, demanda, compras e demais informações.",
+    "subsection_projection_title": "Projeção semanal",
+    "subsection_projection_description": "Evolução semanal do saldo, entradas, produção e demanda.",
+    "subsection_demand_title": "S.A. — projetos que geram a demanda",
+    "subsection_demand_description": "Projetos e necessidades que compõem a demanda do material selecionado.",
+    "subsection_purchases_title": "Compras",
+    "subsection_purchases_description": "Pedidos de compra e solicitações de compra vinculados ao material.",
+    "section_export_title": "Exportação de relatórios",
+    "section_export_description": "Exporte os resultados do MRP nos formatos disponíveis.",
+    "section_access_title": "Acesso",
+    "section_access_description": "Usuário e perfil atualmente conectados ao sistema.",
+    "section_history_title": "Histórico e comparativo de MRP",
+    "section_history_description": "Compare versões salvas do MRP e acompanhe as alterações encontradas.",
+    "history_current_label": "MRP atual",
+    "history_previous_label": "MRP anterior",
+    "main_notice": "Envie as 5 planilhas tratadas para calcular um novo MRP. O último MRP salvo fica disponível para consulta e comparação.",
     "color_primary": "#1F4E78",
     "color_title": "#1F4E78",
     "color_header": "#FFFFFF",
@@ -257,39 +280,70 @@ def _render_visual_settings(cfg):
         return
     with st.sidebar.expander("CONFIGURAÇÃO VISUAL", expanded=False):
         st.caption("As alterações são salvas no banco compartilhado e aparecem para todos os usuários.")
+
         logo = st.file_uploader("Cabeçalho / logotipo da empresa", type=["png", "jpg", "jpeg", "webp"], key="ui_logo_upload")
         if cfg.get("logo_data"):
             st.image(cfg["logo_data"], width=int(cfg.get("logo_width") or 220))
             remover_logo = st.checkbox("Remover cabeçalho atual", key="ui_remove_logo")
         else:
             remover_logo = False
+        logo_width = st.slider("Largura do logotipo", min_value=120, max_value=500, value=max(120, min(500, int(cfg.get("logo_width") or 220))), step=10)
 
-        logo_width = st.slider("Largura do cabeçalho", min_value=120, max_value=900, value=max(120, min(900, int(cfg.get("logo_width") or 220))), step=10)
-        app_title = st.text_input("Título principal", value=str(cfg.get("app_title") or DEFAULT_UI_CONFIG["app_title"]), key="ui_app_title")
-        objective = st.text_area("Objetivo do aplicativo", value=str(cfg.get("objective") or DEFAULT_UI_CONFIG["objective"]), height=90, key="ui_objective")
-        title_geral = st.text_input("Título — Demanda Geral", value=str(cfg.get("title_demanda_geral") or DEFAULT_UI_CONFIG["title_demanda_geral"]), key="ui_title_geral")
-        title_projeto = st.text_input("Título — Demanda por Projeto", value=str(cfg.get("title_demanda_projeto") or DEFAULT_UI_CONFIG["title_demanda_projeto"]), key="ui_title_projeto")
-        color_primary = st.color_picker("Cor principal", value=_hex_ok(cfg.get("color_primary"), DEFAULT_UI_CONFIG["color_primary"]), key="ui_color_primary")
-        color_title = st.color_picker("Cor dos títulos", value=_hex_ok(cfg.get("color_title"), DEFAULT_UI_CONFIG["color_title"]), key="ui_color_title")
-        color_header = st.color_picker("Cor do cabeçalho", value=_hex_ok(cfg.get("color_header"), DEFAULT_UI_CONFIG["color_header"]), key="ui_color_header")
-        color_background = st.color_picker("Cor de fundo", value=_hex_ok(cfg.get("color_background"), DEFAULT_UI_CONFIG["color_background"]), key="ui_color_background")
-        color_text = st.color_picker("Cor do texto", value=_hex_ok(cfg.get("color_text"), DEFAULT_UI_CONFIG["color_text"]), key="ui_color_text")
+        st.markdown("**TEXTOS E ORIENTAÇÕES**")
+        text_specs = [
+            ("section_main_title", "Título principal", "text", 1),
+            ("section_main_description", "Descrição do título principal", "area", 2),
+            ("main_notice", "Aviso de carregamento / processamento", "area", 2),
+            ("section_upload_title", "Título — Bases do MRP", "text", 1),
+            ("section_upload_description", "Descrição — Bases do MRP", "area", 2),
+            ("section_consulta_title", "Título — Consulta do MRP", "text", 1),
+            ("section_consulta_description", "Descrição — Consulta do MRP", "area", 2),
+            ("section_detail_title", "Título — Detalhamento do material", "text", 1),
+            ("section_detail_description", "Descrição — Detalhamento do material", "area", 2),
+            ("subsection_projection_title", "Subtítulo — Projeção semanal", "text", 1),
+            ("subsection_projection_description", "Descrição — Projeção semanal", "area", 2),
+            ("subsection_demand_title", "Subtítulo — S.A. / projetos", "text", 1),
+            ("subsection_demand_description", "Descrição — S.A. / projetos", "area", 2),
+            ("subsection_purchases_title", "Subtítulo — Compras", "text", 1),
+            ("subsection_purchases_description", "Descrição — Compras", "area", 2),
+            ("section_export_title", "Título — Exportação de relatórios", "text", 1),
+            ("section_export_description", "Descrição — Exportação de relatórios", "area", 2),
+            ("section_history_title", "Título — Histórico e comparativo", "text", 1),
+            ("section_history_description", "Descrição — Histórico e comparativo", "area", 2),
+            ("history_current_label", "Rótulo — MRP atual", "text", 1),
+            ("history_previous_label", "Rótulo — MRP anterior", "text", 1),
+            ("section_access_title", "Título — Acesso", "text", 1),
+            ("section_access_description", "Descrição — Acesso", "area", 2),
+        ]
+        edited = {}
+        for key, label, kind, height in text_specs:
+            value = str(cfg.get(key) or DEFAULT_UI_CONFIG[key])
+            if kind == "area":
+                edited[key] = st.text_area(label, value=value, height=70 if height == 2 else 50, key=f"ui_{key}")
+            else:
+                edited[key] = st.text_input(label, value=value, key=f"ui_{key}")
+
+        st.markdown("**TÍTULOS DAS ABAS**")
+        edited["title_demanda_geral"] = st.text_input("Aba — Demanda Geral", value=str(cfg.get("title_demanda_geral") or DEFAULT_UI_CONFIG["title_demanda_geral"]), key="ui_title_geral")
+        edited["title_demanda_projeto"] = st.text_input("Aba — Demanda por Projeto", value=str(cfg.get("title_demanda_projeto") or DEFAULT_UI_CONFIG["title_demanda_projeto"]), key="ui_title_projeto")
+
+        st.markdown("**IDENTIDADE**")
+        edited["app_title"] = st.text_input("Título da marca / aplicação", value=str(cfg.get("app_title") or DEFAULT_UI_CONFIG["app_title"]), key="ui_app_title")
+        edited["objective"] = st.text_area("Objetivo da aplicação", value=str(cfg.get("objective") or DEFAULT_UI_CONFIG["objective"]), height=70, key="ui_objective")
+
+        st.markdown("**CORES**")
+        edited["color_primary"] = st.color_picker("Cor principal", value=_hex_ok(cfg.get("color_primary"), DEFAULT_UI_CONFIG["color_primary"]), key="ui_color_primary")
+        edited["color_title"] = st.color_picker("Cor dos títulos", value=_hex_ok(cfg.get("color_title"), DEFAULT_UI_CONFIG["color_title"]), key="ui_color_title")
+        edited["color_header"] = st.color_picker("Cor do cabeçalho", value=_hex_ok(cfg.get("color_header"), DEFAULT_UI_CONFIG["color_header"]), key="ui_color_header")
+        edited["color_background"] = st.color_picker("Cor de fundo", value=_hex_ok(cfg.get("color_background"), DEFAULT_UI_CONFIG["color_background"]), key="ui_color_background")
+        edited["color_text"] = st.color_picker("Cor do texto", value=_hex_ok(cfg.get("color_text"), DEFAULT_UI_CONFIG["color_text"]), key="ui_color_text")
 
         if st.button("SALVAR CONFIGURAÇÃO", use_container_width=True, type="primary", key="save_ui_config"):
-            new_cfg = {
-                **cfg,
-                "logo_data": "" if remover_logo else cfg.get("logo_data", ""),
-                "logo_width": logo_width,
-                "app_title": app_title.strip() or DEFAULT_UI_CONFIG["app_title"],
-                "objective": objective.strip() or DEFAULT_UI_CONFIG["objective"],
-                "title_demanda_geral": title_geral.strip() or DEFAULT_UI_CONFIG["title_demanda_geral"],
-                "title_demanda_projeto": title_projeto.strip() or DEFAULT_UI_CONFIG["title_demanda_projeto"],
-                "color_primary": color_primary,
-                "color_title": color_title,
-                "color_header": color_header,
-                "color_background": color_background,
-                "color_text": color_text,
-            }
+            new_cfg = {**cfg}
+            new_cfg["logo_data"] = "" if remover_logo else cfg.get("logo_data", "")
+            new_cfg["logo_width"] = logo_width
+            for key, value in edited.items():
+                new_cfg[key] = str(value).strip()
             if logo is not None:
                 import base64
                 mime = logo.type or "image/png"
@@ -322,10 +376,12 @@ def _apply_visual_theme(cfg):
       h1, h2, h3, h4, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2, [data-testid="stMarkdownContainer"] h3 {{ color: var(--setta-title) !important; }}
       [data-testid="stHeader"] {{ background: var(--setta-header) !important; }}
       [data-testid="stSidebar"] {{ border-right: 1px solid rgba(0,0,0,.08); }}
-      .setta-brand {{ background: var(--setta-header); border: 1px solid rgba(0,0,0,.08); border-radius: 14px; padding: 18px 22px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); }}
+      .setta-brand {{ background: var(--setta-header); border: 1px solid rgba(0,0,0,.08); border-radius: 14px; padding: 18px 24px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); min-height: 130px; display: grid; grid-template-columns: 1fr 2.2fr 1fr; align-items: center; gap: 12px; }}
+      .setta-brand-logo {{ grid-column: 1; justify-self: start; align-self: center; }}
+      .setta-brand-logo img {{ display: block; max-width: 100%; height: auto; margin: 0; }}
+      .setta-brand-center {{ grid-column: 2; text-align: center; }}
       .setta-brand-title {{ color: var(--setta-title); font-size: 2rem; font-weight: 750; line-height: 1.15; margin: 0; }}
-      .setta-brand-objective {{ color: var(--setta-text); font-size: 1rem; line-height: 1.5; margin-top: 6px; opacity: .82; }}
-      .setta-brand img {{ display: block; max-width: 100%; height: auto; margin-bottom: 12px; }}
+      .setta-brand-objective {{ color: var(--setta-text); font-size: .95rem; line-height: 1.5; margin-top: 7px; opacity: .82; }}
       div.stButton > button[kind="primary"], div.stDownloadButton > button {{ background: var(--setta-primary) !important; border-color: var(--setta-primary) !important; color: #fff !important; }}
       div[data-baseweb="tab-list"] button[aria-selected="true"] {{ color: var(--setta-primary) !important; border-bottom-color: var(--setta-primary) !important; }}
       div[data-testid="stMetricValue"] {{ color: var(--setta-primary); }}
@@ -337,9 +393,9 @@ def _render_brand_header(cfg):
     title = str(cfg.get("app_title") or DEFAULT_UI_CONFIG["app_title"])
     objective = str(cfg.get("objective") or "")
     logo = cfg.get("logo_data") or ""
-    width = max(120, min(900, int(cfg.get("logo_width") or 220)))
-    logo_html = f'<img src="{logo}" style="width:{width}px;" />' if logo else ""
-    st.markdown(f'<div class="setta-brand">{logo_html}<div class="setta-brand-title">{title}</div><div class="setta-brand-objective">{objective}</div></div>', unsafe_allow_html=True)
+    width = max(120, min(500, int(cfg.get("logo_width") or 220)))
+    logo_html = f'<div class="setta-brand-logo"><img src="{logo}" style="width:{width}px;" /></div>' if logo else '<div class="setta-brand-logo"></div>'
+    st.markdown(f'<div class="setta-brand">{logo_html}<div class="setta-brand-center"><div class="setta-brand-title">{title}</div><div class="setta-brand-objective">{objective}</div></div><div></div></div>', unsafe_allow_html=True)
 
 
 UI_CONFIG = _config_get()
@@ -421,14 +477,16 @@ def compare_simple(old_df,new_df,key_cols):
     return pd.DataFrame(rows)
 
 def render_mrp_history():
-    st.subheader("Histórico e comparativo de MRP")
+    st.subheader(UI_CONFIG["section_history_title"])
+    if UI_CONFIG.get("section_history_description"):
+        st.caption(UI_CONFIG["section_history_description"])
     try: history=load_snapshot_history()
     except Exception as e: st.warning(f"Não foi possível acessar o histórico compartilhado: {e}"); return
     if not history: st.info("Ainda não existem MRP salvos no histórico."); return
     labels={int(x["id"]):f"MRP {x['id']} | semana {x.get('semana_mrp') or '-'} | {formatar_data_br(x.get('created_at'))} | {x.get('usuario') or '-'}" for x in history}; ids=list(labels)
-    c1,c2=st.columns(2); new_id=c1.selectbox("MRP atual",ids,index=0,format_func=lambda x:labels[x],key="mrp_history_current"); old_ids=[x for x in ids if x!=new_id]
+    c1,c2=st.columns(2); new_id=c1.selectbox(UI_CONFIG["history_current_label"],ids,index=0,format_func=lambda x:labels[x],key="mrp_history_current"); old_ids=[x for x in ids if x!=new_id]
     if not old_ids: st.info("Salve pelo menos dois MRP para gerar um comparativo."); return
-    old_id=c2.selectbox("MRP anterior",old_ids,index=0,format_func=lambda x:labels[x],key="mrp_history_previous")
+    old_id=c2.selectbox(UI_CONFIG["history_previous_label"],old_ids,index=0,format_func=lambda x:labels[x],key="mrp_history_previous")
     try:
         old=load_snapshot(old_id); new=load_snapshot(new_id); cmp=compare_mrp_general(old,new)
         k1,k2,k3,k4,k5=st.columns(5); k1.metric("Novo",int((cmp["Classificação"]=="NOVO").sum())); k2.metric("Removido",int((cmp["Classificação"]=="REMOVIDO").sum())); k3.metric("Alterado",int((cmp["Classificação"]=="ALTERADO").sum())); k4.metric("Novo S.C.",int((cmp["Classificação"]=="NOVO S.C.").sum())); k5.metric("Normalizado",int((cmp["Classificação"]=="NORMALIZADO").sum()))
@@ -483,7 +541,9 @@ def render_consulta_view():
     proj = fix_columns(proj, PROJ_COLS)
     dem = fix_columns(dem, DEM_COLS)
 
-    st.subheader("Consulta do MRP")
+    st.subheader(UI_CONFIG["section_consulta_title"])
+    if UI_CONFIG.get("section_consulta_description"):
+        st.caption(UI_CONFIG["section_consulta_description"])
     st.caption(f"Último MRP salvo — semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
 
     tab_geral, tab_projeto = st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"]])
@@ -523,11 +583,17 @@ def render_consulta_view():
                 d_proj = fix_columns(proj[proj["Código"].astype(str) == selecionado], PROJ_COLS)
                 d_dem = fix_columns(dem[dem["Produto"].astype(str) == selecionado], DEM_COLS)
                 desc = f.loc[f["Código"].astype(str) == selecionado, "Descrição"].iloc[0]
-                st.markdown("### Detalhamento do material")
+                st.markdown(f"### {UI_CONFIG['section_detail_title']}")
+                if UI_CONFIG.get("section_detail_description"):
+                    st.caption(UI_CONFIG["section_detail_description"])
                 st.caption(f"Material selecionado: {selecionado} — {desc}")
-                st.markdown("**Projeção semanal**")
+                st.markdown(f"**{UI_CONFIG['subsection_projection_title']}**")
+                if UI_CONFIG.get("subsection_projection_description"):
+                    st.caption(UI_CONFIG["subsection_projection_description"])
                 st.dataframe(d_proj, use_container_width=True, hide_index=True, column_order=PROJ_COLS)
-                st.markdown("**S.A. — projetos que geram a demanda**")
+                st.markdown(f"**{UI_CONFIG['subsection_demand_title']}**")
+                if UI_CONFIG.get("subsection_demand_description"):
+                    st.caption(UI_CONFIG["subsection_demand_description"])
                 st.dataframe(d_dem, use_container_width=True, hide_index=True, column_order=DEM_COLS)
 
                 d_comp = compras[(compras["Código"].astype(str) == selecionado)].copy() if "Código" in compras.columns else pd.DataFrame()
@@ -535,7 +601,9 @@ def render_consulta_view():
                     compras_cols = ["Código", "Nº S.C.", "Quantidade S.C.", "Semana S.C.", "Nº P.C.", "Quantidade P.C.", "Semana P.C."]
                     for c in compras_cols:
                         if c not in d_comp.columns: d_comp[c] = ""
-                    st.markdown("**Compras**")
+                    st.markdown(f"**{UI_CONFIG['subsection_purchases_title']}**")
+                    if UI_CONFIG.get("subsection_purchases_description"):
+                        st.caption(UI_CONFIG["subsection_purchases_description"])
                     st.dataframe(d_comp[compras_cols], use_container_width=True, hide_index=True, column_order=compras_cols)
                     st.caption("S.C. sem semana permanece no macro, mas não entra no cálculo semanal até possuir previsão definida.")
 
@@ -581,7 +649,9 @@ def load_sources(cb,eb,gb,pb,mb):
     mt=pd.read_excel(BytesIO(mb),sheet_name="MRP_TC_TP"); col_by_pos(mt,1,"Código Produto"); col_by_pos(mt,4,"Semana Entrega"); col_by_pos(mt,7,"Material"); col_by_pos(mt,9,"Quantidade"); col_by_pos(mt,11,"Semana Necessidade"); mt["Código Produto"]=mt["Código Produto"].fillna(0).astype("int64"); mt["Semana Entrega"]=mt["Semana Entrega"].fillna(0).astype("int64"); mt["Material"]=mt["Material"].fillna(0).astype("int64"); mt["Semana Necessidade"]=mt["Semana Necessidade"].fillna(0).astype("int64"); mt["Quantidade"]=mt["Quantidade"].fillna(0.0); mt["ORDEM DE PRODUÇÃO"]=mt.get("ORDEM DE PRODUÇÃO",pd.Series(mt.index+1,index=mt.index))
     return cad,est,rg,rg_mrp,cp,mt
 
-st.title("MRP — Planejamento de Necessidades de Materiais"); st.caption("Cadastro + Estoque + Relatório Geral + Compras + MRP TC/TP. Projeção calculada semana a semana.")
+st.title(UI_CONFIG["section_main_title"])
+if UI_CONFIG.get("section_main_description"):
+    st.caption(UI_CONFIG["section_main_description"])
 with st.sidebar:
     st.header("Acesso")
     st.success(f"{st.session_state.get('auth_nome','Usuário')} — {st.session_state.get('auth_role','')}")
@@ -589,7 +659,9 @@ with st.sidebar:
         _logout()
     st.divider()
     if st.session_state.get("auth_role") == "ADMIN":
-        st.header("Bases do MRP")
+        st.header(UI_CONFIG["section_upload_title"])
+        if UI_CONFIG.get("section_upload_description"):
+            st.caption(UI_CONFIG["section_upload_description"])
         cadastro_file=st.file_uploader("1. CADASTROS",type=["xlsx","xlsm","xltx"])
         estoque_file=st.file_uploader("2. Estoque_Tratado",type=["xlsx","xlsm"])
         geral_file=st.file_uploader("3. RelatorioGeral_Tratado",type=["xlsx","xlsm"])
@@ -608,7 +680,7 @@ if st.session_state.get("auth_role") == "CONSULTA":
     st.stop()
 
 if not all([cadastro_file,estoque_file,geral_file,compras_file,mt_file]):
-    st.info("Envie as 5 planilhas tratadas para calcular um novo MRP. O último MRP salvo fica disponível para consulta e comparação.")
+    st.info(UI_CONFIG["main_notice"])
     try:
         snap=load_latest_snapshot()
         if snap:
@@ -720,7 +792,7 @@ m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric(
 tab1,tab2=st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"]])
 macro_cols=["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status","Semana de Atendimento","Período de Atendimento"]
 with tab1:
-    st.subheader("Demanda Geral"); c1,c2,c3=st.columns(3)
+    st.subheader(UI_CONFIG["title_demanda_geral"]); c1,c2,c3=st.columns(3)
     with c1: busca=st.text_input("Código / descrição")
     with c2: status=st.multiselect("Status",["OK","CRIAR S.C."],default=["OK","CRIAR S.C."])
     with c3: tipos=st.multiselect("Tipo",sorted([x for x in cad["Tipo"].unique() if x]))
@@ -735,18 +807,32 @@ with tab1:
     linhas=selecao.selection.rows if selecao is not None else []
     code=int(v.iloc[linhas[0]]["Código"]) if linhas and 0<=linhas[0]<len(v) else None
     if code is not None:
-        st.divider(); st.subheader("Detalhamento do material"); desc_map=cad.set_index("Código")["Descrição"].to_dict(); st.markdown(f"**Material selecionado:** `{code}` — {desc_map.get(code,'')}")
+        st.divider(); st.subheader(UI_CONFIG["section_detail_title"])
+        if UI_CONFIG.get("section_detail_description"):
+            st.caption(UI_CONFIG["section_detail_description"])
+        desc_map=cad.set_index("Código")["Descrição"].to_dict(); st.markdown(f"**Material selecionado:** `{code}` — {desc_map.get(code,'')}")
         w=proj[proj["Código"]==code].copy()
         if len(w):
-            st.markdown("**Projeção semanal**"); w["Período da Semana"]=w["Semana"].apply(periodo_semana); st.dataframe(w[["Código","Descrição","Tipo","Semana","Período da Semana","Saldo Inicial","Demanda","P.C.","S.C.","Produzindo","Resumo Final"]],use_container_width=True,hide_index=True)
+            st.markdown(f"**{UI_CONFIG['subsection_projection_title']}**")
+            if UI_CONFIG.get("subsection_projection_description"):
+                st.caption(UI_CONFIG["subsection_projection_description"])
+            w["Período da Semana"]=w["Semana"].apply(periodo_semana); st.dataframe(w[["Código","Descrição","Tipo","Semana","Período da Semana","Saldo Inicial","Demanda","P.C.","S.C.","Produzindo","Resumo Final"]],use_container_width=True,hide_index=True)
         d=demanda_projeto[demanda_projeto["Produto"]==code]
-        if len(d): st.markdown("**S.A. — projetos que geram a demanda**"); st.dataframe(d,use_container_width=True,hide_index=True)
+        if len(d):
+            st.markdown(f"**{UI_CONFIG['subsection_demand_title']}**")
+            if UI_CONFIG.get("subsection_demand_description"):
+                st.caption(UI_CONFIG["subsection_demand_description"])
+            st.dataframe(d,use_container_width=True,hide_index=True)
         compras=cp[(cp["Código"]==code)&((cp["Quantidade S.C."]>0)|(cp["Quantidade P.C."]>0))].copy()
-        if len(compras): st.markdown("**Compras**"); st.dataframe(compras[["Código","Nº S.C.","Quantidade S.C.","Semana S.C.","Nº P.C.","Quantidade P.C.","Semana P.C."]],use_container_width=True,hide_index=True); st.caption("S.C. sem semana permanece no macro, mas não entra no cálculo semanal até possuir previsão definida.")
+        if len(compras):
+            st.markdown(f"**{UI_CONFIG['subsection_purchases_title']}**")
+            if UI_CONFIG.get("subsection_purchases_description"):
+                st.caption(UI_CONFIG["subsection_purchases_description"])
+            st.dataframe(compras[["Código","Nº S.C.","Quantidade S.C.","Semana S.C.","Nº P.C.","Quantidade P.C.","Semana P.C."]],use_container_width=True,hide_index=True); st.caption("S.C. sem semana permanece no macro, mas não entra no cálculo semanal até possuir previsão definida.")
         f=fab_det[fab_det["Código Produto"]==code]
         if len(f): st.markdown("**Produzindo — OPs (1 OP = 1 peça)**"); st.dataframe(f,use_container_width=True,hide_index=True)
 with tab2:
-    st.subheader("Demanda por Projeto"); c1,c2=st.columns(2)
+    st.subheader(UI_CONFIG["title_demanda_projeto"]); c1,c2=st.columns(2)
     with c1: busca2=st.text_input("Código / projeto")
     with c2: semana_filtro=st.multiselect("Semanas",sorted(demanda_projeto["Semana de Necessidade"].unique().tolist()) if len(demanda_projeto) else [])
     d=demanda_projeto.copy()
@@ -754,7 +840,9 @@ with tab2:
         b2=busca2.strip(); d=d[d["Produto"].astype(str).str.contains(b2,na=False)|d["Projeto"].str.contains(b2,case=False,na=False)]
     if semana_filtro: d=d[d["Semana de Necessidade"].isin(semana_filtro)]
     st.dataframe(d,use_container_width=True,height=600,hide_index=True)
-st.divider(); st.subheader("Exportação de relatórios"); st.caption("Os relatórios são exportados com os mesmos dados calculados na tela.")
+st.divider(); st.subheader(UI_CONFIG["section_export_title"])
+if UI_CONFIG.get("section_export_description"):
+    st.caption(UI_CONFIG["section_export_description"])
 compras_mrp_export=normalizar_compra_mrp(compras_mrp)
 export_macro=macro[macro_cols].sort_values(["Status","Código"],key=lambda s:s.map({"CRIAR S.C.":0,"OK":1}).fillna(2) if s.name=="Status" else s).copy(); export_proj=proj.copy()
 if len(export_proj): export_proj["Período da Semana"]=export_proj["Semana"].apply(periodo_semana)

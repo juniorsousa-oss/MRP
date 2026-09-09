@@ -1,0 +1,38 @@
+name: Remover descricao do login
+
+on:
+  push:
+    paths:
+      - '.github/scripts/remove_login_description.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Aplicar alteracao
+        run: python .github/scripts/remove_login_description.py
+      - name: Validar sintaxe
+        run: python -m py_compile app_mrp.py
+      - name: Gravar alteracao
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app_mrp.py
+          git diff --cached --quiet && exit 0
+          git commit -m "Remover descricao da tela de login"
+          git push
+      - name: Limpar arquivos temporarios
+        if: success()
+        run: |
+          rm -f .github/scripts/remove_login_description.py .github/workflows/remove-login-description.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Remover arquivos temporarios do ajuste"
+          git push

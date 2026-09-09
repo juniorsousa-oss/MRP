@@ -283,14 +283,25 @@ def render_consulta_view():
         if tipo != "Todos": f = f[f["Tipo"].astype(str) == tipo]
         if status != "Todos": f = f[f["Status"].astype(str) == status]
         f = fix_columns(f, MRP_COLS)
-        st.dataframe(f, use_container_width=True, hide_index=True, column_order=MRP_COLS)
+        # Seleção por checkbox/linha: mantém o visualizador igual ao ADMIN e evita
+        # um segundo seletor separado para escolher o material.
+        selecao = st.dataframe(
+            f,
+            use_container_width=True,
+            hide_index=True,
+            column_order=MRP_COLS,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="consulta_mrp_table",
+        )
 
         if not f.empty:
-            opcoes = f["Código"].astype(str).drop_duplicates().tolist()
-            selecionado = st.selectbox("Material selecionado", opcoes, key="consulta_material")
-            d_proj = fix_columns(proj[proj["Código"].astype(str) == str(selecionado)], PROJ_COLS)
-            d_dem = fix_columns(dem[dem["Produto"].astype(str) == str(selecionado)], DEM_COLS)
-            desc = f.loc[f["Código"].astype(str) == str(selecionado), "Descrição"].iloc[0]
+            linhas = getattr(getattr(selecao, "selection", None), "rows", []) or []
+            if linhas:
+                selecionado = str(f.iloc[linhas[0]]["Código"])
+                d_proj = fix_columns(proj[proj["Código"].astype(str) == selecionado], PROJ_COLS)
+                d_dem = fix_columns(dem[dem["Produto"].astype(str) == selecionado], DEM_COLS)
+                desc = f.loc[f["Código"].astype(str) == selecionado, "Descrição"].iloc[0]
             st.markdown("### Detalhamento do material")
             st.caption(f"Material selecionado: {selecionado} — {desc}")
             st.markdown("**Projeção semanal**")

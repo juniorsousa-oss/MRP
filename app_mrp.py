@@ -9,6 +9,9 @@ from datetime import date, timedelta
 
 st.set_page_config(page_title="MRP | SETTA", page_icon="📦", layout="wide")
 
+if not _require_login():
+    st.stop()
+
 def num(s): return pd.to_numeric(s, errors="coerce")
 def col_by_pos(df,pos,name):
     if df.shape[1]<=pos: raise ValueError(f"A base MRP_TC_TP não possui a coluna {name} na posição esperada.")
@@ -44,8 +47,82 @@ def formatar_data_br(s):
 SUPABASE_URL="https://cuixazpxkvniqldmmnth.supabase.co"
 SUPABASE_KEY="sb_publishable_ZTqIgmA9Ez6AVQsoXa0P8Q_6CYHDFye"
 
+# =========================================================
+# AUTENTICAÇÃO E PERFIS — SUPABASE AUTH
+# ADMIN = pode carregar/processar/salvar MRP
+# CONSULTA = somente consulta/histórico
+# =========================================================
+def _auth_headers(token=None):
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {token or SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+
+def _login_supabase(email, password):
+    r = requests.post(
+        f"{SUPABASE_URL}/auth/v1/token?grant_type=password",
+        headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+        json={"email": email, "password": password},
+        timeout=20,
+    )
+    if r.status_code >= 400:
+        try: msg = r.json().get("error_description") or r.json().get("msg") or "Login inválido"
+        except Exception: msg = "Login inválido"
+        raise ValueError(msg)
+    return r.json()
+
+def _load_my_role(access_token, user_id):
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/user_roles",
+        headers=_auth_headers(access_token),
+        params={"select":"user_id,nome,role", "user_id":f"eq.{user_id}", "limit":"1"},
+        timeout=20,
+    )
+    r.raise_for_status()
+    rows = r.json()
+    return rows[0] if rows else None
+
+def _logout():
+    for k in ["auth_access_token", "auth_refresh_token", "auth_user_id", "auth_email", "auth_nome", "auth_role"]:
+        st.session_state.pop(k, None)
+    st.rerun()
+
+def _require_login():
+    if st.session_state.get("auth_access_token") and st.session_state.get("auth_role") in {"ADMIN", "CONSULTA"}:
+        return True
+    st.title("MRP — SETTA")
+    st.subheader("Acesso ao sistema")
+    with st.form("login_form", clear_on_submit=False):
+        email = st.text_input("E-mail")
+        password = st.text_input("Senha", type="password")
+        entrar = st.form_submit_button("ENTRAR", use_container_width=True)
+    if entrar:
+        if not email.strip() or not password:
+            st.error("Informe e-mail e senha.")
+        else:
+            try:
+                auth = _login_supabase(email.strip(), password)
+                user = auth.get("user") or {}
+                token = auth.get("access_token")
+                role = _load_my_role(token, user.get("id")) if token and user.get("id") else None
+                if not role or role.get("role") not in {"ADMIN", "CONSULTA"}:
+                    st.error("Usuário autenticado, mas sem perfil autorizado no MRP.")
+                else:
+                    st.session_state["auth_access_token"] = token
+                    st.session_state["auth_refresh_token"] = auth.get("refresh_token")
+                    st.session_state["auth_user_id"] = user.get("id")
+                    st.session_state["auth_email"] = user.get("email", email.strip())
+                    st.session_state["auth_nome"] = role.get("nome") or user.get("email", "")
+                    st.session_state["auth_role"] = role.get("role")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Não foi possível entrar: {e}")
+    return False
+
 def _sb_headers():
-    return {"apikey":SUPABASE_KEY,"Authorization":f"Bearer {SUPABASE_KEY}","Content-Type":"application/json"}
+    token = st.session_state.get("auth_access_token") or SUPABASE_KEY
+    return _auth_headers(token)
 
 def _sb_get(params=None):
     r=requests.get(f"{SUPABASE_URL}/rest/v1/mrp_snapshots",headers=_sb_headers(),params=params or {},timeout=20)
@@ -161,9 +238,36 @@ def load_sources(cb,eb,gb,pb,mb):
 
 st.title("MRP — Planejamento de Necessidades de Materiais"); st.caption("Cadastro + Estoque + Relatório Geral + Compras + MRP TC/TP. Projeção calculada semana a semana.")
 with st.sidebar:
-    st.header("Bases do MRP"); cadastro_file=st.file_uploader("1. CADASTROS",type=["xlsx","xlsm","xltx"]); estoque_file=st.file_uploader("2. Estoque_Tratado",type=["xlsx","xlsm"]); geral_file=st.file_uploader("3. RelatorioGeral_Tratado",type=["xlsx","xlsm"]); compras_file=st.file_uploader("4. Compras_Tratado",type=["xlsx","xlsm"]); mt_file=st.file_uploader("5. MRP_TC_TP_Tratado",type=["xlsx","xlsm"]); usuario_mrp=st.text_input("Usuário responsável pelo MRP",value="",placeholder="Nome do responsável")
+    st.header("Acesso")
+    st.success(f"{st.session_state.get('auth_nome','Usuário')} — {st.session_state.get('auth_role','')}")
+    if st.button("SAIR", use_container_width=True):
+        _logout()
+    st.divider()
+    if st.session_state.get("auth_role") == "ADMIN":
+        st.header("Bases do MRP")
+        cadastro_file=st.file_uploader("1. CADASTROS",type=["xlsx","xlsm","xltx"])
+        estoque_file=st.file_uploader("2. Estoque_Tratado",type=["xlsx","xlsm"])
+        geral_file=st.file_uploader("3. RelatorioGeral_Tratado",type=["xlsx","xlsm"])
+        compras_file=st.file_uploader("4. Compras_Tratado",type=["xlsx","xlsm"])
+        mt_file=st.file_uploader("5. MRP_TC_TP_Tratado",type=["xlsx","xlsm"])
+        usuario_mrp=st.text_input("Usuário responsável pelo MRP",value=st.session_state.get("auth_nome", ""),placeholder="Nome do responsável")
+    else:
+        cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
+        usuario_mrp=st.session_state.get("auth_nome", "")
+if st.session_state.get("auth_role") == "CONSULTA":
+    st.info("Modo CONSULTA: os dados abaixo são somente para visualização. Upload e gravação de MRP estão bloqueados.")
+    try:
+        snap=load_latest_snapshot()
+        if snap:
+            st.success(f"Último MRP compartilhado: semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
+            st.dataframe(snapshot_df(snap,"mrp_geral"),use_container_width=True,hide_index=True)
+            render_mrp_history()
+        else: st.info("Ainda não há MRP salvo no banco compartilhado.")
+    except Exception as e: st.warning(f"Não foi possível carregar o histórico: {e}")
+    st.stop()
+
 if not all([cadastro_file,estoque_file,geral_file,compras_file,mt_file]):
-    st.info("Envie as 5 planilhas tratadas para calcular um novo MRP. Sem upload, o último MRP salvo fica disponível para consulta e comparação.")
+    st.info("Envie as 5 planilhas tratadas para calcular um novo MRP. O último MRP salvo fica disponível para consulta e comparação.")
     try:
         snap=load_latest_snapshot()
         if snap:
@@ -257,14 +361,15 @@ if len(demanda_projeto):
         compras_mrp["qnt"]=compras_mrp["qnt"].map(lambda x:int(x) if float(x).is_integer() else float(x))
 fab_det=op[["ORDEM DE PRODUÇÃO","Código Produto","Semana Entrega"]].sort_values(["Código Produto","Semana Entrega","ORDEM DE PRODUÇÃO"]).copy(); fab_det["Quantidade"]=1
 # Salva apenas uma vez por conjunto de arquivos carregado.
-try:
-    _mrp_sig=hashlib.sha256(b"".join([f.getvalue() for f in [cadastro_file,estoque_file,geral_file,compras_file,mt_file]])).hexdigest()
-    if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
-        save_snapshot(semana_atual,usuario_mrp,macro,proj,demanda_projeto,compras_mrp)
-        st.session_state["_mrp_saved_sig"]=_mrp_sig
-        st.success("MRP salvo no histórico compartilhado.")
-except Exception as _save_err:
-    st.warning(f"O MRP foi calculado, mas não foi possível salvar o histórico compartilhado: {_save_err}")
+if st.session_state.get("auth_role") == "ADMIN":
+    try:
+        _mrp_sig=hashlib.sha256(b"".join([f.getvalue() for f in [cadastro_file,estoque_file,geral_file,compras_file,mt_file]])).hexdigest()
+        if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
+            save_snapshot(semana_atual,usuario_mrp,macro,proj,demanda_projeto,compras_mrp)
+            st.session_state["_mrp_saved_sig"]=_mrp_sig
+            st.success("MRP salvo no histórico compartilhado.")
+    except Exception as _save_err:
+        st.warning(f"O MRP foi calculado, mas não foi possível salvar o histórico compartilhado: {_save_err}")
 m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.",f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.",f"{macro['S.C.'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro['DIV']<0,'DIV']).sum():,.0f}")
 tab1,tab2=st.tabs(["DEMANDA GERAL","DEMANDA POR PROJETO"])
 macro_cols=["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status","Semana de Atendimento","Período de Atendimento"]

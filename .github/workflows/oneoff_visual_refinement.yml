@@ -1,0 +1,34 @@
+name: One-off visual refinement
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-refinement:
+    if: contains(github.event.head_commit.message, '[visual-refinement]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply visual refinement
+        run: python scripts/patch_visual_refinement.py
+
+      - name: Validate Python syntax
+        run: python -m py_compile app_mrp.py
+
+      - name: Commit final changes and remove one-off tooling
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app_mrp.py
+          git rm -f .github/workflows/oneoff_visual_refinement.yml scripts/patch_visual_refinement.py
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: complete editable visual texts and centered brand header"
+          git push origin main

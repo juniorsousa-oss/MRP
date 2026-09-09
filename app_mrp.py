@@ -247,6 +247,15 @@ def render_consulta_view():
     comp = snapshot_df(snap, "compra_mrp").copy()
     compras = snapshot_df(snap, "compras").copy()
 
+    # Espelho do ADMIN: snapshots antigos podem não ter o campo Período da Semana.
+    # Nesse caso, reconstruímos exatamente pela mesma regra de semana usada no ADMIN.
+    if "Semana" in proj.columns:
+        if "Período da Semana" not in proj.columns:
+            proj["Período da Semana"] = proj["Semana"].apply(periodo_semana)
+        else:
+            faltantes = proj["Período da Semana"].isna() | proj["Período da Semana"].astype(str).str.strip().eq("")
+            proj.loc[faltantes, "Período da Semana"] = proj.loc[faltantes, "Semana"].apply(periodo_semana)
+
     # Ordem oficial das colunas: nunca depender da ordem do JSON/Supabase.
     MRP_COLS = ["Código", "Descrição", "Tipo", "Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo", "DIV", "Status", "Semana de Atendimento", "Período de Atendimento"]
     PROJ_COLS = ["Código", "Descrição", "Tipo", "Semana", "Período da Semana", "Saldo Inicial", "Demanda", "P.C.", "S.C.", "Produzindo", "Resumo Final"]
@@ -484,7 +493,7 @@ fab_det=op[["ORDEM DE PRODUÇÃO","Código Produto","Semana Entrega"]].sort_valu
 # Salva apenas uma vez por conjunto de arquivos carregado.
 if st.session_state.get("auth_role") == "ADMIN":
     try:
-        _mrp_sig=hashlib.sha256(b"".join([f.getvalue() for f in [cadastro_file,estoque_file,geral_file,compras_file,mt_file]])).hexdigest()
+        _mrp_sig=hashlib.sha256(b"MRP-SNAPSHOT-V3-COMPRAS-PERIODO"+b"".join([f.getvalue() for f in [cadastro_file,estoque_file,geral_file,compras_file,mt_file]])).hexdigest()
         if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
             save_snapshot(semana_atual,usuario_mrp,macro,proj,demanda_projeto,compras_mrp,cp)
             st.session_state["_mrp_saved_sig"]=_mrp_sig
@@ -547,3 +556,5 @@ else: st.caption("Nenhum item da Demanda por Projeto exige nova S.C. no momento.
 st.divider()
 if st.session_state.get("auth_role") == "ADMIN":
     render_mrp_history()
+
+# trigger-final-2

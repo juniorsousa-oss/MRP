@@ -1,0 +1,34 @@
+name: Subir conteudo do login em 5cm
+on: [push]
+permissions:
+  contents: write
+jobs:
+  ajuste:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ajustar posicao do conteudo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app_mrp.py')
+          s=p.read_text(encoding='utf-8')
+          old='''      .setta-login-wrap {{\n        position:fixed !important; left:50% !important; top:50% !important; transform:translate(-50%,-50%) !important;'''
+          new='''      .setta-login-wrap {{\n        position:fixed !important; left:50% !important; top:50% !important; transform:translate(-50%,-50%) !important;'''
+          if old not in s: raise SystemExit('alvo do cartao nao encontrado')
+          # Mantem o cartao exatamente no lugar; desloca apenas o conteudo visual 5cm para cima.
+          s=s.replace('        overflow:hidden !important; z-index:10 !important;\n      }}\n      .setta-login-image {{', '        overflow:visible !important; z-index:10 !important;\n      }}\n      .setta-login-image { transform:translateY(-5cm) !important; }\n      .setta-login-heading { transform:translateY(-5cm) !important; }\n      .setta-login-image {{', 1)
+          s=s.replace('top:calc(50% + 4px) !important; transform:translateX(-50%) !important;', 'top:calc(50% + 4px - 5cm) !important; transform:translateX(-50%) !important;', 1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar
+        run: python -m py_compile app_mrp.py
+      - name: Commitar e remover temporarios
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app_mrp.py
+          git commit -m 'Subir informacoes do login em 5cm'
+          git rm .github/workflows/ajuste-login-subir-5cm.yml
+          git commit -m 'Remover workflow temporario de login'
+          git push

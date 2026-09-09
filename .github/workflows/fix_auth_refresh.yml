@@ -1,0 +1,25 @@
+name: Fix Supabase session refresh
+on:
+  push:
+    paths:
+      - 'patch_auth_refresh.py'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+      - name: Apply and validate
+        run: |
+          python patch_auth_refresh.py
+          python -m py_compile app_mrp.py
+      - name: Commit and cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app_mrp.py
+          git rm patch_auth_refresh.py .github/workflows/fix_auth_refresh.yml
+          git commit -m 'fix: refresh Supabase session after expiration'
+          git push

@@ -160,25 +160,27 @@ def _require_login(login_cfg):
     )
     st.markdown(f"""
     <style>
-      .stApp {{ background: linear-gradient(135deg, {background} 0%, #ffffff 52%, {background} 100%) !important; color: {text} !important; }}
-      [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"] {{ display: none !important; }}
-      .block-container {{ max-width: 100%; padding-top: 2.2rem !important; padding-bottom: 1.5rem !important; }}
-      .setta-login-wrap {{ width: min(430px, 92vw); margin: 0 auto; border-radius: 18px; overflow: hidden; background: #ffffff; box-shadow: 0 16px 45px rgba(15,23,42,.18); border: 1px solid rgba(15,23,42,.10); }}
-      .setta-login-image {{ height: {image_height}px; overflow: hidden; background: #ffffff; display:flex; align-items:center; justify-content:center; padding: 6px 18px; box-sizing:border-box; }}
-      .setta-login-image img {{ width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }}
-      .setta-login-image-empty {{ display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; letter-spacing:.12em; }}
-      .setta-login-image-empty div {{ font-size: 2.7rem; font-weight: 800; line-height:1; }}
-      .setta-login-image-empty span {{ font-size: .9rem; margin-top: 8px; opacity:.88; }}
-      .setta-login-heading {{ text-align:center; padding: 18px 28px 7px; }}
-      .setta-login-title {{ color:{title_color}; font-size:1.4rem; font-weight:800; margin:0; }}
-      .setta-login-subtitle {{ color:{text}; opacity:.68; font-size:.88rem; margin-top:6px; }}
-      .setta-login-form-note {{ text-align:center; color:{text}; opacity:.62; font-size:.78rem; margin: 2px 0 8px; }}
-      div[data-testid="stForm"] {{ width:min(430px,92vw); margin:0 auto; background:#fff; border:0 !important; box-shadow:none !important; padding: 12px 28px 24px !important; }}
-      div[data-testid="stForm"] label {{ color:{text} !important; font-weight:600 !important; }}
-      div[data-testid="stForm"] input {{ border-radius: 12px !important; border:1px solid rgba(31,78,120,.20) !important; min-height:44px !important; }}
-      div[data-testid="stForm"] input:focus {{ border-color:{primary} !important; box-shadow:0 0 0 2px rgba(31,78,120,.10) !important; }}
-      div[data-testid="stForm"] button {{ border-radius:12px !important; min-height:44px !important; background:{primary} !important; border-color:{primary} !important; color:#fff !important; font-weight:750 !important; }}
-      div[data-testid="stForm"] button:hover {{ filter:brightness(.94); }}
+      .stApp {{ background:#ffffff !important; color:{text} !important; }}
+      [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"] {{ display:none !important; }}
+      .block-container {{ max-width:100% !important; min-height:100vh !important; padding:0 !important; display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; }}
+      .setta-login-wrap {{ width:286px !important; height:260px !important; margin:0 auto !important; box-sizing:border-box !important; border-radius:28px 28px 0 0 !important; overflow:hidden !important; background:#fff !important; box-shadow:0 16px 38px rgba(0,0,0,.14) !important; border:1px solid rgba(0,0,0,.12) !important; border-bottom:0 !important; }}
+      .setta-login-image {{ height:105px !important; overflow:hidden !important; background:#fff !important; display:flex !important; align-items:center !important; justify-content:center !important; padding:6px 18px !important; box-sizing:border-box !important; }}
+      .setta-login-image img {{ width:auto !important; max-width:185px !important; height:auto !important; max-height:78px !important; object-fit:contain !important; object-position:center !important; display:block !important; }}
+      .setta-login-image-empty {{ display:flex !important; flex-direction:column !important; align-items:center !important; justify-content:center !important; }}
+      .setta-login-image-empty div {{ font-size:3.4rem !important; font-weight:800 !important; font-style:italic !important; line-height:1 !important; color:#111 !important; }}
+      .setta-login-heading {{ text-align:center !important; padding:0 22px !important; }}
+      .setta-login-title {{ color:#111 !important; font-size:14px !important; line-height:17px !important; font-weight:800 !important; margin:0 !important; }}
+      .setta-login-subtitle {{ color:#777 !important; opacity:1 !important; font-size:6.5px !important; line-height:9px !important; margin:7px auto 0 !important; max-width:205px !important; }}
+      .setta-login-form-note {{ display:none !important; }}
+      div[data-testid="stForm"] {{ width:286px !important; margin:0 auto !important; box-sizing:border-box !important; background:#fff !important; border:1px solid rgba(0,0,0,.12) !important; border-top:0 !important; border-radius:0 0 28px 28px !important; box-shadow:0 16px 38px rgba(0,0,0,.14) !important; padding:0 22px 25px !important; }}
+      div[data-testid="stForm"] label {{ color:#202020 !important; font-size:9px !important; line-height:12px !important; font-weight:600 !important; margin-bottom:2px !important; }}
+      div[data-testid="stForm"] [data-testid="stTextInput"] {{ margin-bottom:7px !important; }}
+      div[data-testid="stForm"] input {{ height:29px !important; min-height:29px !important; box-sizing:border-box !important; padding:0 10px !important; border-radius:6px !important; border:1px solid #d8dde5 !important; background:#f0f2f6 !important; color:#202020 !important; font-size:8px !important; }}
+      div[data-testid="stForm"] input::placeholder {{ color:#a6adb8 !important; opacity:1 !important; }}
+      div[data-testid="stForm"] input:focus {{ border-color:#b8bec8 !important; box-shadow:none !important; }}
+      div[data-testid="stForm"] button {{ height:29px !important; min-height:29px !important; margin-top:3px !important; border-radius:7px !important; background:#050505 !important; border:1px solid #050505 !important; color:#fff !important; font-size:8px !important; font-weight:700 !important; }}
+      div[data-testid="stForm"] button:hover {{ background:#171717 !important; border-color:#171717 !important; }}
+      @media (max-width:480px) {{ .setta-login-wrap, div[data-testid="stForm"] {{ width:286px !important; }} }}
     </style>
     <div class="setta-login-wrap">
       {image_html}

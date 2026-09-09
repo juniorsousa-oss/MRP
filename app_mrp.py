@@ -230,6 +230,83 @@ def render_mrp_history():
         st.download_button("BAIXAR RELATÓRIO COMPARATIVO",excel_bytes(report),"Comparativo_MRP.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True,key="download_comparativo_mrp")
     except Exception as e: st.error(f"Erro ao gerar o comparativo: {e}")
 
+def render_consulta_view():
+    snap = load_latest_snapshot()
+    if not snap:
+        st.info("Ainda não há MRP salvo no banco compartilhado.")
+        return
+    macro = snapshot_df(snap, "mrp_geral").copy()
+    proj = snapshot_df(snap, "projecao_semanal").copy()
+    demanda_projeto = snapshot_df(snap, "demanda_projeto").copy()
+    compras_mrp = snapshot_df(snap, "compra_mrp").copy()
+    st.success(f"Último MRP compartilhado: semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
+    m = st.columns(5)
+    m[0].metric("Materiais no MRP", f"{len(macro):,}")
+    for i, col, label in [(1, "Demanda", "Demanda total"), (2, "P.C.", "P.C."), (3, "S.C.", "S.C.")]:
+        val = pd.to_numeric(macro.get(col, pd.Series(dtype=float)), errors="coerce").fillna(0).sum()
+        m[i].metric(label, f"{val:,.0f}")
+    divv = pd.to_numeric(macro.get("DIV", pd.Series(dtype=float)), errors="coerce").fillna(0)
+    m[4].metric("Criar S.C.", f"{(-divv[divv < 0]).sum():,.0f}")
+    tab1, tab2 = st.tabs(["DEMANDA GERAL", "DEMANDA POR PROJETO"])
+    macro_cols = [c for c in ["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status","Semana de Atendimento","Período de Atendimento"] if c in macro.columns]
+    with tab1:
+        st.subheader("Demanda Geral")
+        c1, c2, c3 = st.columns(3)
+        with c1: busca = st.text_input("Código / descrição", key="consulta_busca_geral")
+        with c2: status = st.multiselect("Status", ["OK", "CRIAR S.C."], default=["OK", "CRIAR S.C."], key="consulta_status")
+        with c3: tipos = st.multiselect("Tipo", sorted([str(x) for x in macro.get("Tipo", pd.Series(dtype=str)).dropna().unique() if str(x)]), key="consulta_tipos")
+        v = macro.copy()
+        if busca:
+            b = busca.strip()
+            v = v[v["Código"].astype(str).str.contains(b, na=False) | v["Descrição"].astype(str).str.contains(b, case=False, na=False)]
+        if status and "Status" in v: v = v[v["Status"].isin(status)]
+        if tipos and "Tipo" in v: v = v[v["Tipo"].isin(tipos)]
+        if "Status" in v.columns:
+            v["_ord_status"] = v["Status"].map({"CRIAR S.C.":0, "OK":1}).fillna(2)
+            v = v.sort_values(["_ord_status", "Código"]).drop(columns="_ord_status")
+        st.markdown("**Clique em uma linha para abrir o detalhamento do material.**")
+        sel = st.dataframe(v[macro_cols], use_container_width=True, height=500, hide_index=True, on_select="rerun", selection_mode="single-row", key="consulta_demanda_geral")
+        rows = sel.selection.rows if sel is not None else []
+        code = int(v.iloc[rows[0]]["Código"]) if rows and 0 <= rows[0] < len(v) else None
+        if code is not None:
+            st.divider(); st.subheader("Detalhamento do material")
+            if not proj.empty and "Código" in proj.columns:
+                w = proj[pd.to_numeric(proj["Código"], errors="coerce") == code].copy()
+                if len(w):
+                    if "Período da Semana" not in w.columns and "Semana" in w.columns: w["Período da Semana"] = w["Semana"].apply(periodo_semana)
+                    st.markdown("**Projeção semanal**")
+                    st.dataframe(w, use_container_width=True, hide_index=True)
+            if not demanda_projeto.empty and "Produto" in demanda_projeto.columns:
+                d = demanda_projeto[pd.to_numeric(demanda_projeto["Produto"], errors="coerce") == code].copy()
+                if len(d):
+                    st.markdown("**S.A. — projetos que geram a demanda**")
+                    st.dataframe(d, use_container_width=True, hide_index=True)
+    with tab2:
+        st.subheader("Demanda por Projeto")
+        c1, c2 = st.columns(2)
+        with c1: busca2 = st.text_input("Código / projeto", key="consulta_busca_projeto")
+        semanas = sorted(pd.to_numeric(demanda_projeto.get("Semana de Necessidade", pd.Series(dtype=float)), errors="coerce").dropna().astype(int).unique().tolist()) if not demanda_projeto.empty else []
+        with c2: semana_filtro = st.multiselect("Semanas", semanas, key="consulta_semanas")
+        d = demanda_projeto.copy()
+        if busca2:
+            b2 = busca2.strip()
+            d = d[d["Produto"].astype(str).str.contains(b2, na=False) | d["Projeto"].astype(str).str.contains(b2, case=False, na=False)]
+        if semana_filtro and "Semana de Necessidade" in d: d = d[d["Semana de Necessidade"].isin(semana_filtro)]
+        st.dataframe(d, use_container_width=True, height=600, hide_index=True)
+    st.divider(); st.subheader("Exportação de relatórios")
+    st.caption("Os relatórios disponíveis para consulta são os resultados finais do MRP compartilhado.")
+    sheets = {"MRP_Geral": macro, "Projecao_Semanal": proj, "Demanda_Projeto": demanda_projeto, "Compra_MRP": compras_mrp}
+    excel_data = excel_bytes(sheets)
+    zip_data = zip_bytes({name + ".csv": csv_bytes(df) for name, df in sheets.items()})
+    export_macro = macro[macro_cols] if macro_cols else macro
+    compra_excel_data = excel_bytes({"Compra_MRP": compras_mrp})
+    b1, b2, b3, b4 = st.columns(4)
+    with b1: st.download_button("BAIXAR TODOS — EXCEL", excel_data, "MRP_Relatorios_Completos.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="consulta_download_excel")
+    with b2: st.download_button("BAIXAR TODOS — ZIP/CSV", zip_data, "MRP_Relatorios_Completos.zip", "application/zip", use_container_width=True, key="consulta_download_zip")
+    with b3: st.download_button("BAIXAR MRP GERAL — CSV", csv_bytes(export_macro), "MRP_Geral.csv", "text/csv", use_container_width=True, key="consulta_download_macro")
+    with b4: st.download_button("BAIXAR COMPRA MRP", compra_excel_data, "Compra_MRP.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="consulta_download_compra")
+    if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns).")
+
 @st.cache_data(show_spinner=False)
 def load_sources(cb,eb,gb,pb,mb):
     raw=pd.read_excel(BytesIO(cb),sheet_name="Listagem do Browse",header=None); cad=raw.iloc[2:,[1,2,3]].copy(); cad.columns=["Código","Descrição","Tipo"]; cad["Código"]=num(cad["Código"]); cad=cad.dropna(subset=["Código"]); cad["Código"]=cad["Código"].astype("int64"); cad["Descrição"]=cad["Descrição"].fillna("").astype(str).str.strip(); cad["Tipo"]=cad["Tipo"].fillna("").astype(str).str.strip(); cad=cad.drop_duplicates("Código",keep="first").reset_index(drop=True)
@@ -261,16 +338,11 @@ with st.sidebar:
         cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
         usuario_mrp=st.session_state.get("auth_nome", "")
 if st.session_state.get("auth_role") == "CONSULTA":
-    st.info("Modo CONSULTA: os dados abaixo são somente para visualização. Upload e gravação de MRP estão bloqueados.")
+    st.info("Modo CONSULTA: consulta, filtros, detalhamento e exportação liberados. Alimentação das 5 bases, processamento, gravação e histórico/comparativo permanecem bloqueados.")
     try:
-        snap=load_latest_snapshot()
-        if snap:
-            st.success(f"Último MRP compartilhado: semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
-            st.dataframe(snapshot_df(snap,"mrp_geral"),use_container_width=True,hide_index=True)
-            if st.session_state.get("auth_role") == "ADMIN":
-                render_mrp_history()
-        else: st.info("Ainda não há MRP salvo no banco compartilhado.")
-    except Exception as e: st.warning(f"Não foi possível carregar o histórico: {e}")
+        render_consulta_view()
+    except Exception as e:
+        st.error(f"Não foi possível carregar a consulta: {e}")
     st.stop()
 
 if not all([cadastro_file,estoque_file,geral_file,compras_file,mt_file]):

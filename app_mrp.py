@@ -9,9 +9,6 @@ from datetime import date, timedelta
 
 st.set_page_config(page_title="MRP | SETTA", page_icon="📦", layout="wide")
 
-if not _require_login():
-    st.stop()
-
 def num(s): return pd.to_numeric(s, errors="coerce")
 def col_by_pos(df,pos,name):
     if df.shape[1]<=pos: raise ValueError(f"A base MRP_TC_TP não possui a coluna {name} na posição esperada.")
@@ -119,6 +116,9 @@ def _require_login():
             except Exception as e:
                 st.error(f"Não foi possível entrar: {e}")
     return False
+
+if not _require_login():
+    st.stop()
 
 def _sb_headers():
     token = st.session_state.get("auth_access_token") or SUPABASE_KEY

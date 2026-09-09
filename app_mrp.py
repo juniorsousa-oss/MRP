@@ -19,6 +19,31 @@ def excel_bytes(sheets):
         for name,df in sheets.items(): df.to_excel(writer,sheet_name=name[:31],index=False)
     bio.seek(0); return bio.getvalue()
 def csv_bytes(df): return df.to_csv(index=False,sep=";",decimal=",").encode("utf-8-sig")
+def normalizar_compra_mrp(df):
+    """Formato oficial da Compra MRP, identico no ADMIN e no CONSULTA."""
+    cols=["produto","qnt","data","psy","cc","op","obs","prioridade"]
+    out=df.copy() if df is not None else pd.DataFrame()
+    for c in cols:
+        if c not in out.columns: out[c]=""
+    if "produto" in out.columns:
+        def fmt_produto(x):
+            if pd.isna(x) or str(x).strip()=="": return ""
+            txt=str(x).strip()
+            try:
+                txt=str(int(float(txt)))
+            except Exception:
+                pass
+            return txt.zfill(8)
+        out["produto"]=out["produto"].apply(fmt_produto)
+    if "qnt" in out.columns:
+        out["qnt"]=pd.to_numeric(out["qnt"],errors="coerce").fillna(0)
+        out["qnt"]=out["qnt"].apply(lambda x:int(x) if float(x).is_integer() else float(x))
+    if "data" in out.columns:
+        out["data"]=out["data"].apply(formatar_data_br)
+    for c in ["psy","cc","op","obs","prioridade"]:
+        out[c]=out[c].fillna("").astype(str).str.replace(r"\.0$","",regex=True).str.strip()
+    return out[cols].reset_index(drop=True)
+
 def zip_bytes(files):
     bio=BytesIO()
     with ZipFile(bio,"w",ZIP_DEFLATED) as z:
@@ -244,7 +269,7 @@ def render_consulta_view():
     mg = snapshot_df(snap, "mrp_geral").copy()
     proj = snapshot_df(snap, "projecao_semanal").copy()
     dem = snapshot_df(snap, "demanda_projeto").copy()
-    comp = snapshot_df(snap, "compra_mrp").copy()
+    comp = normalizar_compra_mrp(snapshot_df(snap, "compra_mrp"))
     compras = snapshot_df(snap, "compras").copy()
 
     # Espelho do ADMIN: snapshots antigos podem não ter o campo Período da Semana.
@@ -355,7 +380,8 @@ def render_consulta_view():
     c1.download_button("BAIXAR TODOS — EXCEL", data=excel_bytes(sheets), file_name="MRP_Consulta.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
     c2.download_button("BAIXAR TODOS — ZIP/CSV", data=zip_bytes({f"{k}.csv": csv_bytes(v) for k,v in sheets.items()}), file_name="MRP_Consulta_CSV.zip", mime="application/zip", use_container_width=True)
     c3.download_button("BAIXAR MRP GERAL — CSV", data=csv_bytes(mg), file_name="MRP_Geral.csv", mime="text/csv", use_container_width=True)
-    c4.download_button("BAIXAR COMPRA MRP", data=csv_bytes(comp), file_name="Compra_MRP.csv", mime="text/csv", use_container_width=True)
+    compra_excel_consulta = excel_bytes({"Compra_MRP": comp})
+    c4.download_button("BAIXAR COMPRA MRP", data=compra_excel_consulta, file_name="Compra_MRP.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
 
 def load_sources(cb,eb,gb,pb,mb):
@@ -539,12 +565,13 @@ with tab2:
     if semana_filtro: d=d[d["Semana de Necessidade"].isin(semana_filtro)]
     st.dataframe(d,use_container_width=True,height=600,hide_index=True)
 st.divider(); st.subheader("Exportação de relatórios"); st.caption("Os relatórios são exportados com os mesmos dados calculados na tela.")
+compras_mrp_export=normalizar_compra_mrp(compras_mrp)
 export_macro=macro[macro_cols].sort_values(["Status","Código"],key=lambda s:s.map({"CRIAR S.C.":0,"OK":1}).fillna(2) if s.name=="Status" else s).copy(); export_proj=proj.copy()
 if len(export_proj): export_proj["Período da Semana"]=export_proj["Semana"].apply(periodo_semana)
 export_proj=export_proj[["Código","Descrição","Tipo","Semana","Período da Semana","Saldo Inicial","Demanda","P.C.","S.C.","Produzindo","Resumo Final"]].sort_values(["Código","Semana"])
-sheets={"MRP_Geral":export_macro,"Projecao_Semanal":export_proj,"Demanda_Projeto":demanda_projeto,"Compra_MRP":compras_mrp,"Compras":cp,"Fabricacao":fab_det,"Cadastro_Base":cad}
+sheets={"MRP_Geral":export_macro,"Projecao_Semanal":export_proj,"Demanda_Projeto":demanda_projeto,"Compra_MRP":compras_mrp_export,"Compras":cp,"Fabricacao":fab_det,"Cadastro_Base":cad}
 excel_data=excel_bytes(sheets); zip_data=zip_bytes({name+".csv":csv_bytes(df) for name,df in sheets.items()})
-compra_excel_data=excel_bytes({"Compra_MRP":compras_mrp})
+compra_excel_data=excel_bytes({"Compra_MRP":compras_mrp_export})
 compra_csv_data=csv_bytes(compras_mrp)
 b1,b2,b3,b4=st.columns(4)
 with b1: st.download_button("BAIXAR TODOS — EXCEL",excel_data,"MRP_Relatorios_Completos.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)

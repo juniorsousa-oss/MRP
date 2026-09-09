@@ -100,7 +100,7 @@ def calcular_demanda_projeto(df):
     for code,rows in df.groupby("Produto",sort=False):
         rows=rows.sort_values(["Semana de Necessidade","Projeto"]).copy(); estoque_restante=float(stock_pool.get(int(code),0.0)); pc_pool=[{"qty":float(r["Quantidade P.C."]),"week":r["Semana P.C."]} for _,r in cp[(cp["Código"]==int(code))&(cp["Quantidade P.C."]>0)].sort_values("Semana P.C.",na_position="last").iterrows()]; fab_pool=[{"qty":1.0,"week":r["Semana Entrega"]} for _,r in op[op["Código Produto"]==int(code)].sort_values("Semana Entrega",na_position="last").iterrows()]; sc_pool=[{"qty":float(r["Quantidade S.C."]),"week":r["Semana S.C."]} for _,r in cp[(cp["Código"]==int(code))&(cp["Quantidade S.C."]>0)].sort_values("Semana S.C.",na_position="last").iterrows()]
         for _,r in rows.iterrows():
-            necessidade=float(r["Necessidade"]); restante=necessidade; saldo_estoque_inicial=estoque_restante; usados={"Estoque":0.0,"P.C.":0.0,"Fabricação":0.0,"S.C.":0.0}; ultima_semana=None; acoes=[]
+            necessidade=float(r["Necessidade"]); restante=necessidade; saldo_estoque_inicial=estoque_restante; pc_inicial=sum(item["qty"] for item in pc_pool); fab_inicial=sum(item["qty"] for item in fab_pool); sc_inicial=sum(item["qty"] for item in sc_pool); usados={"Estoque":0.0,"P.C.":0.0,"Fabricação":0.0,"S.C.":0.0}; ultima_semana=None; acoes=[]
             if restante>1e-9 and estoque_restante>1e-9:
                 take=min(restante,estoque_restante); estoque_restante-=take; restante-=take; usados["Estoque"]+=take; ultima_semana=semana_atual; acoes.append(f"Estoque {take:g}")
             for pool,key,label in [(pc_pool,"P.C.","P.C."),(fab_pool,"Fabricação","Fabricação"),(sc_pool,"S.C.","S.C.")]:
@@ -112,7 +112,7 @@ def calcular_demanda_projeto(df):
             if restante>1e-9:
                 semana_criacao=int(r["Semana de Necessidade"]); acoes.append(f"CRIAR S.C. {restante:g} para semana {semana_criacao}"); semana_atendimento="NN"
             else: semana_atendimento="A definir" if ultima_semana is None else str(int(float(ultima_semana)))
-            out.append({"Projeto":r["Projeto"],"Produto":int(code),"Descrição":r["Descrição"],"Última Solicitação":r["Última Solicitação"],"Data CM":r["Data CM"],"Semana de Necessidade":int(r["Semana de Necessidade"]),"Semana de Atendimento":semana_atendimento,"Necessidade":necessidade,"Estoque":saldo_estoque_inicial,"Pré Nota":float(pre_nota_map.get(int(code),0.0)),"P.C.":usados["P.C."],"Fabricação":usados["Fabricação"],"S.C.":usados["S.C."],"Ação":"; ".join(acoes) if acoes else "OK"})
+            out.append({"Projeto":r["Projeto"],"Produto":int(code),"Descrição":r["Descrição"],"Última Solicitação":r["Última Solicitação"],"Data CM":r["Data CM"],"Semana de Necessidade":int(r["Semana de Necessidade"]),"Semana de Atendimento":semana_atendimento,"Necessidade":necessidade,"Estoque":saldo_estoque_inicial,"Pré Nota":float(pre_nota_map.get(int(code),0.0)),"P.C.":pc_inicial,"Fabricação":fab_inicial,"S.C.":sc_inicial,"Ação":"; ".join(acoes) if acoes else "OK"})
     return pd.DataFrame(out)[cols].sort_values(["Produto","Semana de Necessidade","Projeto"]).reset_index(drop=True)
 demanda_projeto=calcular_demanda_projeto(demanda_projeto_base)
 # Lista de compras: somente demandas de projeto que não normalizam e exigem nova S.C.

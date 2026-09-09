@@ -1,0 +1,28 @@
+name: Corrigir sintaxe do login
+on: [push]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Corrigir CSS
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app_mrp.py')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('.setta-login-image { transform:translateY(-5cm) !important; }', '.setta-login-image { transform:translateY(-5cm) !important; }')
+          p.write_text(s,encoding='utf-8')
+          PY
+          python -m py_compile app_mrp.py
+      - name: Commitar e remover
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app_mrp.py
+          git commit -m 'Corrigir sintaxe da tela de login'
+          git rm .github/workflows/corrigir-login-sintaxe.yml
+          git commit -m 'Remover workflow temporario'
+          git push

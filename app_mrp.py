@@ -188,7 +188,7 @@ def _require_login(login_cfg):
       .setta-login-subtitle {{ color:#777 !important; opacity:1 !important; font-size:6.5px !important; line-height:9px !important; margin:7px auto 0 !important; max-width:205px !important; }}
       .setta-login-form-note {{ display:none !important; }}
       div[data-testid="stForm"] {{
-        position:fixed !important; left:50% !important; top:calc(40% + 0px) !important; transform:translateX(-50%) !important;
+        position:fixed !important; left:50% !important; top:calc(40% + 40px) !important; transform:translateX(-50%) !important;
         width:286px !important; height:170px !important; margin:0 !important; padding:0 20px 14px !important;
         box-sizing:border-box !important; background:transparent !important; border:0 !important;
         border-radius:0 !important; box-shadow:none !important; z-index:20 !important;

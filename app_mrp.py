@@ -72,7 +72,7 @@ SUPABASE_KEY="sb_publishable_ZTqIgmA9Ez6AVQsoXa0P8Q_6CYHDFye"
 
 LOGIN_DEFAULT_CONFIG = {
     "login_image_data": "",
-    "login_image_height": 210,
+    "login_image_height": 135,
     "app_title": "MRP | SETTA",
     "objective": "Planejamento de necessidades de materiais e acompanhamento da demanda.",
     "color_primary": "#1F4E78",
@@ -150,7 +150,7 @@ def _require_login(login_cfg):
     objective = str(login_cfg.get("objective") or LOGIN_DEFAULT_CONFIG["objective"])
     image = str(login_cfg.get("login_image_data") or "")
     try:
-        image_height = max(140, min(300, int(login_cfg.get("login_image_height") or 210)))
+        image_height = max(100, min(240, int(login_cfg.get("login_image_height") or 135)))
     except Exception:
         image_height = 210
     image_html = (
@@ -169,10 +169,10 @@ def _require_login(login_cfg):
       .setta-login-image-empty {{ display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; letter-spacing:.12em; }}
       .setta-login-image-empty div {{ font-size: 2.7rem; font-weight: 800; line-height:1; }}
       .setta-login-image-empty span {{ font-size: .9rem; margin-top: 8px; opacity:.88; }}
-      .setta-login-heading {{ text-align:center; padding: 24px 28px 4px; }}
-      .setta-login-title {{ color:{title_color}; font-size:1.55rem; font-weight:800; margin:0; }}
+      .setta-login-heading {{ text-align:center; padding: 18px 28px 7px; }}
+      .setta-login-title {{ color:{title_color}; font-size:1.4rem; font-weight:800; margin:0; }}
       .setta-login-subtitle {{ color:{text}; opacity:.68; font-size:.88rem; margin-top:6px; }}
-      .setta-login-form-note {{ text-align:center; color:{text}; opacity:.62; font-size:.78rem; margin: 0 0 10px; }}
+      .setta-login-form-note {{ text-align:center; color:{text}; opacity:.62; font-size:.78rem; margin: 2px 0 8px; }}
       div[data-testid="stForm"] {{ width:min(430px,92vw); margin:0 auto; background:#fff; border:0 !important; box-shadow:none !important; padding: 12px 28px 24px !important; }}
       div[data-testid="stForm"] label {{ color:{text} !important; font-weight:600 !important; }}
       div[data-testid="stForm"] input {{ border-radius: 12px !important; border:1px solid rgba(31,78,120,.20) !important; min-height:44px !important; }}
@@ -270,7 +270,7 @@ DEFAULT_UI_CONFIG = {
     "logo_data": "",
     "logo_width": 220,
     "login_image_data": "",
-    "login_image_height": 210,
+    "login_image_height": 135,
     "app_title": "MRP | SETTA",
     "objective": "Planejamento de necessidades de materiais e acompanhamento da demanda.",
     "title_demanda_geral": "DEMANDA GERAL",
@@ -373,7 +373,7 @@ def _render_visual_settings(cfg):
             remover_login_image = st.checkbox("Remover imagem da tela de login", key="ui_remove_login_image")
         else:
             remover_login_image = False
-        login_image_height = st.slider("Altura da imagem do login", min_value=140, max_value=300, value=max(140, min(300, int(cfg.get("login_image_height") or 210))), step=10)
+        login_image_height = st.slider("Altura da imagem do login", min_value=100, max_value=240, value=max(100, min(240, int(cfg.get("login_image_height") or 135))), step=10)
 
         st.markdown("**TEXTOS E ORIENTAÇÕES**")
         text_specs = [
@@ -474,6 +474,7 @@ def _apply_visual_theme(cfg):
       .setta-brand-center {{ grid-column: 2; text-align: center; }}
       .setta-brand-title {{ color: var(--setta-title); font-size: 2rem; font-weight: 750; line-height: 1.15; margin: 0; }}
       .setta-brand-objective {{ color: var(--setta-text); font-size: .95rem; line-height: 1.5; margin-top: 7px; opacity: .82; }}
+      .setta-main-description { margin-top: -10px; margin-bottom: 12px; color: var(--setta-text); opacity: .78; font-size: .9rem; }
       div.stButton > button[kind="primary"], div.stDownloadButton > button {{ background: var(--setta-primary) !important; border-color: var(--setta-primary) !important; color: #fff !important; }}
       div[data-baseweb="tab-list"] button[aria-selected="true"] {{ color: var(--setta-primary) !important; border-bottom-color: var(--setta-primary) !important; }}
       div[data-testid="stMetricValue"] {{ color: var(--setta-primary); }}
@@ -743,7 +744,7 @@ def load_sources(cb,eb,gb,pb,mb):
 
 st.title(UI_CONFIG["section_main_title"])
 if UI_CONFIG.get("section_main_description"):
-    st.caption(UI_CONFIG["section_main_description"])
+    st.markdown(f'<div class="setta-main-description">{UI_CONFIG["section_main_description"]}</div>', unsafe_allow_html=True)
 with st.sidebar:
     st.header("Acesso")
     st.success(f"{st.session_state.get('auth_nome','Usuário')} — {st.session_state.get('auth_role','')}")

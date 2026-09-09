@@ -2,7 +2,7 @@ name: Apply CONSULTA patch
 on:
   push:
     paths:
-      - 'patch_consulta.py'
+      - '.github/workflows/apply-consulta-patch.yml'
   workflow_dispatch:
 permissions:
   contents: write
@@ -13,6 +13,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Restore patch script from known-good commit
+        run: git checkout ac2994eb0af342876abdc19c01bae8e87d18727c -- patch_consulta.py
       - name: Apply patch
         run: |
           python patch_consulta.py

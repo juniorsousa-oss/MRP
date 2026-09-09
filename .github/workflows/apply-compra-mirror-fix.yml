@@ -1,0 +1,26 @@
+name: Apply Compra MRP mirror fix
+on:
+  push:
+    paths:
+      - patch_compra_mirror.py
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply patch
+        run: python patch_compra_mirror.py
+      - name: Validate syntax
+        run: python -m py_compile app_mrp.py
+      - name: Commit app change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app_mrp.py
+          git diff --cached --quiet || git commit -m 'fix: mirror Compra MRP export in CONSULTA'
+          git push

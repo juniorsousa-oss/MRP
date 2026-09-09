@@ -1,0 +1,25 @@
+name: Ajustar login final
+on:
+  push:
+    paths:
+      - '.github/workflows/ajuste-login-final.yml'
+permissions:
+  contents: write
+jobs:
+  ajuste:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar ajuste
+        run: python .github/scripts/patch_login.py
+      - name: Validar
+        run: python -m py_compile app_mrp.py
+      - name: Commitar e limpar
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app_mrp.py
+          git commit -m 'Reproduzir tela de login da referencia'
+          git rm .github/workflows/ajuste-login-final.yml .github/scripts/patch_login.py
+          git commit -m 'Remover arquivos temporarios do ajuste de login'
+          git push

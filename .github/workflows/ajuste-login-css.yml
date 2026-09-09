@@ -1,0 +1,53 @@
+name: Ajustar CSS do login
+on: [push]
+permissions:
+  contents: write
+jobs:
+  ajuste:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ajustar visual do login
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app_mrp.py')
+          s=p.read_text(encoding='utf-8')
+          reps={
+          '      .stApp { background: linear-gradient(135deg, {background} 0%, #ffffff 52%, {background} 100%) !important; color: {text} !important; }':'      .stApp { background: #ffffff !important; color: {text} !important; }',
+          '      .block-container { max-width: 100%; padding-top: 2.2rem !important; padding-bottom: 1.5rem !important; }':'      .block-container { max-width: 100% !important; min-height: 100vh !important; padding: 0 !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; }',
+          '      .setta-login-wrap { width: min(430px, 92vw); margin: 0 auto; border-radius: 18px; overflow: hidden; background: #ffffff; box-shadow: 0 16px 45px rgba(15,23,42,.18); border: 1px solid rgba(15,23,42,.10); }':'      .setta-login-wrap { width: 286px !important; height: 260px !important; box-sizing: border-box !important; margin: 0 auto !important; border-radius: 28px 28px 0 0 !important; overflow: hidden !important; background: #ffffff !important; box-shadow: 0 16px 38px rgba(0,0,0,.14) !important; border: 1px solid rgba(0,0,0,.12) !important; border-bottom: 0 !important; }',
+          '      .setta-login-image { height: {image_height}px; overflow: hidden; background: #ffffff; display:flex; align-items:center; justify-content:center; padding: 6px 18px; box-sizing:border-box; }':'      .setta-login-image { height: 105px !important; overflow: hidden !important; background: #ffffff !important; display:flex !important; align-items:center !important; justify-content:center !important; padding: 6px 18px !important; box-sizing:border-box !important; }',
+          '      .setta-login-image img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }':'      .setta-login-image img { width: auto !important; max-width: 185px !important; height: auto !important; max-height: 78px !important; object-fit: contain !important; object-position: center !important; display: block !important; }',
+          '      .setta-login-heading { text-align:center; padding: 18px 28px 7px; }':'      .setta-login-heading { text-align:center; padding: 0 22px 0 !important; }',
+          '      .setta-login-title { color:{title_color}; font-size:1.4rem; font-weight:800; margin:0; }':'      .setta-login-title { color:#111 !important; font-size:14px !important; line-height:17px !important; font-weight:800 !important; margin:0 !important; }',
+          '      .setta-login-subtitle { color:{text}; opacity:.68; font-size:.88rem; margin-top:6px; }':'      .setta-login-subtitle { color:#777 !important; opacity:1 !important; font-size:6.5px !important; line-height:9px !important; margin:7px auto 0 !important; max-width:205px !important; }',
+          '      .setta-login-form-note { text-align:center; color:{text}; opacity:.62; font-size:.78rem; margin: 2px 0 8px; }':'      .setta-login-form-note { display:none !important; }',
+          '      div[data-testid="stForm"] { width:min(430px,92vw); margin:0 auto; background:#fff; border:0 !important; box-shadow:none !important; padding: 12px 28px 24px !important; }':'      div[data-testid="stForm"] { width:286px !important; box-sizing:border-box !important; margin:0 auto !important; background:#fff !important; border:1px solid rgba(0,0,0,.12) !important; border-top:0 !important; border-radius:0 0 28px 28px !important; box-shadow:0 16px 38px rgba(0,0,0,.14) !important; padding:0 22px 25px !important; }',
+          '      div[data-testid="stForm"] label { color:{text} !important; font-weight:600 !important; }':'      div[data-testid="stForm"] label { color:#202020 !important; font-size:9px !important; line-height:12px !important; font-weight:600 !important; margin-bottom:2px !important; }',
+          '      div[data-testid="stForm"] input { border-radius: 12px !important; border:1px solid rgba(31,78,120,.20) !important; min-height:44px !important; }':'      div[data-testid="stForm"] input { height:29px !important; min-height:29px !important; box-sizing:border-box !important; padding:0 10px !important; border-radius:6px !important; border:1px solid #d8dde5 !important; background:#f0f2f6 !important; color:#202020 !important; font-size:8px !important; }',
+          '      div[data-testid="stForm"] input:focus { border-color:{primary} !important; box-shadow:0 0 0 2px rgba(31,78,120,.10) !important; }':'      div[data-testid="stForm"] input:focus { border-color:#b8bec8 !important; box-shadow:none !important; }',
+          '      div[data-testid="stForm"] button { border-radius:12px !important; min-height:44px !important; background:{primary} !important; border-color:{primary} !important; color:#fff !important; font-weight:750 !important; }':'      div[data-testid="stForm"] button { height:29px !important; min-height:29px !important; margin-top:3px !important; border-radius:7px !important; background:#050505 !important; border:1px solid #050505 !important; color:#fff !important; font-size:8px !important; font-weight:700 !important; }',
+          '      div[data-testid="stForm"] button:hover { filter:brightness(.94); }':'      div[data-testid="stForm"] button:hover { background:#171717 !important; border-color:#171717 !important; }'
+          }
+          missing=[]
+          for a,b in reps.items():
+              if a not in s: missing.append(a)
+              s=s.replace(a,b)
+          if missing: raise SystemExit(f'CSS alvo nao encontrado: {len(missing)}')
+          marker='      div[data-testid="stForm"] button:hover { background:#171717 !important; border-color:#171717 !important; }'
+          extra='''\n      div[data-testid="stForm"] [data-testid="stTextInput"] { margin-bottom:7px !important; }\n      div[data-testid="stForm"] input::placeholder { color:#a6adb8 !important; opacity:1 !important; }'''
+          s=s.replace(marker,marker+extra,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar Python
+        run: python -m py_compile app_mrp.py
+      - name: Commitar e remover workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app_mrp.py
+          git commit -m "Ajustar login conforme referencia visual" || true
+          git rm .github/workflows/ajuste-login-css.yml
+          git commit -m "Remover workflow temporario do login"
+          git push

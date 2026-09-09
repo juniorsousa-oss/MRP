@@ -170,8 +170,8 @@ def _require_login(login_cfg):
         border-radius:28px !important; box-shadow:0 16px 42px rgba(0,0,0,.16) !important;
         overflow:visible !important; z-index:10 !important;
       }}
-      .setta-login-image { transform:translateY(-5cm) !important; }
-      .setta-login-heading { transform:translateY(-5cm) !important; }
+
+
       .setta-login-image {{
         width:100% !important; height:135px !important; overflow:hidden !important; background:transparent !important;
         display:flex !important; align-items:flex-end !important; justify-content:center !important;

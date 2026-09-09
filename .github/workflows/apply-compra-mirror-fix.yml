@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - patch_compra_mirror.py
+      - .github/workflows/apply-compra-mirror-fix.yml
 jobs:
   patch:
     runs-on: ubuntu-latest

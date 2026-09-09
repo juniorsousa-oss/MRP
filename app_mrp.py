@@ -267,7 +267,8 @@ if st.session_state.get("auth_role") == "CONSULTA":
         if snap:
             st.success(f"Último MRP compartilhado: semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
             st.dataframe(snapshot_df(snap,"mrp_geral"),use_container_width=True,hide_index=True)
-            render_mrp_history()
+            if st.session_state.get("auth_role") == "ADMIN":
+                render_mrp_history()
         else: st.info("Ainda não há MRP salvo no banco compartilhado.")
     except Exception as e: st.warning(f"Não foi possível carregar o histórico: {e}")
     st.stop()
@@ -280,7 +281,8 @@ if not all([cadastro_file,estoque_file,geral_file,compras_file,mt_file]):
             st.success(f"Último MRP compartilhado: semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
             latest_df=snapshot_df(snap,"mrp_geral")
             st.dataframe(latest_df,use_container_width=True,hide_index=True)
-            render_mrp_history()
+            if st.session_state.get("auth_role") == "ADMIN":
+                render_mrp_history()
         else: st.info("Ainda não há MRP salvo no banco compartilhado.")
     except Exception as e: st.warning(f"Não foi possível carregar o último MRP: {e}")
     st.stop()
@@ -430,4 +432,5 @@ with b4: st.download_button("BAIXAR COMPRA MRP",compra_excel_data,"Compra_MRP.xl
 if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns) que não normalizam na Demanda por Projeto e exigem nova S.C.")
 else: st.caption("Nenhum item da Demanda por Projeto exige nova S.C. no momento.")
 st.divider()
-render_mrp_history()
+if st.session_state.get("auth_role") == "ADMIN":
+    render_mrp_history()

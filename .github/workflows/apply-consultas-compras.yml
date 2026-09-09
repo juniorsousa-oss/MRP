@@ -1,8 +1,6 @@
 name: Apply compras consultation patch
 on:
   push:
-    paths:
-      - 'patch_consultas_compras.py'
 jobs:
   patch:
     runs-on: ubuntu-latest

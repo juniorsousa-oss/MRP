@@ -9,3 +9,4 @@ if old not in text:
 text = text.replace(old, new, 1)
 path.write_text(text, encoding="utf-8")
 print("Correção aplicada: Produzindo agora considera apenas 1 ocorrência por ORDEM DE PRODUÇÃO + CÓDIGO PRODUTO.")
+# trigger workflow after workflow file exists

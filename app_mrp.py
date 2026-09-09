@@ -72,7 +72,7 @@ SUPABASE_KEY="sb_publishable_ZTqIgmA9Ez6AVQsoXa0P8Q_6CYHDFye"
 
 LOGIN_DEFAULT_CONFIG = {
     "login_image_data": "",
-    "login_image_height": 135,
+    "login_image_height": 110,
     "app_title": "MRP | SETTA",
     "objective": "Planejamento de necessidades de materiais e acompanhamento da demanda.",
     "color_primary": "#1F4E78",
@@ -150,7 +150,7 @@ def _require_login(login_cfg):
     objective = str(login_cfg.get("objective") or LOGIN_DEFAULT_CONFIG["objective"])
     image = str(login_cfg.get("login_image_data") or "")
     try:
-        image_height = max(100, min(240, int(login_cfg.get("login_image_height") or 135)))
+        image_height = max(80, min(200, int(login_cfg.get("login_image_height") or 110)))
     except Exception:
         image_height = 210
     image_html = (
@@ -164,8 +164,8 @@ def _require_login(login_cfg):
       [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"] {{ display: none !important; }}
       .block-container {{ max-width: 100%; padding-top: 2.2rem !important; padding-bottom: 1.5rem !important; }}
       .setta-login-wrap {{ width: min(430px, 92vw); margin: 0 auto; border-radius: 18px; overflow: hidden; background: #ffffff; box-shadow: 0 16px 45px rgba(15,23,42,.18); border: 1px solid rgba(15,23,42,.10); }}
-      .setta-login-image {{ height: {image_height}px; overflow: hidden; background: linear-gradient(135deg, {primary}, {title_color}); }}
-      .setta-login-image img {{ width: 100%; height: 100%; object-fit: cover; display: block; }}
+      .setta-login-image {{ height: {image_height}px; overflow: hidden; background: #ffffff; display:flex; align-items:center; justify-content:center; padding: 6px 18px; box-sizing:border-box; }}
+      .setta-login-image img {{ width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; }}
       .setta-login-image-empty {{ display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; letter-spacing:.12em; }}
       .setta-login-image-empty div {{ font-size: 2.7rem; font-weight: 800; line-height:1; }}
       .setta-login-image-empty span {{ font-size: .9rem; margin-top: 8px; opacity:.88; }}
@@ -373,7 +373,7 @@ def _render_visual_settings(cfg):
             remover_login_image = st.checkbox("Remover imagem da tela de login", key="ui_remove_login_image")
         else:
             remover_login_image = False
-        login_image_height = st.slider("Altura da imagem do login", min_value=100, max_value=240, value=max(100, min(240, int(cfg.get("login_image_height") or 135))), step=10)
+        login_image_height = st.slider("Altura da imagem do login", min_value=80, max_value=200, value=max(100, min(240, int(cfg.get("login_image_height") or 135))), step=10)
 
         st.markdown("**TEXTOS E ORIENTAÇÕES**")
         text_specs = [

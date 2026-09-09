@@ -1,0 +1,70 @@
+name: Apply MRP authentication
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'Apply MRP role-based authentication'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch app_mrp.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('app_mrp.py')
+          s = p.read_text(encoding='utf-8')
+
+          s = s.replace('import hashlib\n', 'import hashlib\n')
+
+          marker = 'SUPABASE_KEY="sb_publishable_ZTqIgmA9Ez6AVQsoXa0P8Q_6CYHDFye"\n\n'
+          auth = '''SUPABASE_KEY="sb_publishable_ZTqIgmA9Ez6AVQsoXa0P8Q_6CYHDFye"\n\n# =========================================================\n# AUTENTICAÇÃO E PERFIS — SUPABASE AUTH\n# ADMIN = pode carregar/processar/salvar MRP\n# CONSULTA = somente consulta/histórico\n# =========================================================\ndef _auth_headers(token=None):\n    return {\n        "apikey": SUPABASE_KEY,\n        "Authorization": f"Bearer {token or SUPABASE_KEY}",\n        "Content-Type": "application/json",\n    }\n\ndef _login_supabase(email, password):\n    r = requests.post(\n        f"{SUPABASE_URL}/auth/v1/token?grant_type=password",\n        headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},\n        json={"email": email, "password": password},\n        timeout=20,\n    )\n    if r.status_code >= 400:\n        try: msg = r.json().get("error_description") or r.json().get("msg") or "Login inválido"\n        except Exception: msg = "Login inválido"\n        raise ValueError(msg)\n    return r.json()\n\ndef _load_my_role(access_token, user_id):\n    r = requests.get(\n        f"{SUPABASE_URL}/rest/v1/user_roles",\n        headers=_auth_headers(access_token),\n        params={"select":"user_id,nome,role", "user_id":f"eq.{user_id}", "limit":"1"},\n        timeout=20,\n    )\n    r.raise_for_status()\n    rows = r.json()\n    return rows[0] if rows else None\n\ndef _logout():\n    for k in ["auth_access_token", "auth_refresh_token", "auth_user_id", "auth_email", "auth_nome", "auth_role"]:\n        st.session_state.pop(k, None)\n    st.rerun()\n\ndef _require_login():\n    if st.session_state.get("auth_access_token") and st.session_state.get("auth_role") in {"ADMIN", "CONSULTA"}:\n        return True\n    st.title("MRP — SETTA")\n    st.subheader("Acesso ao sistema")\n    with st.form("login_form", clear_on_submit=False):\n        email = st.text_input("E-mail")\n        password = st.text_input("Senha", type="password")\n        entrar = st.form_submit_button("ENTRAR", use_container_width=True)\n    if entrar:\n        if not email.strip() or not password:\n            st.error("Informe e-mail e senha.")\n        else:\n            try:\n                auth = _login_supabase(email.strip(), password)\n                user = auth.get("user") or {}\n                token = auth.get("access_token")\n                role = _load_my_role(token, user.get("id")) if token and user.get("id") else None\n                if not role or role.get("role") not in {"ADMIN", "CONSULTA"}:\n                    st.error("Usuário autenticado, mas sem perfil autorizado no MRP.")\n                else:\n                    st.session_state["auth_access_token"] = token\n                    st.session_state["auth_refresh_token"] = auth.get("refresh_token")\n                    st.session_state["auth_user_id"] = user.get("id")\n                    st.session_state["auth_email"] = user.get("email", email.strip())\n                    st.session_state["auth_nome"] = role.get("nome") or user.get("email", "")\n                    st.session_state["auth_role"] = role.get("role")\n                    st.rerun()\n            except Exception as e:\n                st.error(f"Não foi possível entrar: {e}")\n    return False\n\n'''
+          if marker not in s:
+              raise SystemExit('Marcador Supabase não encontrado')
+          if 'def _require_login():' not in s:
+              s = s.replace(marker, auth, 1)
+
+          s = s.replace('def _sb_headers():\n    return {"apikey":SUPABASE_KEY,"Authorization":f"Bearer {SUPABASE_KEY}","Content-Type":"application/json"}\n', 'def _sb_headers():\n    token = st.session_state.get("auth_access_token") or SUPABASE_KEY\n    return _auth_headers(token)\n', 1)
+
+          old = 'st.set_page_config(page_title="MRP | SETTA", page_icon="📦", layout="wide")\n\n'
+          new = old + 'if not _require_login():\n    st.stop()\n\n'
+          if 'if not _require_login():' not in s:
+              s = s.replace(old, new, 1)
+
+          old_sidebar = '''with st.sidebar:\n    st.header("Bases do MRP"); cadastro_file=st.file_uploader("1. CADASTROS",type=["xlsx","xlsm","xltx"]); estoque_file=st.file_uploader("2. Estoque_Tratado",type=["xlsx","xlsm"]); geral_file=st.file_uploader("3. RelatorioGeral_Tratado",type=["xlsx","xlsm"]); compras_file=st.file_uploader("4. Compras_Tratado",type=["xlsx","xlsm"]); mt_file=st.file_uploader("5. MRP_TC_TP_Tratado",type=["xlsx","xlsm"]); usuario_mrp=st.text_input("Usuário responsável pelo MRP",value="",placeholder="Nome do responsável")\n'''
+          new_sidebar = '''with st.sidebar:\n    st.header("Acesso")\n    st.success(f"{st.session_state.get('auth_nome','Usuário')} — {st.session_state.get('auth_role','')}")\n    if st.button("SAIR", use_container_width=True):\n        _logout()\n    st.divider()\n    if st.session_state.get("auth_role") == "ADMIN":\n        st.header("Bases do MRP")\n        cadastro_file=st.file_uploader("1. CADASTROS",type=["xlsx","xlsm","xltx"])\n        estoque_file=st.file_uploader("2. Estoque_Tratado",type=["xlsx","xlsm"])\n        geral_file=st.file_uploader("3. RelatorioGeral_Tratado",type=["xlsx","xlsm"])\n        compras_file=st.file_uploader("4. Compras_Tratado",type=["xlsx","xlsm"])\n        mt_file=st.file_uploader("5. MRP_TC_TP_Tratado",type=["xlsx","xlsm"])\n        usuario_mrp=st.text_input("Usuário responsável pelo MRP",value=st.session_state.get("auth_nome", ""),placeholder="Nome do responsável")\n    else:\n        cadastro_file=estoque_file=geral_file=compras_file=mt_file=None\n        usuario_mrp=st.session_state.get("auth_nome", "")\n'''
+          if old_sidebar not in s:
+              raise SystemExit('Bloco sidebar não encontrado')
+          s = s.replace(old_sidebar, new_sidebar, 1)
+
+          old_no_upload = '''if not all([cadastro_file,estoque_file,geral_file,compras_file,mt_file]):\n    st.info("Envie as 5 planilhas tratadas para calcular um novo MRP. Sem upload, o último MRP salvo fica disponível para consulta e comparação.")\n'''
+          new_no_upload = '''if st.session_state.get("auth_role") == "CONSULTA":\n    st.info("Modo CONSULTA: os dados abaixo são somente para visualização. Upload e gravação de MRP estão bloqueados.")\n    try:\n        snap=load_latest_snapshot()\n        if snap:\n            st.success(f"Último MRP compartilhado: semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")\n            st.dataframe(snapshot_df(snap,"mrp_geral"),use_container_width=True,hide_index=True)\n            render_mrp_history()\n        else: st.info("Ainda não há MRP salvo no banco compartilhado.")\n    except Exception as e: st.warning(f"Não foi possível carregar o histórico: {e}")\n    st.stop()\n\nif not all([cadastro_file,estoque_file,geral_file,compras_file,mt_file]):\n    st.info("Envie as 5 planilhas tratadas para calcular um novo MRP. O último MRP salvo fica disponível para consulta e comparação.")\n'''
+          if old_no_upload not in s:
+              raise SystemExit('Bloco sem upload não encontrado')
+          s = s.replace(old_no_upload, new_no_upload, 1)
+
+          old_save = '''try:\n    _mrp_sig=hashlib.sha256(b"".join([f.getvalue() for f in [cadastro_file,estoque_file,geral_file,compras_file,mt_file]])).hexdigest()\n    if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:\n        save_snapshot(semana_atual,usuario_mrp,macro,proj,demanda_projeto,compras_mrp)\n        st.session_state["_mrp_saved_sig"]=_mrp_sig\n        st.success("MRP salvo no histórico compartilhado.")\nexcept Exception as _save_err:\n    st.warning(f"O MRP foi calculado, mas não foi possível salvar o histórico compartilhado: {_save_err}")\n'''
+          new_save = '''if st.session_state.get("auth_role") == "ADMIN":\n    try:\n        _mrp_sig=hashlib.sha256(b"".join([f.getvalue() for f in [cadastro_file,estoque_file,geral_file,compras_file,mt_file]])).hexdigest()\n        if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:\n            save_snapshot(semana_atual,usuario_mrp,macro,proj,demanda_projeto,compras_mrp)\n            st.session_state["_mrp_saved_sig"]=_mrp_sig\n            st.success("MRP salvo no histórico compartilhado.")\n    except Exception as _save_err:\n        st.warning(f"O MRP foi calculado, mas não foi possível salvar o histórico compartilhado: {_save_err}")\n'''
+          if old_save not in s:
+              raise SystemExit('Bloco de salvamento não encontrado')
+          s = s.replace(old_save, new_save, 1)
+
+          p.write_text(s, encoding='utf-8')
+          print('Authentication patch applied')
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app_mrp.py
+          git diff --cached --quiet && exit 0
+          git commit -m "Apply MRP role-based authentication"
+          git push

@@ -3,6 +3,7 @@ import pandas as pd
 import requests
 import json
 import hashlib
+import re
 from io import BytesIO
 from zipfile import ZipFile, ZIP_DEFLATED
 from datetime import date, timedelta

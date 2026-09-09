@@ -1,0 +1,28 @@
+name: Ajustar cartão da marca
+
+on:
+  push:
+    paths:
+      - '.github/scripts/adjust_brand_card.py'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Aplicar ajuste
+        run: python .github/scripts/adjust_brand_card.py
+      - name: Validar sintaxe
+        run: python -m py_compile app_mrp.py
+      - name: Gravar alteração
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app_mrp.py
+          git diff --cached --quiet && exit 0
+          git commit -m "Ajustar cartão da marca e centralizar logo"
+          git push

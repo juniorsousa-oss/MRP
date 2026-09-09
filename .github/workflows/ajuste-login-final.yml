@@ -1,8 +1,5 @@
 name: Ajustar login final
-on:
-  push:
-    paths:
-      - '.github/scripts/patch_login.py'
+on: [push]
 permissions:
   contents: write
 jobs:

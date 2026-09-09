@@ -1,0 +1,44 @@
+name: Ajustar altura e botoes do login
+on:
+  push:
+    paths:
+      - '.github/workflows/ajuste-login-altura.yml'
+permissions:
+  contents: write
+jobs:
+  ajuste:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar refinamento
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app_mrp.py')
+          s=p.read_text(encoding='utf-8')
+          old='''        width:286px !important; height:390px !important; margin:0 !important; padding:0 !important;'''
+          new='''        width:286px !important; height:350px !important; margin:0 !important; padding:0 !important;'''
+          if old not in s: raise SystemExit('altura do card nao encontrada')
+          s=s.replace(old,new,1)
+          old='''      div[data-testid="stForm"] button {{
+        position:relative !important; top:-4px !important;
+        height:29px !important; min-height:29px !important; margin-top:2px !important; border-radius:7px !important;'''
+          new='''      div[data-testid="stForm"] button {{
+        position:absolute !important; left:20px !important; right:20px !important; width:246px !important; top:126px !important;
+        height:29px !important; min-height:29px !important; margin:0 !important; border-radius:7px !important;'''
+          if old not in s: raise SystemExit('botao nao encontrado')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Validar Python
+        run: python -m py_compile app_mrp.py
+      - name: Commitar e limpar
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app_mrp.py
+          git commit -m 'Refinar altura e alinhamento dos botoes do login'
+          git rm .github/workflows/ajuste-login-altura.yml
+          git commit -m 'Remover workflow temporario de refinamento do login'
+          git push

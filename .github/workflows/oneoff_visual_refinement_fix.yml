@@ -1,0 +1,44 @@
+name: One-off visual refinement fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair-and-apply:
+    if: contains(github.event.head_commit.message, '[visual-refinement-fix]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Repair patch script and apply refinement
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/patch_visual_refinement.py')
+          s = p.read_text(encoding='utf-8')
+          marker = "p.write_text(s, encoding='utf-8')"
+          repair = '''# Repair leftovers caused by replacing only the first statement of compact one-line blocks.\ns = s.replace('st.caption(UI_CONFIG["section_detail_description"]) desc_map=', 'st.caption(UI_CONFIG["section_detail_description"])\\n        desc_map=')\ns = s.replace('st.caption(UI_CONFIG["subsection_projection_description"]); w[', 'st.caption(UI_CONFIG["subsection_projection_description"])\\n            w[')\ns = s.replace('st.caption(UI_CONFIG["subsection_demand_description"]); st.dataframe', 'st.caption(UI_CONFIG["subsection_demand_description"])\\n            st.dataframe')\ns = s.replace('st.caption(UI_CONFIG["subsection_purchases_description"]); st.dataframe', 'st.caption(UI_CONFIG["subsection_purchases_description"])\\n            st.dataframe')\n'''
+          if marker not in s:
+              raise SystemExit('Patch script marker not found')
+          s = s.replace(marker, repair + marker, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          python scripts/patch_visual_refinement.py
+          python -m py_compile app_mrp.py
+
+      - name: Commit final changes and remove one-off tooling
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app_mrp.py
+          git rm -f .github/workflows/oneoff_visual_refinement.yml .github/workflows/oneoff_visual_refinement_fix.yml scripts/patch_visual_refinement.py
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: complete editable visual texts and centered brand header"
+          git push origin main

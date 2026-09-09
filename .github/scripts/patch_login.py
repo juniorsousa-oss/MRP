@@ -32,6 +32,7 @@ css = '''<style>
 
 bs = block.index('<style>')
 be = block.index('</style>', bs) + len('</style>')
+css = css.replace('{text}', '__TEXT__').replace('{', '{{').replace('}', '}}').replace('__TEXT__', '{text}')
 block = block[:bs] + css + block[be:]
 s = s[:start] + block + s[end:]
 p.write_text(s, encoding='utf-8')

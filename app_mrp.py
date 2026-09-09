@@ -70,6 +70,34 @@ def formatar_data_br(s):
 SUPABASE_URL="https://cuixazpxkvniqldmmnth.supabase.co"
 SUPABASE_KEY="sb_publishable_ZTqIgmA9Ez6AVQsoXa0P8Q_6CYHDFye"
 
+LOGIN_DEFAULT_CONFIG = {
+    "login_image_data": "",
+    "login_image_height": 210,
+    "app_title": "MRP | SETTA",
+    "objective": "Planejamento de necessidades de materiais e acompanhamento da demanda.",
+    "color_primary": "#1F4E78",
+    "color_title": "#1F4E78",
+    "color_header": "#FFFFFF",
+    "color_background": "#F5F7FA",
+    "color_text": "#1F2937",
+}
+
+def _public_login_config():
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/mrp_app_config",
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
+            params={"select":"login_image_data,login_image_height,app_title,objective,color_primary,color_title,color_header,color_background,color_text", "id":"eq.1", "limit":"1"},
+            timeout=10,
+        )
+        if r.ok:
+            rows = r.json()
+            if rows:
+                return {**LOGIN_DEFAULT_CONFIG, **rows[0]}
+    except Exception:
+        pass
+    return LOGIN_DEFAULT_CONFIG.copy()
+
 # =========================================================
 # AUTENTICAÇÃO E PERFIS — SUPABASE AUTH
 # ADMIN = pode carregar/processar/salvar MRP
@@ -111,14 +139,59 @@ def _logout():
         st.session_state.pop(k, None)
     st.rerun()
 
-def _require_login():
+def _require_login(login_cfg):
     if st.session_state.get("auth_access_token") and st.session_state.get("auth_role") in {"ADMIN", "CONSULTA"}:
         return True
-    st.title("MRP — SETTA")
-    st.subheader("Acesso ao sistema")
+    primary = str(login_cfg.get("color_primary") or LOGIN_DEFAULT_CONFIG["color_primary"])
+    title_color = str(login_cfg.get("color_title") or LOGIN_DEFAULT_CONFIG["color_title"])
+    background = str(login_cfg.get("color_background") or LOGIN_DEFAULT_CONFIG["color_background"])
+    text = str(login_cfg.get("color_text") or LOGIN_DEFAULT_CONFIG["color_text"])
+    app_title = str(login_cfg.get("app_title") or LOGIN_DEFAULT_CONFIG["app_title"])
+    objective = str(login_cfg.get("objective") or LOGIN_DEFAULT_CONFIG["objective"])
+    image = str(login_cfg.get("login_image_data") or "")
+    try:
+        image_height = max(140, min(300, int(login_cfg.get("login_image_height") or 210)))
+    except Exception:
+        image_height = 210
+    image_html = (
+        f'<div class="setta-login-image"><img src="{image}" /></div>'
+        if image else
+        '<div class="setta-login-image setta-login-image-empty"><div>MRP</div><span>SETTA</span></div>'
+    )
+    st.markdown(f"""
+    <style>
+      .stApp {{ background: linear-gradient(135deg, {background} 0%, #ffffff 52%, {background} 100%) !important; color: {text} !important; }}
+      [data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stSidebar"] {{ display: none !important; }}
+      .block-container {{ max-width: 100%; padding-top: 2.2rem !important; padding-bottom: 1.5rem !important; }}
+      .setta-login-wrap {{ width: min(430px, 92vw); margin: 0 auto; border-radius: 18px; overflow: hidden; background: #ffffff; box-shadow: 0 16px 45px rgba(15,23,42,.18); border: 1px solid rgba(15,23,42,.10); }}
+      .setta-login-image {{ height: {image_height}px; overflow: hidden; background: linear-gradient(135deg, {primary}, {title_color}); }}
+      .setta-login-image img {{ width: 100%; height: 100%; object-fit: cover; display: block; }}
+      .setta-login-image-empty {{ display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; letter-spacing:.12em; }}
+      .setta-login-image-empty div {{ font-size: 2.7rem; font-weight: 800; line-height:1; }}
+      .setta-login-image-empty span {{ font-size: .9rem; margin-top: 8px; opacity:.88; }}
+      .setta-login-heading {{ text-align:center; padding: 24px 28px 4px; }}
+      .setta-login-title {{ color:{title_color}; font-size:1.55rem; font-weight:800; margin:0; }}
+      .setta-login-subtitle {{ color:{text}; opacity:.68; font-size:.88rem; margin-top:6px; }}
+      .setta-login-form-note {{ text-align:center; color:{text}; opacity:.62; font-size:.78rem; margin: 0 0 10px; }}
+      div[data-testid="stForm"] {{ width:min(430px,92vw); margin:0 auto; background:#fff; border:0 !important; box-shadow:none !important; padding: 12px 28px 24px !important; }}
+      div[data-testid="stForm"] label {{ color:{text} !important; font-weight:600 !important; }}
+      div[data-testid="stForm"] input {{ border-radius: 12px !important; border:1px solid rgba(31,78,120,.20) !important; min-height:44px !important; }}
+      div[data-testid="stForm"] input:focus {{ border-color:{primary} !important; box-shadow:0 0 0 2px rgba(31,78,120,.10) !important; }}
+      div[data-testid="stForm"] button {{ border-radius:12px !important; min-height:44px !important; background:{primary} !important; border-color:{primary} !important; color:#fff !important; font-weight:750 !important; }}
+      div[data-testid="stForm"] button:hover {{ filter:brightness(.94); }}
+    </style>
+    <div class="setta-login-wrap">
+      {image_html}
+      <div class="setta-login-heading">
+        <div class="setta-login-title">{app_title}</div>
+        <div class="setta-login-subtitle">{objective}</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('<div class="setta-login-form-note">Entre com seu usuário e senha para acessar o sistema.</div>', unsafe_allow_html=True)
     with st.form("login_form", clear_on_submit=False):
-        usuario = st.text_input("Usuário")
-        password = st.text_input("Senha", type="password")
+        usuario = st.text_input("Usuário", placeholder="Digite seu usuário")
+        password = st.text_input("Senha", type="password", placeholder="Digite sua senha")
         entrar = st.form_submit_button("ENTRAR", use_container_width=True)
     if entrar:
         usuario = usuario.strip().lower()
@@ -149,7 +222,8 @@ def _require_login():
                 st.error(f"Não foi possível entrar: {e}")
     return False
 
-if not _require_login():
+PUBLIC_LOGIN_CONFIG = _public_login_config()
+if not _require_login(PUBLIC_LOGIN_CONFIG):
     st.stop()
 
 def _sb_headers():
@@ -195,6 +269,8 @@ def _sb_post(payload):
 DEFAULT_UI_CONFIG = {
     "logo_data": "",
     "logo_width": 220,
+    "login_image_data": "",
+    "login_image_height": 210,
     "app_title": "MRP | SETTA",
     "objective": "Planejamento de necessidades de materiais e acompanhamento da demanda.",
     "title_demanda_geral": "DEMANDA GERAL",
@@ -289,6 +365,16 @@ def _render_visual_settings(cfg):
             remover_logo = False
         logo_width = st.slider("Largura do logotipo", min_value=120, max_value=500, value=max(120, min(500, int(cfg.get("logo_width") or 220))), step=10)
 
+        st.markdown("**TELA DE LOGIN**")
+        st.caption("A imagem aparece acima dos campos de acesso. A tela usa automaticamente a mesma paleta definida abaixo.")
+        login_image = st.file_uploader("Imagem da tela de login", type=["png", "jpg", "jpeg", "webp"], key="ui_login_image_upload")
+        if cfg.get("login_image_data"):
+            st.image(cfg["login_image_data"], use_container_width=True)
+            remover_login_image = st.checkbox("Remover imagem da tela de login", key="ui_remove_login_image")
+        else:
+            remover_login_image = False
+        login_image_height = st.slider("Altura da imagem do login", min_value=140, max_value=300, value=max(140, min(300, int(cfg.get("login_image_height") or 210))), step=10)
+
         st.markdown("**TEXTOS E ORIENTAÇÕES**")
         text_specs = [
             ("section_main_title", "Título principal", "text", 1),
@@ -342,12 +428,18 @@ def _render_visual_settings(cfg):
             new_cfg = {**cfg}
             new_cfg["logo_data"] = "" if remover_logo else cfg.get("logo_data", "")
             new_cfg["logo_width"] = logo_width
+            new_cfg["login_image_data"] = "" if remover_login_image else cfg.get("login_image_data", "")
+            new_cfg["login_image_height"] = login_image_height
             for key, value in edited.items():
                 new_cfg[key] = str(value).strip()
             if logo is not None:
                 import base64
                 mime = logo.type or "image/png"
                 new_cfg["logo_data"] = f"data:{mime};base64,{base64.b64encode(logo.getvalue()).decode('ascii')}"
+            if login_image is not None:
+                import base64
+                mime = login_image.type or "image/png"
+                new_cfg["login_image_data"] = f"data:{mime};base64,{base64.b64encode(login_image.getvalue()).decode('ascii')}"
             try:
                 _config_save(new_cfg)
                 st.session_state["ui_config"] = _config_get()

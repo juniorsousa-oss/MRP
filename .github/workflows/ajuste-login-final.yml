@@ -2,7 +2,7 @@ name: Ajustar login final
 on:
   push:
     paths:
-      - '.github/workflows/ajuste-login-final.yml'
+      - '.github/scripts/patch_login.py'
 permissions:
   contents: write
 jobs:

@@ -612,13 +612,17 @@ if not all([cadastro_file,estoque_file,geral_file,compras_file,mt_file]):
     try:
         snap=load_latest_snapshot()
         if snap:
-            st.success(f"Último MRP compartilhado: semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
-            latest_df=snapshot_df(snap,"mrp_geral")
-            st.dataframe(latest_df,use_container_width=True,hide_index=True)
+            # Quando as bases locais não estão carregadas, o último MRP deve ser
+            # apresentado pelo MESMO layout operacional da consulta, nunca por uma
+            # tabela simplificada. Isso garante que uma atualização automática do
+            # Streamlit não faça desaparecer filtros, abas ou seleção de linha.
+            render_consulta_view()
             if st.session_state.get("auth_role") == "ADMIN":
                 render_mrp_history()
-        else: st.info("Ainda não há MRP salvo no banco compartilhado.")
-    except Exception as e: st.warning(f"Não foi possível carregar o último MRP: {e}")
+        else:
+            st.info("Ainda não há MRP salvo no banco compartilhado.")
+    except Exception as e:
+        st.warning(f"Não foi possível carregar o último MRP: {e}")
     st.stop()
 try: cad,est,rg,rg_mrp,cp,mt=load_sources(cadastro_file.getvalue(),estoque_file.getvalue(),geral_file.getvalue(),compras_file.getvalue(),mt_file.getvalue())
 except Exception as e: st.error(f"Erro ao carregar as bases: {e}"); st.stop()

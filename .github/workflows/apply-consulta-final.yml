@@ -1,0 +1,31 @@
+name: Apply consulta final fix
+on:
+  push:
+    paths:
+      - 'patch_consulta_final.py'
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Apply and validate
+        run: |
+          python patch_consulta_final.py
+          python -m py_compile app_mrp.py
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app_mrp.py
+          git commit -m 'fix: mirror period and refresh consulta snapshot' || true
+          git push
+      - name: Cleanup temporary files
+        run: |
+          git rm patch_consulta_final.py .github/workflows/apply-consulta-final.yml || true
+          git commit -m 'chore: remove temporary consulta fix files' || true
+          git push

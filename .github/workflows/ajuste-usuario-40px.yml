@@ -1,0 +1,25 @@
+name: Ajustar usuario para 40px
+on:
+  push:
+    paths:
+      - '.github/scripts/ajuste_usuario_40px.py'
+permissions:
+  contents: write
+jobs:
+  ajuste:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar ajuste
+        run: python .github/scripts/ajuste_usuario_40px.py
+      - name: Validar Python
+        run: python -m py_compile app_mrp.py
+      - name: Commitar e limpar
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app_mrp.py
+          git commit -m 'Ajustar altura do campo usuario para 40px'
+          git rm .github/scripts/ajuste_usuario_40px.py .github/workflows/ajuste-usuario-40px.yml
+          git commit -m 'Remover arquivos temporarios do ajuste de usuario'
+          git push

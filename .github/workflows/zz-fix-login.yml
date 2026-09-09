@@ -1,0 +1,20 @@
+name: Finalizar ajuste login
+on: [push]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python .github/scripts/fix_login_positions.py
+      - run: python -m py_compile app_mrp.py
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app_mrp.py
+          git commit -m 'Finalizar layout centralizado do login' || exit 0
+          git rm .github/workflows/zz-fix-login.yml .github/scripts/fix_login_positions.py
+          git commit -m 'Remover workflow temporario de login'
+          git push

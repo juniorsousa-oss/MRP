@@ -10,3 +10,5 @@ new='''        _mrp_sig=hashlib.sha256(b"MRP-SNAPSHOT-V3-COMPRAS-PERIODO"+b"".jo
 if old not in s: raise SystemExit('signature block not found')
 s=s.replace(old,new,1)
 p.write_text(s,encoding='utf-8')
+# force workflow rerun
+p.write_text(p.read_text(encoding='utf-8')+'\n# trigger-final-2\n',encoding='utf-8')

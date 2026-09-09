@@ -151,11 +151,11 @@ def load_snapshot(snapshot_id):
     rows=_sb_get({"select":"*","id":f"eq.{int(snapshot_id)}","limit":"1"})
     return rows[0] if rows else None
 
-def save_snapshot(semana,usuario,mrp_geral,projecao_semanal,demanda_projeto,compra_mrp):
+def save_snapshot(semana,usuario,mrp_geral,projecao_semanal,demanda_projeto,compra_mrp,compras=None):
     def records(df):
         if df is None or df.empty: return []
         return json.loads(df.to_json(orient="records",force_ascii=False,date_format="iso"))
-    payload={"semana_mrp":int(semana) if semana is not None else None,"usuario":usuario or "Não informado","mrp_geral":records(mrp_geral),"projecao_semanal":records(projecao_semanal),"demanda_projeto":records(demanda_projeto),"compra_mrp":records(compra_mrp)}
+    payload={"semana_mrp":int(semana) if semana is not None else None,"usuario":usuario or "Não informado","mrp_geral":records(mrp_geral),"projecao_semanal":records(projecao_semanal),"demanda_projeto":records(demanda_projeto),"compra_mrp":records(compra_mrp),"compras":records(compras)}
     return _sb_post(payload)
 
 def compare_mrp_general(old,new):
@@ -245,6 +245,7 @@ def render_consulta_view():
     proj = snapshot_df(snap, "projecao_semanal").copy()
     dem = snapshot_df(snap, "demanda_projeto").copy()
     comp = snapshot_df(snap, "compra_mrp").copy()
+    compras = snapshot_df(snap, "compras").copy()
 
     # Ordem oficial das colunas: nunca depender da ordem do JSON/Supabase.
     MRP_COLS = ["Código", "Descrição", "Tipo", "Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo", "DIV", "Status", "Semana de Atendimento", "Período de Atendimento"]
@@ -309,6 +310,15 @@ def render_consulta_view():
                 st.markdown("**S.A. — projetos que geram a demanda**")
                 st.dataframe(d_dem, use_container_width=True, hide_index=True, column_order=DEM_COLS)
 
+                d_comp = compras[(compras["Código"].astype(str) == selecionado)].copy() if "Código" in compras.columns else pd.DataFrame()
+                if not d_comp.empty:
+                    compras_cols = ["Código", "Nº S.C.", "Quantidade S.C.", "Semana S.C.", "Nº P.C.", "Quantidade P.C.", "Semana P.C."]
+                    for c in compras_cols:
+                        if c not in d_comp.columns: d_comp[c] = ""
+                    st.markdown("**Compras**")
+                    st.dataframe(d_comp[compras_cols], use_container_width=True, hide_index=True, column_order=compras_cols)
+                    st.caption("S.C. sem semana permanece no macro, mas não entra no cálculo semanal até possuir previsão definida.")
+
     with tab_projeto:
         c1, c2, c3 = st.columns(3)
         projetos = sorted(dem["Projeto"].fillna("").astype(str).unique().tolist())
@@ -330,6 +340,7 @@ def render_consulta_view():
         "Projecao_Semanal": proj,
         "Demanda_Projeto": dem,
         "Compra_MRP": comp,
+        "Compras": compras,
     }
     c1, c2, c3, c4 = st.columns(4)
     c1.download_button("BAIXAR TODOS — EXCEL", data=excel_bytes(sheets), file_name="MRP_Consulta.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
@@ -475,7 +486,7 @@ if st.session_state.get("auth_role") == "ADMIN":
     try:
         _mrp_sig=hashlib.sha256(b"".join([f.getvalue() for f in [cadastro_file,estoque_file,geral_file,compras_file,mt_file]])).hexdigest()
         if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
-            save_snapshot(semana_atual,usuario_mrp,macro,proj,demanda_projeto,compras_mrp)
+            save_snapshot(semana_atual,usuario_mrp,macro,proj,demanda_projeto,compras_mrp,cp)
             st.session_state["_mrp_saved_sig"]=_mrp_sig
             st.success("MRP salvo no histórico compartilhado.")
     except Exception as _save_err:

@@ -302,12 +302,12 @@ def render_consulta_view():
                 d_proj = fix_columns(proj[proj["Código"].astype(str) == selecionado], PROJ_COLS)
                 d_dem = fix_columns(dem[dem["Produto"].astype(str) == selecionado], DEM_COLS)
                 desc = f.loc[f["Código"].astype(str) == selecionado, "Descrição"].iloc[0]
-            st.markdown("### Detalhamento do material")
-            st.caption(f"Material selecionado: {selecionado} — {desc}")
-            st.markdown("**Projeção semanal**")
-            st.dataframe(d_proj, use_container_width=True, hide_index=True, column_order=PROJ_COLS)
-            st.markdown("**S.A. — projetos que geram a demanda**")
-            st.dataframe(d_dem, use_container_width=True, hide_index=True, column_order=DEM_COLS)
+                st.markdown("### Detalhamento do material")
+                st.caption(f"Material selecionado: {selecionado} — {desc}")
+                st.markdown("**Projeção semanal**")
+                st.dataframe(d_proj, use_container_width=True, hide_index=True, column_order=PROJ_COLS)
+                st.markdown("**S.A. — projetos que geram a demanda**")
+                st.dataframe(d_dem, use_container_width=True, hide_index=True, column_order=DEM_COLS)
 
     with tab_projeto:
         c1, c2, c3 = st.columns(3)

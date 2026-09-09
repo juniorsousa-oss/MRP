@@ -201,6 +201,7 @@ def _require_login(login_cfg):
       div[data-testid="stForm"] input::placeholder {{ color:#a6adb8 !important; opacity:1 !important; }}
       div[data-testid="stForm"] input:focus {{ border-color:#b8bec8 !important; box-shadow:none !important; }}
       div[data-testid="stForm"] button {{
+        position:relative !important; top:-18px !important;
         height:29px !important; min-height:29px !important; margin-top:3px !important; border-radius:7px !important;
         background:#050505 !important; border:1px solid #050505 !important; color:#fff !important;
         font-size:8px !important; font-weight:700 !important;

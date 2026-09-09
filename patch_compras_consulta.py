@@ -32,3 +32,4 @@ if '.setta-main-description {' not in s:
         s=s.replace(marker, css+marker, 1)
 
 p.write_text(s,encoding='utf-8')
+# trigger visual refinement workflow

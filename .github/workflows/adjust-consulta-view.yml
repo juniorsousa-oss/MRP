@@ -1,0 +1,49 @@
+name: Adjust CONSULTA view
+on:
+  push:
+    paths:
+      - '.github/workflows/adjust-consulta-view.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply role visibility rules
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app_mrp.py')
+          s=p.read_text(encoding='utf-8')
+          marker='''def render_mrp_history():'''
+          if marker not in s:
+              raise SystemExit('Função de histórico não encontrada')
+          # O CONSULTA não acessa histórico/comparativo. ADMIN continua com acesso integral.
+          s=s.replace('''def render_mrp_history():''','''def render_mrp_history():''',1)
+          # Envolve qualquer chamada direta ao histórico com a permissão ADMIN.
+          lines=s.splitlines()
+          out=[]
+          changed=False
+          for line in lines:
+              if line.strip() == 'render_mrp_history()' and not line.lstrip().startswith('#'):
+                  indent=line[:len(line)-len(line.lstrip())]
+                  out.append(indent+'if st.session_state.get("auth_role") == "ADMIN":')
+                  out.append(indent+'    render_mrp_history()')
+                  changed=True
+              else:
+                  out.append(line)
+          s='\n'.join(out)+'\n'
+          if not changed:
+              raise SystemExit('Chamada render_mrp_history() não encontrada')
+          p.write_text(s,encoding='utf-8')
+          PY
+          python -m py_compile app_mrp.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app_mrp.py
+          git commit -m 'feat: hide MRP history from CONSULTA'
+          git push

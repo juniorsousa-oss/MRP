@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+import requests
+import json
+import hashlib
 from io import BytesIO
 from zipfile import ZipFile, ZIP_DEFLATED
 from datetime import date, timedelta
@@ -34,6 +37,116 @@ def ultimo_dia_util_semana(semana,ano=2026):
 def formatar_data_br(s):
     dt=pd.to_datetime(s,errors="coerce",dayfirst=True); return "" if pd.isna(dt) else dt.strftime("%d/%m/%Y")
 
+# =========================================================
+# HISTÓRICO COMPARTILHADO DO MRP — SUPABASE
+# Guarda somente os resultados finais do MRP, nunca as planilhas-base.
+# =========================================================
+SUPABASE_URL="https://cuixazpxkvniqldmmnth.supabase.co"
+SUPABASE_KEY="sb_publishable_ZTqIgmA9Ez6AVQsoXa0P8Q_6CYHDFye"
+
+def _sb_headers():
+    return {"apikey":SUPABASE_KEY,"Authorization":f"Bearer {SUPABASE_KEY}","Content-Type":"application/json"}
+
+def _sb_get(params=None):
+    r=requests.get(f"{SUPABASE_URL}/rest/v1/mrp_snapshots",headers=_sb_headers(),params=params or {},timeout=20)
+    r.raise_for_status(); return r.json()
+
+def _sb_post(payload):
+    r=requests.post(f"{SUPABASE_URL}/rest/v1/mrp_snapshots",headers={**_sb_headers(),"Prefer":"return=representation"},json=payload,timeout=30)
+    r.raise_for_status(); return r.json()
+
+def snapshot_df(snap,key): return pd.DataFrame(snap.get(key) or [])
+
+def load_latest_snapshot():
+    rows=_sb_get({"select":"*","order":"created_at.desc","limit":"1"})
+    return rows[0] if rows else None
+
+def load_snapshot_history(limit=50):
+    return _sb_get({"select":"id,created_at,semana_mrp,usuario","order":"created_at.desc","limit":str(limit)})
+
+def load_snapshot(snapshot_id):
+    rows=_sb_get({"select":"*","id":f"eq.{int(snapshot_id)}","limit":"1"})
+    return rows[0] if rows else None
+
+def save_snapshot(semana,usuario,mrp_geral,projecao_semanal,demanda_projeto,compra_mrp):
+    def records(df):
+        if df is None or df.empty: return []
+        return json.loads(df.to_json(orient="records",force_ascii=False,date_format="iso"))
+    payload={"semana_mrp":int(semana) if semana is not None else None,"usuario":usuario or "Não informado","mrp_geral":records(mrp_geral),"projecao_semanal":records(projecao_semanal),"demanda_projeto":records(demanda_projeto),"compra_mrp":records(compra_mrp)}
+    return _sb_post(payload)
+
+def compare_mrp_general(old,new):
+    a=snapshot_df(old,"mrp_geral").copy(); b=snapshot_df(new,"mrp_geral").copy()
+    if a.empty and b.empty: return pd.DataFrame()
+    for d in (a,b):
+        if "Código" in d: d["Código"]=pd.to_numeric(d["Código"],errors="coerce").fillna(0).astype(int)
+    a=a.set_index("Código") if "Código" in a else pd.DataFrame(); b=b.set_index("Código") if "Código" in b else pd.DataFrame()
+    codes=sorted(set(a.index.tolist())|set(b.index.tolist())); numeric=["Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV"]; rows=[]
+    for code in codes:
+        ao=a.loc[code] if code in a.index else None; bo=b.loc[code] if code in b.index else None
+        if ao is None: classification="NOVO"
+        elif bo is None: classification="REMOVIDO"
+        else:
+            changed=False
+            for c in numeric:
+                ov=float(pd.to_numeric(ao.get(c,0),errors="coerce") or 0); nv=float(pd.to_numeric(bo.get(c,0),errors="coerce") or 0)
+                if abs(nv-ov)>1e-9: changed=True; break
+            if not changed:
+                for c in ["Tipo","Status","Semana de Atendimento","Período de Atendimento"]:
+                    if str(ao.get(c,""))!=str(bo.get(c,"")): changed=True; break
+            classification="ALTERADO" if changed else "SEM ALTERAÇÃO"
+            if str(ao.get("Status",""))=="CRIAR S.C." and str(bo.get("Status",""))=="OK": classification="NORMALIZADO"
+            elif str(ao.get("Status",""))!="CRIAR S.C." and str(bo.get("Status",""))=="CRIAR S.C.": classification="NOVO S.C."
+        base=bo if bo is not None else ao
+        row={"Código":int(code),"Descrição":str(base.get("Descrição","")),"Tipo":str(base.get("Tipo","")),"Classificação":classification}
+        for c in numeric:
+            ov=float(pd.to_numeric(ao.get(c,0),errors="coerce") or 0) if ao is not None else 0.0; nv=float(pd.to_numeric(bo.get(c,0),errors="coerce") or 0) if bo is not None else 0.0
+            row[f"{c} anterior"]=ov; row[f"{c} atual"]=nv; row[f"Δ {c}"]=nv-ov
+        row["Status anterior"]=str(ao.get("Status","")) if ao is not None else ""; row["Status atual"]=str(bo.get("Status","")) if bo is not None else ""
+        row["Atendimento anterior"]=str(ao.get("Semana de Atendimento","")) if ao is not None else ""; row["Atendimento atual"]=str(bo.get("Semana de Atendimento","")) if bo is not None else ""
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+def compare_simple(old_df,new_df,key_cols):
+    a=old_df.copy() if old_df is not None else pd.DataFrame(); b=new_df.copy() if new_df is not None else pd.DataFrame()
+    if a.empty and b.empty: return pd.DataFrame()
+    for d in (a,b):
+        for c in key_cols:
+            if c in d: d[c]=d[c].astype(str)
+    if a.empty: a=pd.DataFrame(columns=key_cols); 
+    if b.empty: b=pd.DataFrame(columns=key_cols)
+    a["__key__"]=a[key_cols].astype(str).agg("|".join,axis=1) if len(a) else pd.Series(dtype=str); b["__key__"]=b[key_cols].astype(str).agg("|".join,axis=1) if len(b) else pd.Series(dtype=str)
+    ai=a.set_index("__key__",drop=False); bi=b.set_index("__key__",drop=False); keys=sorted(set(ai.index)|set(bi.index)); rows=[]
+    for k in keys:
+        ao=ai.loc[k] if k in ai.index else None; bo=bi.loc[k] if k in bi.index else None
+        if ao is None: cls="NOVO"
+        elif bo is None: cls="REMOVIDO"
+        else:
+            ao2=ao.drop(labels=["__key__"],errors="ignore").to_dict(); bo2=bo.drop(labels=["__key__"],errors="ignore").to_dict(); cls="SEM ALTERAÇÃO" if ao2==bo2 else "ALTERADO"
+        base=bo if bo is not None else ao; row={c:base.get(c,"") for c in key_cols}; row["Classificação"]=cls; rows.append(row)
+    return pd.DataFrame(rows)
+
+def render_mrp_history():
+    st.subheader("Histórico e comparativo de MRP")
+    try: history=load_snapshot_history()
+    except Exception as e: st.warning(f"Não foi possível acessar o histórico compartilhado: {e}"); return
+    if not history: st.info("Ainda não existem MRP salvos no histórico."); return
+    labels={int(x["id"]):f"MRP {x['id']} | semana {x.get('semana_mrp') or '-'} | {formatar_data_br(x.get('created_at'))} | {x.get('usuario') or '-'}" for x in history}; ids=list(labels)
+    c1,c2=st.columns(2); new_id=c1.selectbox("MRP atual",ids,index=0,format_func=lambda x:labels[x],key="mrp_history_current"); old_ids=[x for x in ids if x!=new_id]
+    if not old_ids: st.info("Salve pelo menos dois MRP para gerar um comparativo."); return
+    old_id=c2.selectbox("MRP anterior",old_ids,index=0,format_func=lambda x:labels[x],key="mrp_history_previous")
+    try:
+        old=load_snapshot(old_id); new=load_snapshot(new_id); cmp=compare_mrp_general(old,new)
+        k1,k2,k3,k4,k5=st.columns(5); k1.metric("Novo",int((cmp["Classificação"]=="NOVO").sum())); k2.metric("Removido",int((cmp["Classificação"]=="REMOVIDO").sum())); k3.metric("Alterado",int((cmp["Classificação"]=="ALTERADO").sum())); k4.metric("Novo S.C.",int((cmp["Classificação"]=="NOVO S.C.").sum())); k5.metric("Normalizado",int((cmp["Classificação"]=="NORMALIZADO").sum()))
+        st.dataframe(cmp,use_container_width=True,hide_index=True)
+        proj_cmp=compare_simple(snapshot_df(old,"projecao_semanal"),snapshot_df(new,"projecao_semanal"),["Código","Semana"])
+        proj_old=snapshot_df(old,"projecao_semanal"); proj_new=snapshot_df(new,"projecao_semanal")
+        dem_cmp=compare_simple(snapshot_df(old,"demanda_projeto"),snapshot_df(new,"demanda_projeto"),["Projeto","Produto","Semana de Necessidade"])
+        comp_old=snapshot_df(old,"compra_mrp"); comp_new=snapshot_df(new,"compra_mrp"); comp_cmp=compare_simple(comp_old,comp_new,["produto","op"])
+        report={"MRP_Geral_Comparativo":cmp,"Projecao_Comparativo":proj_cmp,"Demanda_Projeto_Comparativo":dem_cmp,"Compras_Comparativo":comp_cmp,"MRP_Anterior":snapshot_df(old,"mrp_geral"),"MRP_Atual":snapshot_df(new,"mrp_geral"),"Compra_Anterior":comp_old,"Compra_Atual":comp_new}
+        st.download_button("BAIXAR RELATÓRIO COMPARATIVO",excel_bytes(report),"Comparativo_MRP.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True,key="download_comparativo_mrp")
+    except Exception as e: st.error(f"Erro ao gerar o comparativo: {e}")
+
 @st.cache_data(show_spinner=False)
 def load_sources(cb,eb,gb,pb,mb):
     raw=pd.read_excel(BytesIO(cb),sheet_name="Listagem do Browse",header=None); cad=raw.iloc[2:,[1,2,3]].copy(); cad.columns=["Código","Descrição","Tipo"]; cad["Código"]=num(cad["Código"]); cad=cad.dropna(subset=["Código"]); cad["Código"]=cad["Código"].astype("int64"); cad["Descrição"]=cad["Descrição"].fillna("").astype(str).str.strip(); cad["Tipo"]=cad["Tipo"].fillna("").astype(str).str.strip(); cad=cad.drop_duplicates("Código",keep="first").reset_index(drop=True)
@@ -48,8 +161,19 @@ def load_sources(cb,eb,gb,pb,mb):
 
 st.title("MRP — Planejamento de Necessidades de Materiais"); st.caption("Cadastro + Estoque + Relatório Geral + Compras + MRP TC/TP. Projeção calculada semana a semana.")
 with st.sidebar:
-    st.header("Bases do MRP"); cadastro_file=st.file_uploader("1. CADASTROS",type=["xlsx","xlsm","xltx"]); estoque_file=st.file_uploader("2. Estoque_Tratado",type=["xlsx","xlsm"]); geral_file=st.file_uploader("3. RelatorioGeral_Tratado",type=["xlsx","xlsm"]); compras_file=st.file_uploader("4. Compras_Tratado",type=["xlsx","xlsm"]); mt_file=st.file_uploader("5. MRP_TC_TP_Tratado",type=["xlsx","xlsm"])
-if not all([cadastro_file,estoque_file,geral_file,compras_file,mt_file]): st.info("Envie as 5 planilhas tratadas + o Cadastro para iniciar o MRP."); st.stop()
+    st.header("Bases do MRP"); cadastro_file=st.file_uploader("1. CADASTROS",type=["xlsx","xlsm","xltx"]); estoque_file=st.file_uploader("2. Estoque_Tratado",type=["xlsx","xlsm"]); geral_file=st.file_uploader("3. RelatorioGeral_Tratado",type=["xlsx","xlsm"]); compras_file=st.file_uploader("4. Compras_Tratado",type=["xlsx","xlsm"]); mt_file=st.file_uploader("5. MRP_TC_TP_Tratado",type=["xlsx","xlsm"]); usuario_mrp=st.text_input("Usuário responsável pelo MRP",value="",placeholder="Nome do responsável")
+if not all([cadastro_file,estoque_file,geral_file,compras_file,mt_file]):
+    st.info("Envie as 5 planilhas tratadas para calcular um novo MRP. Sem upload, o último MRP salvo fica disponível para consulta e comparação.")
+    try:
+        snap=load_latest_snapshot()
+        if snap:
+            st.success(f"Último MRP compartilhado: semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
+            latest_df=snapshot_df(snap,"mrp_geral")
+            st.dataframe(latest_df,use_container_width=True,hide_index=True)
+            render_mrp_history()
+        else: st.info("Ainda não há MRP salvo no banco compartilhado.")
+    except Exception as e: st.warning(f"Não foi possível carregar o último MRP: {e}")
+    st.stop()
 try: cad,est,rg,rg_mrp,cp,mt=load_sources(cadastro_file.getvalue(),estoque_file.getvalue(),geral_file.getvalue(),compras_file.getvalue(),mt_file.getvalue())
 except Exception as e: st.error(f"Erro ao carregar as bases: {e}"); st.stop()
 rg_semanas=num(rg_mrp["Semana"]).dropna(); rg_semanas=rg_semanas[(rg_semanas>=1)&(rg_semanas<=53)]
@@ -132,6 +256,15 @@ if len(demanda_projeto):
         compras_mrp=cp_mrp[["produto","qnt","data","psy","cc","op","obs","prioridade"]].reset_index(drop=True)
         compras_mrp["qnt"]=compras_mrp["qnt"].map(lambda x:int(x) if float(x).is_integer() else float(x))
 fab_det=op[["ORDEM DE PRODUÇÃO","Código Produto","Semana Entrega"]].sort_values(["Código Produto","Semana Entrega","ORDEM DE PRODUÇÃO"]).copy(); fab_det["Quantidade"]=1
+# Salva apenas uma vez por conjunto de arquivos carregado.
+try:
+    _mrp_sig=hashlib.sha256(b"".join([f.getvalue() for f in [cadastro_file,estoque_file,geral_file,compras_file,mt_file]])).hexdigest()
+    if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
+        save_snapshot(semana_atual,usuario_mrp,macro,proj,demanda_projeto,compras_mrp)
+        st.session_state["_mrp_saved_sig"]=_mrp_sig
+        st.success("MRP salvo no histórico compartilhado.")
+except Exception as _save_err:
+    st.warning(f"O MRP foi calculado, mas não foi possível salvar o histórico compartilhado: {_save_err}")
 m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.",f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.",f"{macro['S.C.'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro['DIV']<0,'DIV']).sum():,.0f}")
 tab1,tab2=st.tabs(["DEMANDA GERAL","DEMANDA POR PROJETO"])
 macro_cols=["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status","Semana de Atendimento","Período de Atendimento"]
@@ -185,3 +318,5 @@ with b3: st.download_button("BAIXAR MRP GERAL — CSV",csv_bytes(export_macro),"
 with b4: st.download_button("BAIXAR COMPRA MRP",compra_excel_data,"Compra_MRP.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)
 if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns) que não normalizam na Demanda por Projeto e exigem nova S.C.")
 else: st.caption("Nenhum item da Demanda por Projeto exige nova S.C. no momento.")
+st.divider()
+render_mrp_history()

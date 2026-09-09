@@ -168,8 +168,10 @@ def _require_login(login_cfg):
         width:286px !important; height:390px !important; margin:0 !important; padding:0 !important;
         box-sizing:border-box !important; background:#fff !important; border:1px solid rgba(0,0,0,.13) !important;
         border-radius:28px !important; box-shadow:0 16px 42px rgba(0,0,0,.16) !important;
-        overflow:hidden !important; z-index:10 !important;
+        overflow:visible !important; z-index:10 !important;
       }}
+      .setta-login-image { transform:translateY(-5cm) !important; }
+      .setta-login-heading { transform:translateY(-5cm) !important; }
       .setta-login-image {{
         width:100% !important; height:135px !important; overflow:hidden !important; background:transparent !important;
         display:flex !important; align-items:flex-end !important; justify-content:center !important;
@@ -186,7 +188,7 @@ def _require_login(login_cfg):
       .setta-login-subtitle {{ color:#777 !important; opacity:1 !important; font-size:6.5px !important; line-height:9px !important; margin:7px auto 0 !important; max-width:205px !important; }}
       .setta-login-form-note {{ display:none !important; }}
       div[data-testid="stForm"] {{
-        position:fixed !important; left:50% !important; top:calc(50% + 4px) !important; transform:translateX(-50%) !important;
+        position:fixed !important; left:50% !important; top:calc(50% + 4px - 5cm) !important; transform:translateX(-50%) !important;
         width:286px !important; height:170px !important; margin:0 !important; padding:0 20px 14px !important;
         box-sizing:border-box !important; background:transparent !important; border:0 !important;
         border-radius:0 !important; box-shadow:none !important; z-index:20 !important;

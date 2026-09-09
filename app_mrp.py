@@ -474,7 +474,7 @@ def _apply_visual_theme(cfg):
       .setta-brand-center {{ grid-column: 2; text-align: center; }}
       .setta-brand-title {{ color: var(--setta-title); font-size: 2rem; font-weight: 750; line-height: 1.15; margin: 0; }}
       .setta-brand-objective {{ color: var(--setta-text); font-size: .95rem; line-height: 1.5; margin-top: 7px; opacity: .82; }}
-      .setta-main-description { margin-top: -10px; margin-bottom: 12px; color: var(--setta-text); opacity: .78; font-size: .9rem; }
+      .setta-main-description {{ margin-top: -10px; margin-bottom: 12px; color: var(--setta-text); opacity: .78; font-size: .9rem; }}
       div.stButton > button[kind="primary"], div.stDownloadButton > button {{ background: var(--setta-primary) !important; border-color: var(--setta-primary) !important; color: #fff !important; }}
       div[data-baseweb="tab-list"] button[aria-selected="true"] {{ color: var(--setta-primary) !important; border-bottom-color: var(--setta-primary) !important; }}
       div[data-testid="stMetricValue"] {{ color: var(--setta-primary); }}

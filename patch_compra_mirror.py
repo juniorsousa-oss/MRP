@@ -37,3 +37,4 @@ if old not in s: raise SystemExit('admin individual export marker not found')
 s=s.replace(old,new,1)
 p.write_text(s,encoding='utf-8')
 print('patch applied')
+# trigger update

@@ -1,8 +1,5 @@
 name: Corrigir login para um unico card
-on:
-  push:
-    paths:
-      - '.github/scripts/fix_login_single_card.py'
+on: [push]
 permissions:
   contents: write
 jobs:

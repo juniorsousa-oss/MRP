@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - 'patch_compras_consulta.py'
+permissions:
+  contents: write
 jobs:
   patch:
     runs-on: ubuntu-latest
@@ -19,5 +21,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app_mrp.py
           git rm patch_compras_consulta.py .github/workflows/apply-compras-consulta.yml
-          git commit -m 'fix: show purchases in CONSULTA detail'
+          git commit -m 'style: refine login card and main header spacing'
           git push

@@ -1,0 +1,174 @@
+from pathlib import Path
+import re
+
+path = Path('app_mrp.py')
+text = path.read_text(encoding='utf-8')
+marker = '# === VISUAL CONFIG SETTA V1 ==='
+if marker in text:
+    print('Visual refinement already applied; no changes needed.')
+    raise SystemExit(0)
+
+block = r'''# === VISUAL CONFIG SETTA V1 ===
+DEFAULT_UI_CONFIG = {
+    "logo_data": "",
+    "logo_width": 220,
+    "app_title": "MRP | SETTA",
+    "objective": "Planejamento de necessidades de materiais e acompanhamento da demanda.",
+    "title_demanda_geral": "DEMANDA GERAL",
+    "title_demanda_projeto": "DEMANDA POR PROJETO",
+    "color_primary": "#1F4E78",
+    "color_title": "#1F4E78",
+    "color_header": "#FFFFFF",
+    "color_background": "#F5F7FA",
+    "color_text": "#1F2937",
+}
+
+
+def _config_get():
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/mrp_app_config",
+            headers=_sb_headers(),
+            params={"select":"*", "id":"eq.1", "limit":"1"},
+            timeout=20,
+        )
+        r.raise_for_status()
+        rows = r.json()
+        if rows:
+            cfg = {**DEFAULT_UI_CONFIG, **rows[0]}
+            return cfg
+    except Exception as e:
+        st.session_state["ui_config_error"] = str(e)
+    return DEFAULT_UI_CONFIG.copy()
+
+
+def _config_save(cfg):
+    payload = {k: cfg.get(k, DEFAULT_UI_CONFIG[k]) for k in DEFAULT_UI_CONFIG}
+    payload["updated_at"] = pd.Timestamp.utcnow().isoformat()
+    payload["updated_by"] = st.session_state.get("auth_nome", "")
+    r = requests.patch(
+        f"{SUPABASE_URL}/rest/v1/mrp_app_config",
+        headers={**_sb_headers(), "Prefer":"return=representation"},
+        params={"id":"eq.1"},
+        json=payload,
+        timeout=30,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def _hex_ok(value, fallback):
+    value = str(value or "").strip()
+    return value if re.fullmatch(r"#[0-9A-Fa-f]{6}", value) else fallback
+
+
+def _render_visual_settings(cfg):
+    if st.session_state.get("auth_role") != "ADMIN":
+        return
+    with st.sidebar.expander("CONFIGURAÇÃO VISUAL", expanded=False):
+        st.caption("As alterações são salvas no banco compartilhado e aparecem para todos os usuários.")
+        logo = st.file_uploader("Cabeçalho / logotipo da empresa", type=["png", "jpg", "jpeg", "webp"], key="ui_logo_upload")
+        if cfg.get("logo_data"):
+            st.image(cfg["logo_data"], width=int(cfg.get("logo_width") or 220))
+            remover_logo = st.checkbox("Remover cabeçalho atual", key="ui_remove_logo")
+        else:
+            remover_logo = False
+
+        logo_width = st.slider("Largura do cabeçalho", min_value=120, max_value=900, value=max(120, min(900, int(cfg.get("logo_width") or 220))), step=10)
+        app_title = st.text_input("Título principal", value=str(cfg.get("app_title") or DEFAULT_UI_CONFIG["app_title"]), key="ui_app_title")
+        objective = st.text_area("Objetivo do aplicativo", value=str(cfg.get("objective") or DEFAULT_UI_CONFIG["objective"]), height=90, key="ui_objective")
+        title_geral = st.text_input("Título — Demanda Geral", value=str(cfg.get("title_demanda_geral") or DEFAULT_UI_CONFIG["title_demanda_geral"]), key="ui_title_geral")
+        title_projeto = st.text_input("Título — Demanda por Projeto", value=str(cfg.get("title_demanda_projeto") or DEFAULT_UI_CONFIG["title_demanda_projeto"]), key="ui_title_projeto")
+        color_primary = st.color_picker("Cor principal", value=_hex_ok(cfg.get("color_primary"), DEFAULT_UI_CONFIG["color_primary"]), key="ui_color_primary")
+        color_title = st.color_picker("Cor dos títulos", value=_hex_ok(cfg.get("color_title"), DEFAULT_UI_CONFIG["color_title"]), key="ui_color_title")
+        color_header = st.color_picker("Cor do cabeçalho", value=_hex_ok(cfg.get("color_header"), DEFAULT_UI_CONFIG["color_header"]), key="ui_color_header")
+        color_background = st.color_picker("Cor de fundo", value=_hex_ok(cfg.get("color_background"), DEFAULT_UI_CONFIG["color_background"]), key="ui_color_background")
+        color_text = st.color_picker("Cor do texto", value=_hex_ok(cfg.get("color_text"), DEFAULT_UI_CONFIG["color_text"]), key="ui_color_text")
+
+        if st.button("SALVAR CONFIGURAÇÃO", use_container_width=True, type="primary", key="save_ui_config"):
+            new_cfg = {
+                **cfg,
+                "logo_data": "" if remover_logo else cfg.get("logo_data", ""),
+                "logo_width": logo_width,
+                "app_title": app_title.strip() or DEFAULT_UI_CONFIG["app_title"],
+                "objective": objective.strip() or DEFAULT_UI_CONFIG["objective"],
+                "title_demanda_geral": title_geral.strip() or DEFAULT_UI_CONFIG["title_demanda_geral"],
+                "title_demanda_projeto": title_projeto.strip() or DEFAULT_UI_CONFIG["title_demanda_projeto"],
+                "color_primary": color_primary,
+                "color_title": color_title,
+                "color_header": color_header,
+                "color_background": color_background,
+                "color_text": color_text,
+            }
+            if logo is not None:
+                import base64
+                mime = logo.type or "image/png"
+                new_cfg["logo_data"] = f"data:{mime};base64,{base64.b64encode(logo.getvalue()).decode('ascii')}"
+            try:
+                _config_save(new_cfg)
+                st.session_state["ui_config"] = _config_get()
+                st.success("Configuração visual salva.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Não foi possível salvar a configuração visual: {e}")
+
+
+def _apply_visual_theme(cfg):
+    primary = _hex_ok(cfg.get("color_primary"), DEFAULT_UI_CONFIG["color_primary"])
+    title = _hex_ok(cfg.get("color_title"), DEFAULT_UI_CONFIG["color_title"])
+    header = _hex_ok(cfg.get("color_header"), DEFAULT_UI_CONFIG["color_header"])
+    background = _hex_ok(cfg.get("color_background"), DEFAULT_UI_CONFIG["color_background"])
+    text = _hex_ok(cfg.get("color_text"), DEFAULT_UI_CONFIG["color_text"])
+    st.markdown(f"""
+    <style>
+      :root {{
+        --setta-primary: {primary};
+        --setta-title: {title};
+        --setta-header: {header};
+        --setta-background: {background};
+        --setta-text: {text};
+      }}
+      .stApp {{ background: var(--setta-background); color: var(--setta-text); }}
+      h1, h2, h3, h4, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2, [data-testid="stMarkdownContainer"] h3 {{ color: var(--setta-title) !important; }}
+      [data-testid="stHeader"] {{ background: var(--setta-header) !important; }}
+      [data-testid="stSidebar"] {{ border-right: 1px solid rgba(0,0,0,.08); }}
+      .setta-brand {{ background: var(--setta-header); border: 1px solid rgba(0,0,0,.08); border-radius: 14px; padding: 18px 22px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); }}
+      .setta-brand-title {{ color: var(--setta-title); font-size: 2rem; font-weight: 750; line-height: 1.15; margin: 0; }}
+      .setta-brand-objective {{ color: var(--setta-text); font-size: 1rem; line-height: 1.5; margin-top: 6px; opacity: .82; }}
+      .setta-brand img {{ display: block; max-width: 100%; height: auto; margin-bottom: 12px; }}
+      div.stButton > button[kind="primary"], div.stDownloadButton > button {{ background: var(--setta-primary) !important; border-color: var(--setta-primary) !important; color: #fff !important; }}
+      div[data-baseweb="tab-list"] button[aria-selected="true"] {{ color: var(--setta-primary) !important; border-bottom-color: var(--setta-primary) !important; }}
+      div[data-testid="stMetricValue"] {{ color: var(--setta-primary); }}
+    </style>
+    """, unsafe_allow_html=True)
+
+
+def _render_brand_header(cfg):
+    title = str(cfg.get("app_title") or DEFAULT_UI_CONFIG["app_title"])
+    objective = str(cfg.get("objective") or "")
+    logo = cfg.get("logo_data") or ""
+    width = max(120, min(900, int(cfg.get("logo_width") or 220)))
+    logo_html = f'<img src="{logo}" style="width:{width}px;" />' if logo else ""
+    st.markdown(f'<div class="setta-brand">{logo_html}<div class="setta-brand-title">{title}</div><div class="setta-brand-objective">{objective}</div></div>', unsafe_allow_html=True)
+
+
+UI_CONFIG = _config_get()
+st.session_state["ui_config"] = UI_CONFIG
+_apply_visual_theme(UI_CONFIG)
+_render_visual_settings(UI_CONFIG)
+_render_brand_header(UI_CONFIG)
+# === END VISUAL CONFIG SETTA V1 ===
+'''
+
+anchor = 'def snapshot_df(snap,key): return pd.DataFrame(snap.get(key) or [])'
+if anchor not in text:
+    raise SystemExit('ANCHOR_NOT_FOUND: snapshot_df')
+text = text.replace(anchor, block + '\n' + anchor, 1)
+
+text = text.replace('st.tabs(["DEMANDA GERAL", "DEMANDA POR PROJETO"])', 'st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"]])')
+text = text.replace('st.tabs(["DEMANDA GERAL","DEMANDA POR PROJETO"])', 'st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"]])')
+text = text.replace('st.subheader("DEMANDA GERAL")', 'st.subheader(UI_CONFIG["title_demanda_geral"])')
+text = text.replace('st.subheader("DEMANDA POR PROJETO")', 'st.subheader(UI_CONFIG["title_demanda_projeto"])')
+
+path.write_text(text, encoding='utf-8')
+print('Visual refinement applied.')

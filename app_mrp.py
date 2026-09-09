@@ -156,12 +156,39 @@ def _sb_headers():
     token = st.session_state.get("auth_access_token") or SUPABASE_KEY
     return _auth_headers(token)
 
+def _refresh_supabase_session():
+    refresh_token = st.session_state.get("auth_refresh_token")
+    if not refresh_token:
+        return False
+    try:
+        r = requests.post(
+            f"{SUPABASE_URL}/auth/v1/token?grant_type=refresh_token",
+            headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"},
+            json={"refresh_token": refresh_token},
+            timeout=20,
+        )
+        if r.status_code >= 400:
+            return False
+        auth = r.json()
+        if not auth.get("access_token"):
+            return False
+        st.session_state["auth_access_token"] = auth.get("access_token")
+        if auth.get("refresh_token"):
+            st.session_state["auth_refresh_token"] = auth.get("refresh_token")
+        return True
+    except Exception:
+        return False
+
 def _sb_get(params=None):
     r=requests.get(f"{SUPABASE_URL}/rest/v1/mrp_snapshots",headers=_sb_headers(),params=params or {},timeout=20)
+    if r.status_code == 401 and _refresh_supabase_session():
+        r=requests.get(f"{SUPABASE_URL}/rest/v1/mrp_snapshots",headers=_sb_headers(),params=params or {},timeout=20)
     r.raise_for_status(); return r.json()
 
 def _sb_post(payload):
     r=requests.post(f"{SUPABASE_URL}/rest/v1/mrp_snapshots",headers={**_sb_headers(),"Prefer":"return=representation"},json=payload,timeout=30)
+    if r.status_code == 401 and _refresh_supabase_session():
+        r=requests.post(f"{SUPABASE_URL}/rest/v1/mrp_snapshots",headers={**_sb_headers(),"Prefer":"return=representation"},json=payload,timeout=30)
     r.raise_for_status(); return r.json()
 
 # === VISUAL CONFIG SETTA V1 ===
@@ -188,6 +215,13 @@ def _config_get():
             params={"select":"*", "id":"eq.1", "limit":"1"},
             timeout=20,
         )
+        if r.status_code == 401 and _refresh_supabase_session():
+            r = requests.get(
+                f"{SUPABASE_URL}/rest/v1/mrp_app_config",
+                headers=_sb_headers(),
+                params={"select":"*", "id":"eq.1", "limit":"1"},
+                timeout=20,
+            )
         r.raise_for_status()
         rows = r.json()
         if rows:

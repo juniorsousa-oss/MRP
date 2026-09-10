@@ -1,0 +1,28 @@
+name: Aplicar favicon MRP | SETTA
+
+on:
+  push:
+    paths:
+      - '.github/scripts/set_favicon.py'
+
+permissions:
+  contents: write
+
+jobs:
+  favicon:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Atualizar favicon
+        run: python .github/scripts/set_favicon.py
+      - name: Validar sintaxe
+        run: python -m py_compile app_mrp.py
+      - name: Commitar alteração
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app_mrp.py
+          git commit -m 'Usar favicon preto no MRP | SETTA' || echo 'Nada para commitar'
+          git rm .github/workflows/set-favicon.yml .github/scripts/set_favicon.py || true
+          git commit -m 'Limpar ajuste temporário do favicon' || echo 'Nada para limpar'
+          git push

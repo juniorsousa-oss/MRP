@@ -8,7 +8,7 @@ from io import BytesIO
 from zipfile import ZipFile, ZIP_DEFLATED
 from datetime import date, timedelta
 
-st.set_page_config(page_title="MRP | SETTA", page_icon="assets/mrp_setta_icon.svg", layout="wide")
+st.set_page_config(page_title="MRP | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide")
 
 def num(s): return pd.to_numeric(s, errors="coerce")
 def col_by_pos(df,pos,name):

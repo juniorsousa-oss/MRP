@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 p = Path('app_mrp.py')
 s = p.read_text(encoding='utf-8')
@@ -18,3 +17,4 @@ if old not in s:
 s = s.replace(old, new, 1)
 p.write_text(s, encoding='utf-8')
 print('Patch aplicado: fabricação TC/TP passa a contar OPs únicas por produto e semana.')
+# trigger do workflow de validação

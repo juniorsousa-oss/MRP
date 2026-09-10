@@ -502,9 +502,9 @@ def _apply_visual_theme(cfg):
       [data-testid="stHeader"] {{ background: var(--setta-header) !important; }}
       [data-testid="stSidebar"] {{ border-right: 1px solid rgba(0,0,0,.08); }}
       .setta-brand {{ background: var(--setta-header); border: 1px solid rgba(0,0,0,.08); border-radius: 14px; padding: 18px 24px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); min-height: 130px; display: grid; grid-template-columns: 1fr 2.2fr 1fr; align-items: center; gap: 12px; }}
-      .setta-brand-logo {{ grid-column: 1; justify-self: start; align-self: center; }}
+      .setta-brand-logo {{ grid-column: 1 / -1; justify-self: center !important; align-self: center; }}
       .setta-brand-logo img {{ display: block; max-width: 100%; height: auto; margin: 0; }}
-      .setta-brand-center {{ grid-column: 2; text-align: center; }}
+      .setta-brand-center {{display:none !important; grid-column: 2; text-align: center; }}
       .setta-brand-title {{ color: var(--setta-title); font-size: 2rem; font-weight: 750; line-height: 1.15; margin: 0; }}
       .setta-brand-objective {{ color: var(--setta-text); font-size: .95rem; line-height: 1.5; margin-top: 7px; opacity: .82; }}
       .setta-main-description {{ margin-top: -10px; margin-bottom: 12px; color: var(--setta-text); opacity: .78; font-size: .9rem; }}

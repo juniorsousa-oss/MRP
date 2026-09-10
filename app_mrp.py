@@ -501,8 +501,8 @@ def _apply_visual_theme(cfg):
       h1, h2, h3, h4, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2, [data-testid="stMarkdownContainer"] h3 {{ color: var(--setta-title) !important; }}
       [data-testid="stHeader"] {{background: var(--setta-header) !important; }}
       [data-testid="stSidebar"] {{border-right: 1px solid rgba(0,0,0,.08); }}
-      .setta-brand background: var(--setta-header); border: 1px solid rgba(0,0,0,.08); border-radius: 14px; padding: 18px 24px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); min-height:130px; display:flex; align-items:center !important; justify-content:center !important;}}
-      .setta-brand-logo {{ justify-self:center !important; align-self:center !important;}}
+      .setta-brand {{ background: var(--setta-header); border: 1px solid rgba(0,0,0,.08); border-radius: 14px; padding: 18px 24px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); min-height:130px; display:flex; align-items:center; justify-content:center; }}
+      .setta-brand-logo {{ width:100%; display:flex; align-items:center; justify-content:center; }}
       .setta-brand-logo img {{ display: block; max-width: 100%; height: auto; margin: 0; }}
       .setta-brand-center {{display:none !important; grid-column: 2; text-align: center; }}
       .setta-brand-title {{color: var(--setta-title); font-size: 2rem; font-weight: 750; line-height: 1.15; margin: 0; }}
@@ -521,7 +521,7 @@ def _render_brand_header(cfg):
     logo = cfg.get("logo_data") or ""
     width = max(120, min(500, int(cfg.get("logo_width") or 220)))
     logo_html = f'<div class="setta-brand-logo"><img src="{logo}" style="width:{width}px;" /></div>' if logo else '<div class="setta-brand-logo"></div>'
-    st.markdown(f'<div class="setta-brand">{logo_html}<div class="setta-brand-center"><div class="setta-brand-title">{title}</div><div class="setta-brand-objective">{objective}</div></div><div></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="setta-brand">{logo_html}</div>', unsafe_allow_html=True)
 
 
 UI_CONFIG = _config_get()

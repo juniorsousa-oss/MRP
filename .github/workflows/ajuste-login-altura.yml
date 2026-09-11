@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - '.github/mrp_demanda_fix.trigger'
+      - '.github/mrp_demanda_fix_2.trigger'
 permissions:
   contents: write
 jobs:
@@ -10,21 +11,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Corrigir somente os merges de Projeto + Produto
+      - name: Corrigir somente o vinculo Projeto + Produto
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           p=Path('app_mrp.py')
           s=p.read_text(encoding='utf-8')
-          old='demanda_projeto_base=demanda_projeto_base.merge(ultima_solicitacao,on="Projeto",how="left"); demanda_projeto_base=demanda_projeto_base.merge(data_cm_projeto,on="Projeto",how="left")'
-          new='demanda_projeto_base=demanda_projeto_base.merge(ultima_solicitacao,on=["Projeto","Produto"],how="left"); demanda_projeto_base=demanda_projeto_base.merge(data_cm_projeto,on=["Projeto","Produto"],how="left")'
-          if old not in s:
-              raise SystemExit('Trecho exato dos merges nao encontrado; nenhuma alteracao foi aplicada.')
-          if s.count(old) != 1:
-              raise SystemExit('Trecho dos merges encontrado mais de uma vez; nenhuma alteracao foi aplicada.')
-          s=s.replace(old,new,1)
-          p.write_text(s,encoding='utf-8')
+          pattern=r'(demanda_projeto_base\s*=\s*demanda_projeto_base\.merge\(ultima_solicitacao,\s*on\s*=\s*)["\']Projeto["\'](\s*,\s*how\s*=\s*["\']left["\']\s*\))'
+          replacement=r'\1["Projeto","Produto"]\2'
+          s2,n1=re.subn(pattern,replacement,s,count=1)
+          pattern2=r'(demanda_projeto_base\s*=\s*demanda_projeto_base\.merge\(data_cm_projeto,\s*on\s*=\s*)["\']Projeto["\'](\s*,\s*how\s*=\s*["\']left["\']\s*\))'
+          s3,n2=re.subn(pattern2,replacement.replace('ultima_solicitacao','data_cm_projeto'),s2,count=1)
+          if n1 != 1 or n2 != 1:
+              raise SystemExit(f'Chaves esperadas nao encontradas: ultima={n1}, data_cm={n2}. Nenhuma alteracao sera aceita.')
+          p.write_text(s3,encoding='utf-8')
           PY
       - name: Validar Python
         run: python -m py_compile app_mrp.py
@@ -35,6 +37,6 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add app_mrp.py
           git commit -m 'Corrigir vinculo de datas por projeto e produto'
-          git rm .github/mrp_demanda_fix.trigger .github/workflows/ajuste-login-altura.yml
+          git rm .github/mrp_demanda_fix.trigger .github/mrp_demanda_fix_2.trigger .github/workflows/ajuste-login-altura.yml
           git commit -m 'Remover arquivos temporarios da correcao'
           git push

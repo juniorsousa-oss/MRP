@@ -505,56 +505,6 @@ def _apply_visual_theme(cfg):
       h1, h2, h3, h4, [data-testid="stMarkdownContainer"] h1, [data-testid="stMarkdownContainer"] h2, [data-testid="stMarkdownContainer"] h3 {{ color: var(--setta-title) !important; }}
       [data-testid="stHeader"] {{background: var(--setta-header) !important; }}
       [data-testid="stSidebar"] {{border-right: 1px solid rgba(0,0,0,.08); }}
-      /* Upload compacto: restaura o formato horizontal anterior sem alterar a lógica dos arquivos. */
-      [data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {{
-        min-height: 40px !important;
-        height: 40px !important;
-        padding: 4px 8px !important;
-        box-sizing: border-box !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 10px !important;
-        border-radius: 6px !important;
-      }}
-      [data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] > div {{
-        width: 100% !important;
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        gap: 10px !important;
-      }}
-      [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] {{
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        gap: 8px !important;
-        flex: 1 1 auto !important;
-        min-width: 0 !important;
-        margin: 0 !important;
-      }}
-      [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] > div:first-child {{
-        display: none !important;
-      }}
-      [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] > div:nth-child(2) {{
-        margin: 0 !important;
-        padding: 0 !important;
-        font-size: 0.72rem !important;
-        line-height: 1.1 !important;
-        white-space: nowrap !important;
-      }}
-      [data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button {{
-        flex: 0 0 auto !important;
-        min-height: 30px !important;
-        height: 30px !important;
-        padding: 0 10px !important;
-        margin: 0 !important;
-      }}
-      [data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] svg {{
-        width: 13px !important;
-        height: 13px !important;
-      }}
       .setta-brand {{ background: var(--setta-header); border: 1px solid rgba(0,0,0,.08); border-radius: 14px; padding: 18px 24px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(0,0,0,.05); min-height:130px; display:flex; align-items:center; justify-content:center; }}
       .setta-brand-logo {{ width:100%; display:flex; align-items:center; justify-content:center; }}
       .setta-brand-logo img {{ display: block; max-width: 100%; height: auto; margin: 0; }}

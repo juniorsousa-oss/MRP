@@ -1,0 +1,90 @@
+name: Restaurar upload compacto
+on:
+  push:
+    paths:
+      - '.github/restaurar_upload.trigger'
+permissions:
+  contents: write
+jobs:
+  ajuste:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar somente CSS do upload
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app_mrp.py')
+          s=p.read_text(encoding='utf-8')
+          marker='''      [data-testid="stSidebar"] {{border-right: 1px solid rgba(0,0,0,.08); }}'''
+          css='''      [data-testid="stSidebar"] {{border-right: 1px solid rgba(0,0,0,.08); }}
+      /* Upload compacto: restaura o formato horizontal anterior sem alterar a lógica dos arquivos. */
+      [data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {{
+        min-height: 40px !important;
+        height: 40px !important;
+        padding: 4px 8px !important;
+        box-sizing: border-box !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+        border-radius: 6px !important;
+      }}
+      [data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] > div {{
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+      }}
+      [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] {{
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 8px !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+      }}
+      [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] > div:first-child {{
+        display: none !important;
+      }}
+      [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzoneInstructions"] > div:nth-child(2) {{
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 0.72rem !important;
+        line-height: 1.1 !important;
+        white-space: nowrap !important;
+      }}
+      [data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button {{
+        flex: 0 0 auto !important;
+        min-height: 30px !important;
+        height: 30px !important;
+        padding: 0 10px !important;
+        margin: 0 !important;
+      }}
+      [data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] svg {{
+        width: 13px !important;
+        height: 13px !important;
+      }}'''
+          if marker not in s:
+              raise SystemExit('Marcador do CSS do sidebar nao encontrado; nenhuma alteracao aplicada.')
+          if '/* Upload compacto: restaura o formato horizontal anterior' in s:
+              raise SystemExit('CSS de upload compacto ja existe; nenhuma alteracao aplicada.')
+          s=s.replace(marker, css, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Validar Python
+        run: python -m py_compile app_mrp.py
+      - name: Commitar ajuste e remover temporarios
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app_mrp.py
+          git commit -m 'Restaurar layout compacto dos uploads'
+          git rm .github/restaurar_upload.trigger .github/workflows/restaurar-upload-compacto.yml
+          git commit -m 'Remover workflow temporario do upload'
+          git push

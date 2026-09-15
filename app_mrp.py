@@ -17,7 +17,7 @@ def _replace_once(old, new, label):
 
 def _sub_once(pattern, replacement, label, flags=0):
     global _source
-    new_source, count = re.subn(pattern, replacement, _source, count=1, flags=flags)
+    new_source, count = re.subn(pattern, lambda _m: replacement, _source, count=1, flags=flags)
     if count != 1:
         raise RuntimeError(f"Bloco do MRP não encontrado para adequação: {label}.")
     _source = new_source

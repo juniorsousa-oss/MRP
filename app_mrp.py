@@ -1,6 +1,7 @@
 from pathlib import Path
 from mrp_entrega_patch import ENTREGA_PATCH
 from mrp_layout_patch import LAYOUT_PATCH
+from mrp_compra_tctp_patch import COMPRA_TCTP_PATCH
 
 # Mantém toda a lógica funcional validada no runtime estável e aplica somente
 # a persistência/detalhamento das OPs de produção interna e o status de entrega.
@@ -91,7 +92,7 @@ if _old_export in _source:
 
 _runtime_source = _runtime_source.replace(
     _exec_anchor,
-    _producao_patch + "\n" + ENTREGA_PATCH + "\n" + LAYOUT_PATCH + "\n" + _exec_anchor,
+    _producao_patch + "\n" + ENTREGA_PATCH + "\n" + LAYOUT_PATCH + "\n" + COMPRA_TCTP_PATCH + "\n" + _exec_anchor,
     1,
 )
 

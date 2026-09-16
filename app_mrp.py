@@ -31,6 +31,13 @@ if _old_call not in _source:
     raise RuntimeError("Chamada de save_snapshot não encontrada para produção interna.")
 _source = _source.replace(_old_call, _new_call, 1)
 
+# Nova versão do snapshot: garante nova gravação mesmo com as mesmas 5 bases.
+_source = _source.replace(
+    'MRP-SNAPSHOT-V3-COMPRAS-PERIODO',
+    'MRP-SNAPSHOT-V4-FABRICACAO',
+    1,
+)
+
 _old_load = '    compras = snapshot_df(snap, "compras").copy()\n'
 _new_load = '    compras = snapshot_df(snap, "compras").copy()\n    fabricacao = snapshot_df(snap, "fabricacao").copy()\n'
 if _old_load not in _source:
@@ -44,14 +51,14 @@ _new_detail = '''                    st.caption("S.C. sem semana permanece no ma
 
                 d_fab = pd.DataFrame()
                 if not fabricacao.empty and "Código Produto" in fabricacao.columns:
-                    _fab_code = fabricacao["Código Produto"].astype(str).str.replace(r"\\.0$", "", regex=True)
+                    _fab_code = fabricacao["Código Produto"].astype(str).str.replace(".0", "", regex=False)
                     d_fab = fabricacao[_fab_code == selecionado].copy()
 
                 if not d_fab.empty:
                     if "ORDEM DE PRODUÇÃO" in d_fab.columns:
-                        d_fab["ORDEM DE PRODUÇÃO"] = d_fab["ORDEM DE PRODUÇÃO"].fillna("").astype(str).str.replace(r"\\.0$", "", regex=True)
+                        d_fab["ORDEM DE PRODUÇÃO"] = d_fab["ORDEM DE PRODUÇÃO"].fillna("").astype(str).str.replace(".0", "", regex=False)
                     if "Código Produto" in d_fab.columns:
-                        d_fab["Código Produto"] = d_fab["Código Produto"].fillna("").astype(str).str.replace(r"\\.0$", "", regex=True)
+                        d_fab["Código Produto"] = d_fab["Código Produto"].fillna("").astype(str).str.replace(".0", "", regex=False)
                     if "Semana Entrega" in d_fab.columns:
                         d_fab["Período da Semana"] = pd.to_numeric(d_fab["Semana Entrega"], errors="coerce").apply(periodo_semana)
                     else:
@@ -64,7 +71,7 @@ _new_detail = '''                    st.caption("S.C. sem semana permanece no ma
                     st.caption("Ordens de produção vinculadas ao material selecionado. Cada OP representa 1 peça em fabricação.")
                     st.dataframe(d_fab[fab_cols], use_container_width=True, hide_index=True, column_order=fab_cols)
                 else:
-                    _mg_sel = mg[mg["Código"].astype(str).str.replace(r"\\.0$", "", regex=True) == selecionado].copy() if "Código" in mg.columns else pd.DataFrame()
+                    _mg_sel = mg[mg["Código"].astype(str).str.replace(".0", "", regex=False) == selecionado].copy() if "Código" in mg.columns else pd.DataFrame()
                     _produzindo = pd.to_numeric(_mg_sel.get("Produzindo", pd.Series(dtype=float)), errors="coerce").fillna(0).sum() if not _mg_sel.empty else 0
                     if _produzindo > 0:
                         st.markdown("**PRODUÇÃO INTERNA — OPs**")

@@ -72,6 +72,15 @@ if 'def render_mrp_history_lazy():' not in _source and _history_marker in _sourc
 '''
     _source = _source.replace(_history_marker, _history_helper + _history_marker, 1)
 
+# Filtros, seleção de linha e downloads da Consulta Geral rerodam somente
+# o fragmento da consulta, sem recalcular o aplicativo inteiro.
+if '@st.fragment\ndef render_consulta_view():' not in _source:
+    _source = _source.replace(
+        'def render_consulta_view():',
+        '@st.fragment\ndef render_consulta_view():',
+        1,
+    )
+
 _source = _source.replace(
     '                render_mrp_history()\\n',
     '                render_mrp_history_lazy()\\n',

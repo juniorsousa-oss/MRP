@@ -1,7 +1,8 @@
 from pathlib import Path
+from mrp_entrega_patch import ENTREGA_PATCH
 
 # Mantém toda a lógica funcional validada no runtime estável e aplica somente
-# a persistência/detalhamento das OPs de produção interna.
+# a persistência/detalhamento das OPs de produção interna e o status de entrega.
 _runtime_path = Path(__file__).with_name("app_mrp_runtime.py")
 _runtime_source = _runtime_path.read_text(encoding="utf-8")
 
@@ -89,7 +90,7 @@ if _old_export in _source:
 
 _runtime_source = _runtime_source.replace(
     _exec_anchor,
-    _producao_patch + "\n" + _exec_anchor,
+    _producao_patch + "\n" + ENTREGA_PATCH + "\n" + _exec_anchor,
     1,
 )
 

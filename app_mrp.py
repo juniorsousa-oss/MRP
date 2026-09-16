@@ -9,7 +9,7 @@ _exec_anchor = 'exec(compile(_source, "app_mrp_original.py", "exec"), globals(),
 if _exec_anchor not in _runtime_source:
     raise RuntimeError("Ponto de execução do runtime do MRP não encontrado.")
 
-_producao_patch = r'''
+_producao_patch = r"""
 # =========================================================
 # PRODUÇÃO INTERNA — PERSISTÊNCIA E DETALHE NA CONSULTA
 # =========================================================
@@ -86,7 +86,7 @@ _old_export = '        "Compras": compras,\n    }'
 _new_export = '        "Compras": compras,\n        "Fabricacao": fabricacao,\n    }'
 if _old_export in _source:
     _source = _source.replace(_old_export, _new_export, 1)
-'''
+"""
 
 _runtime_source = _runtime_source.replace(
     _exec_anchor,

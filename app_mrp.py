@@ -607,4 +607,11 @@ _replace_once(
     "tratativas na exportação completa",
 )
 
+# Formatação brasileira da data/hora exibida nas tratativas salvas.
+_source = _source.replace(
+    '    out["Atualizado em"]=out["updated_at"].fillna("").astype(str)\n',
+    '    _dt_tratativa=pd.to_datetime(out["updated_at"],errors="coerce",utc=True)\n    _dt_tratativa=_dt_tratativa.dt.tz_convert("America/Sao_Paulo")\n    out["Atualizado em"]=_dt_tratativa.dt.strftime("%d/%m/%Y %H:%M").fillna("")\n',
+    1,
+)
+
 exec(compile(_source, "app_mrp_original.py", "exec"), globals(), globals())

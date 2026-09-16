@@ -1,4 +1,4 @@
-ENTREGA_PATCH = r'''
+ENTREGA_PATCH = r"""
 # =========================================================
 # RESUMO — STATUS DE ENTREGA POR OP
 # Regra: na MESMA linha do RelatorioGeral_Tratado,
@@ -72,4 +72,4 @@ _source = _source.replace(
     'MRP-SNAPSHOT-V5-STATUS-ENTREGA',
     1,
 )
-'''
+"""

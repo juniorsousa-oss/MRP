@@ -412,6 +412,32 @@ _replace_once(
 
 
 # =========================================================
+# CORREÇÃO — DEMANDA GERAL E PROJEÇÃO SEMANAL
+# Projetos CANCELADO/SUSPENSO/RESÍDUO permanecem no detalhe,
+# mas não podem compor Demanda S.A. nem projeção semanal.
+# =========================================================
+_sa_week_anchor = 'sa_week=rg_mrp.groupby(["Código","Semana"],as_index=False)["Pendência"].sum().rename(columns={"Pendência":"Demanda S.A."})'
+_sa_week_replacement = '''try:
+    _tratativas_demanda_geral=_carregar_tratativas_salvas()
+except Exception as _trat_geral_err:
+    st.error(f"Não foi possível carregar as tratativas para cálculo da Demanda Geral: {_trat_geral_err}")
+    st.stop()
+
+_tratativa_demanda_map=(
+    _tratativas_demanda_geral.set_index("Projeto")["OBS"].to_dict()
+    if len(_tratativas_demanda_geral) else {}
+)
+rg_mrp_efetivo=rg_mrp.copy()
+rg_mrp_efetivo["Projeto"]=rg_mrp_efetivo["Projeto"].map(_projeto_key)
+rg_mrp_efetivo["OBS Tratativa"]=rg_mrp_efetivo["Projeto"].map(_tratativa_demanda_map).fillna("")
+_condicao_desconsiderada=rg_mrp_efetivo["Condição"].map(_texto_normalizado).isin({"CANCELADO","SUSPENSO"})
+_residuo_desconsiderado=rg_mrp_efetivo["OBS Tratativa"].map(_texto_normalizado).eq("RESIDUO")
+rg_mrp_efetivo.loc[_condicao_desconsiderada|_residuo_desconsiderado,"Pendência"]=0.0
+sa_week=rg_mrp_efetivo.groupby(["Código","Semana"],as_index=False)["Pendência"].sum().rename(columns={"Pendência":"Demanda S.A."})'''
+_replace_once(_sa_week_anchor, _sa_week_replacement, "Demanda S.A. líquida de projetos desconsiderados")
+
+
+# =========================================================
 # DEMANDA POR PROJETO + TRATATIVAS PERSISTENTES
 # =========================================================
 _demanda_pattern = (

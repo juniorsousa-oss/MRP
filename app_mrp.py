@@ -23,20 +23,16 @@ _exec_anchor = 'exec(compile(_source, "app_mrp_original.py", "exec"), globals(),
 if _exec_anchor not in _runtime_source:
     raise RuntimeError("Ponto de execução do runtime do MRP não encontrado.")
 
-_performance_patch = r'''
+_performance_patch = r"""
 # =========================================================
 # DESEMPENHO — CACHE E GERAÇÃO SOB DEMANDA
 # =========================================================
-# Excel é a operação mais cara do app. As cinco bases só voltam a ser lidas se
-# seus bytes realmente mudarem.
 _source = _source.replace(
     "def load_sources(cb,eb,gb,pb,mb):\n",
     "@st.cache_data(show_spinner=False, max_entries=4)\ndef load_sources(cb,eb,gb,pb,mb):\n",
     1,
 )
 
-# Configuração visual é comum a todos e não precisa consultar o banco em todo
-# filtro/seleção.
 _source = _source.replace(
     "def _config_get():\n",
     "@st.cache_data(ttl=300, show_spinner=False)\ndef _config_get():\n",
@@ -48,7 +44,6 @@ _source = _source.replace(
     1,
 )
 
-# Arquivos de exportação iguais são reutilizados em vez de reconstruídos.
 _source = _source.replace(
     "def excel_bytes(sheets):\n",
     "@st.cache_data(show_spinner=False, max_entries=8)\ndef excel_bytes(sheets):\n",
@@ -65,8 +60,6 @@ _source = _source.replace(
     1,
 )
 
-# Histórico/comparativo é pesado e não deve ser processado automaticamente em
-# cada rerun. Só é montado quando o usuário solicitar.
 _history_helper_anchor = 'def render_consulta_view():'
 _history_helper = '''def render_mrp_history_lazy():
     st.divider()
@@ -78,8 +71,6 @@ _source = _source.replace(_history_helper_anchor, _history_helper, 1)
 _source = _source.replace('                render_mrp_history()\n', '                render_mrp_history_lazy()\n', 1)
 _source = _source.replace('    render_mrp_history()\n\n# trigger-final-2', '    render_mrp_history_lazy()\n\n# trigger-final-2', 1)
 
-# Na consulta, Excel/ZIP não são mais montados em todo clique. O usuário prepara
-# os downloads apenas quando realmente precisar deles.
 _consulta_export_pattern = re.compile(
     r'    st\.markdown\("### Exportação de relatórios"\)\n'
     r'    sheets = \{.*?'
@@ -119,7 +110,6 @@ _source, _consulta_export_count = _consulta_export_pattern.subn(lambda _m: _cons
 if _consulta_export_count != 1:
     raise RuntimeError("Bloco de exportação da consulta não encontrado para otimização.")
 
-# O mesmo vale para o processamento ADMIN: gerar Excel/ZIP só quando solicitado.
 _admin_export_pattern = re.compile(
     r'st\.divider\(\); st\.subheader\(UI_CONFIG\["section_export_title"\]\)\n'
     r'if UI_CONFIG\.get\("section_export_description"\):.*?'
@@ -160,7 +150,7 @@ if _admin_exports.get("sig")==_admin_export_sig:
 _source, _admin_export_count = _admin_export_pattern.subn(lambda _m: _admin_export_replacement, _source, count=1)
 if _admin_export_count != 1:
     raise RuntimeError("Bloco de exportação ADMIN não encontrado para otimização.")
-'''
+"""
 
 _runtime_source = _runtime_source.replace(
     _exec_anchor,

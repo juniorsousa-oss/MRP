@@ -1,141 +1,93 @@
 LAYOUT_PATCH = r"""
 # =========================================================
-# PADRÃO VISUAL — DIMENSÕES EXATAS DA GESTÃO DE ENTREGAS
-# Fonte de referência: streamlit_app.py enviado em 16/09/2026.
+# PADRÃO VISUAL — DIMENSÕES EFETIVAS DA GESTÃO DE ENTREGAS
+# Replica também o override final de largura do app-base.
 # Não altera lógica, cálculos ou persistência do MRP.
 # =========================================================
 
-# O runtime do MRP já possuía quase todas as dimensões do app de referência.
-# Este bloco garante explicitamente os mesmos valores e desfaz o ajuste
-# compacto aplicado anteriormente.
-_layout_replacements = [
-    (
-        '''.block-container {
+_layout_old = '''.block-container {
     max-width: 1780px !important;
     padding-top: 3.2rem !important;
     padding-left: 2.7rem !important;
     padding-right: 2.7rem !important;
     padding-bottom: 3rem !important;
-}''',
-        '''.block-container {
+}
+.setta-brand {'''
+
+_layout_new = '''.block-container {
     max-width: 1780px !important;
     padding-top: 3.2rem !important;
     padding-left: 2.7rem !important;
     padding-right: 2.7rem !important;
     padding-bottom: 3rem !important;
     width: 100% !important;
-}'''
-    ),
-]
+}
 
-for _old_layout, _new_layout in _layout_replacements:
-    if _old_layout in _source:
-        _source = _source.replace(_old_layout, _new_layout, 1)
-
-# Cabeçalho/logo — exatamente as dimensões do app de referência.
-# A classe do MRP é .setta-brand; no app-base a equivalente é .setta-logo-card.
-_source = _source.replace(
-    '''.setta-brand {
+[data-testid="stAppViewContainer"] > .main,
+[data-testid="stAppViewContainer"] .main,
+[data-testid="stMain"],
+.stMain {
     width: 100% !important;
-    min-height: 128px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    background: #ffffff !important;
-    border: 1px solid #e5e8ee !important;
-    border-radius: 16px !important;
-    box-shadow: 0 4px 14px rgba(24, 39, 75, 0.08) !important;
-    box-sizing: border-box !important;
-    margin: 0 0 2.55rem 0 !important;
-    padding: 1.1rem 2rem !important;
-}''',
-    '''.setta-brand {
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+[data-testid="stAppViewContainer"] .main .block-container,
+[data-testid="stMain"] .block-container,
+.stMain .block-container {
     width: 100% !important;
-    min-height: 128px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    background: #ffffff !important;
-    border: 1px solid #e5e8ee !important;
-    border-radius: 16px !important;
-    box-shadow: 0 4px 14px rgba(24, 39, 75, 0.08) !important;
-    box-sizing: border-box !important;
-    margin: 0 0 2.55rem 0 !important;
-    padding: 1.1rem 2rem !important;
-}''',
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+.setta-brand {'''
+
+if _layout_old not in _source:
+    raise RuntimeError("Bloco visual principal não encontrado para padronização de largura.")
+_source = _source.replace(_layout_old, _layout_new, 1)
+
+# Cabeçalho/logo — mesmos valores do app-base.
+_source = _source.replace(
+    '''    min-height: 128px !important;
+    display: flex !important;''',
+    '''    min-height: 128px !important;
+    display: flex !important;''',
+    1,
+)
+_source = _source.replace(
+    '''    margin: 0 0 2.55rem 0 !important;
+    padding: 1.1rem 2rem !important;''',
+    '''    margin: 0 0 2.55rem 0 !important;
+    padding: 1.1rem 2rem !important;''',
+    1,
+)
+_source = _source.replace(
+    '''    max-width: 205px !important;
+    max-height: 86px !important;''',
+    '''    max-width: 205px !important;
+    max-height: 86px !important;''',
     1,
 )
 
+# Título/subtítulo — mesmos valores do app-base.
 _source = _source.replace(
-    '''.setta-brand-logo img {
-    display: block !important;
-    width: auto !important;
-    height: auto !important;
-    max-width: 205px !important;
-    max-height: 86px !important;
-    object-fit: contain !important;
-    margin: 0 !important;
-}''',
-    '''.setta-brand-logo img {
-    display: block !important;
-    width: auto !important;
-    height: auto !important;
-    max-width: 205px !important;
-    max-height: 86px !important;
-    object-fit: contain !important;
-    margin: 0 !important;
-}''',
+    '''    font-size: 2.55rem !important;
+    line-height: 1.08 !important;''',
+    '''    font-size: 2.55rem !important;
+    line-height: 1.08 !important;''',
     1,
 )
 
-# Título/subtítulo — mesmas proporções do app-base.
-_source = _source.replace(
-    '''.app-title {
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 2.55rem !important;
-    line-height: 1.08 !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.04em !important;
-    color: #050505 !important;
-}''',
-    '''.app-title {
-    margin: 0 !important;
-    padding: 0 !important;
-    font-size: 2.55rem !important;
-    line-height: 1.08 !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.04em !important;
-    color: #050505 !important;
-}''',
-    1,
-)
-
-_source = _source.replace(
-    '''.app-subtitle {
-    margin-top: 0.72rem !important;
-    margin-bottom: 0 !important;
-    font-size: 0.94rem !important;
-    color: #4f5661 !important;
-}''',
-    '''.app-subtitle {
-    margin-top: 0.72rem !important;
-    margin-bottom: 0 !important;
-    font-size: 0.94rem !important;
-    color: #4f5661 !important;
-}''',
-    1,
-)
-
-# Cards/"balões" — replica a caixa KPI do app-base (116 px).
-_source = _source.replace(
-    '''div[data-testid="stMetric"] {
+# Métricas/balões — mesmas dimensões quando houver st.metric.
+_metric_old = '''div[data-testid="stMetric"] {
     background: #ffffff !important;
     border: 1px solid #e7eaf0 !important;
     border-radius: 12px !important;
     padding: 0.8rem 1rem !important;
-}''',
-    '''div[data-testid="stMetric"] {
+}'''
+_metric_new = '''div[data-testid="stMetric"] {
     position: relative !important;
     min-height: 116px !important;
     padding: 16px 18px 15px 18px !important;
@@ -157,18 +109,7 @@ div[data-testid="stMetricValue"] {
     font-weight: 800 !important;
     line-height: 1 !important;
     letter-spacing: -.035em !important;
-}''',
-    1,
-)
-
-# Responsivo — mantém exatamente o padrão já existente no app-base.
-_source = _source.replace(
-    '''        padding-top: 2rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;''',
-    '''        padding-top: 2rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;''',
-    1,
-)
+}'''
+if _metric_old in _source:
+    _source = _source.replace(_metric_old, _metric_new, 1)
 """

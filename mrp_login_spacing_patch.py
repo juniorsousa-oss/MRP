@@ -41,7 +41,7 @@ _old_login_heading = '''      .setta-login-heading {{
 _new_login_heading = '''      .setta-login-heading {{
         height:64px !important;
         transform:none !important;
-        padding:12px 28px 0 !important;
+        padding:30px 28px 0 !important;
         display:flex !important;
         align-items:flex-start !important;
         justify-content:center !important;

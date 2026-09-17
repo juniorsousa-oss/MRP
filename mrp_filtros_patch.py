@@ -1,4 +1,4 @@
-FILTROS_PATCH = r'''
+FILTROS_PATCH = r"""
 # =========================================================
 # FILTROS COM CONFIRMAÇÃO — EVITA RERUN A CADA SELEÇÃO
 # =========================================================
@@ -84,4 +84,4 @@ _new_admin_projeto = '''    st.subheader(UI_CONFIG["title_demanda_projeto"])
 if _old_admin_projeto not in _source:
     raise RuntimeError("Filtros da Demanda por Projeto com bases carregadas não encontrados.")
 _source = _source.replace(_old_admin_projeto, _new_admin_projeto, 1)
-'''
+"""

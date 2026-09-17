@@ -51,7 +51,7 @@ if _old_login_heading in _source:
     _source = _source.replace(_old_login_heading, _new_login_heading, 1)
 
 _old_form_top = '        top:calc(50% - 50px) !important;\n'
-_new_form_top = '        top:calc(50% - 20px) !important;\n'
+_new_form_top = '        top:calc(40% - 20px) !important;\n'
 if _old_form_top in _source:
     _source = _source.replace(_old_form_top, _new_form_top, 1)
 """

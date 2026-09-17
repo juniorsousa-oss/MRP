@@ -23,7 +23,16 @@ LOGIN_TITLE_FONT_SIZE = 18
 LOGIN_FORM_OFFSET_Y = 60
 LOGIN_FORM_WIDTH = 300
 
+# CAMPOS DE USUÁRIO / SENHA
 LOGIN_FIELD_HEIGHT = 35
+# Espaço vertical entre o campo Usuário e o campo Senha.
+# DIMINUIR = aproxima os campos | AUMENTAR = afasta.
+LOGIN_FIELD_GAP = 6
+# Espaço horizontal do texto dentro do campo.
+LOGIN_FIELD_PADDING_X = 12
+# Largura reservada ao botão do olho da senha.
+LOGIN_EYE_WIDTH = 38
+
 LOGIN_BUTTON_HEIGHT = 50
 
 LOGIN_SPACING_PATCH = r"""
@@ -102,15 +111,64 @@ _login_final_css = '''
     margin-bottom:5px !important;
   }
 
+  /* Espaçamento entre Usuário e Senha */
   div[data-testid="stForm"] [data-testid="stTextInput"] {
     width:100% !important;
-    margin-bottom:14px !important;
+    margin-bottom:__FIELD_GAP__px !important;
   }
 
-  div[data-testid="stForm"] input,
+  /* Contêiner externo do campo */
   div[data-testid="stForm"] [data-baseweb="input"] {
     height:__FIELD_HEIGHT__px !important;
     min-height:__FIELD_HEIGHT__px !important;
+    display:flex !important;
+    align-items:center !important;
+    box-sizing:border-box !important;
+  }
+
+  /* Contêiner interno que o Streamlit/BaseWeb cria */
+  div[data-testid="stForm"] [data-baseweb="input"] > div {
+    height:__FIELD_HEIGHT__px !important;
+    min-height:__FIELD_HEIGHT__px !important;
+    display:flex !important;
+    align-items:center !important;
+    box-sizing:border-box !important;
+  }
+
+  /* Texto digitado dentro de Usuário e Senha */
+  div[data-testid="stForm"] input {
+    height:__FIELD_HEIGHT__px !important;
+    min-height:__FIELD_HEIGHT__px !important;
+    line-height:normal !important;
+    padding:0 __FIELD_PADDING_X__px !important;
+    margin:0 !important;
+    display:flex !important;
+    align-items:center !important;
+    box-sizing:border-box !important;
+    font-size:13px !important;
+  }
+
+  /* Botão do olho da senha — mesma altura do campo e centralizado */
+  div[data-testid="stForm"] [data-testid="stTextInput"] [data-baseweb="input"] button {
+    width:__EYE_WIDTH__px !important;
+    min-width:__EYE_WIDTH__px !important;
+    height:__FIELD_HEIGHT__px !important;
+    min-height:__FIELD_HEIGHT__px !important;
+    flex:0 0 __EYE_WIDTH__px !important;
+    margin:0 !important;
+    padding:0 !important;
+    position:static !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    box-sizing:border-box !important;
+  }
+
+  div[data-testid="stForm"] [data-testid="stTextInput"] [data-baseweb="input"] button svg {
+    width:17px !important;
+    height:17px !important;
+    margin:0 !important;
+    display:block !important;
   }
 
   div[data-testid="stForm"] [data-testid="stFormSubmitButton"] button {
@@ -140,6 +198,9 @@ _login_final_css = (
     .replace('__FORM_OFFSET_Y__', '__CFG_FORM_OFFSET_Y__')
     .replace('__FORM_WIDTH__', '__CFG_FORM_WIDTH__')
     .replace('__FIELD_HEIGHT__', '__CFG_FIELD_HEIGHT__')
+    .replace('__FIELD_GAP__', '__CFG_FIELD_GAP__')
+    .replace('__FIELD_PADDING_X__', '__CFG_FIELD_PADDING_X__')
+    .replace('__EYE_WIDTH__', '__CFG_EYE_WIDTH__')
     .replace('__BUTTON_HEIGHT__', '__CFG_BUTTON_HEIGHT__')
 )
 
@@ -164,5 +225,8 @@ LOGIN_SPACING_PATCH = (
     .replace('__CFG_FORM_OFFSET_Y__', str(LOGIN_FORM_OFFSET_Y))
     .replace('__CFG_FORM_WIDTH__', str(LOGIN_FORM_WIDTH))
     .replace('__CFG_FIELD_HEIGHT__', str(LOGIN_FIELD_HEIGHT))
+    .replace('__CFG_FIELD_GAP__', str(LOGIN_FIELD_GAP))
+    .replace('__CFG_FIELD_PADDING_X__', str(LOGIN_FIELD_PADDING_X))
+    .replace('__CFG_EYE_WIDTH__', str(LOGIN_EYE_WIDTH))
     .replace('__CFG_BUTTON_HEIGHT__', str(LOGIN_BUTTON_HEIGHT))
 )

@@ -27,7 +27,7 @@ LOGIN_FORM_WIDTH = 300
 LOGIN_FIELD_HEIGHT = 35
 # Espaço vertical entre o campo Usuário e o campo Senha.
 # DIMINUIR = aproxima os campos | AUMENTAR = afasta.
-LOGIN_FIELD_GAP = 6
+LOGIN_FIELD_GAP = 3
 # Espaço horizontal do texto dentro do campo.
 LOGIN_FIELD_PADDING_X = 12
 # Largura reservada ao botão do olho da senha.

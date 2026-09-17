@@ -24,7 +24,7 @@ LOGIN_FORM_OFFSET_Y = 60
 LOGIN_FORM_WIDTH = 300
 
 LOGIN_FIELD_HEIGHT = 35
-LOGIN_BUTTON_HEIGHT = 50
+LOGIN_BUTTON_HEIGHT = 200
 
 LOGIN_SPACING_PATCH = r"""
 # =========================================================

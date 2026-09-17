@@ -1,4 +1,4 @@
-HEADER_PADRAO_PATCH = r'''
+HEADER_PADRAO_PATCH = r"""
 # =========================================================
 # CABEÇALHO PRINCIPAL — PADRÃO GESTÃO DE ENTREGAS
 # =========================================================
@@ -49,4 +49,4 @@ div[data-testid="stElementContainer"]:has(.setta-brand) {
 if _header_anchor not in _source:
     raise RuntimeError("Ponto do cabeçalho principal não encontrado para padronização.")
 _source = _source.replace(_header_anchor, _header_css, 1)
-'''
+"""

@@ -5,6 +5,7 @@ from mrp_compra_tctp_patch import COMPRA_TCTP_PATCH
 from mrp_filtros_patch import FILTROS_PATCH
 from mrp_comparativo_patch import COMPARATIVO_PATCH
 from mrp_ui_adequacoes_patch import UI_ADEQUACOES_PATCH
+from mrp_filtros_visual_patch import FILTROS_VISUAL_PATCH
 from mrp_header_padrao_patch import HEADER_PADRAO_PATCH
 from mrp_login_patch import LOGIN_PATCH
 from mrp_login_spacing_patch import LOGIN_SPACING_PATCH
@@ -98,7 +99,7 @@ if _old_export in _source:
 
 _runtime_source = _runtime_source.replace(
     _exec_anchor,
-    _producao_patch + "\n" + ENTREGA_PATCH + "\n" + LAYOUT_PATCH + "\n" + COMPRA_TCTP_PATCH + "\n" + FILTROS_PATCH + "\n" + COMPARATIVO_PATCH + "\n" + UI_ADEQUACOES_PATCH + "\n" + HEADER_PADRAO_PATCH + "\n" + LOGIN_PATCH + "\n" + LOGIN_SPACING_PATCH + "\n" + _exec_anchor,
+    _producao_patch + "\n" + ENTREGA_PATCH + "\n" + LAYOUT_PATCH + "\n" + COMPRA_TCTP_PATCH + "\n" + FILTROS_PATCH + "\n" + COMPARATIVO_PATCH + "\n" + UI_ADEQUACOES_PATCH + "\n" + FILTROS_VISUAL_PATCH + "\n" + HEADER_PADRAO_PATCH + "\n" + LOGIN_PATCH + "\n" + LOGIN_SPACING_PATCH + "\n" + _exec_anchor,
     1,
 )
 

@@ -1,56 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import re
-from datetime import date, timedelta
 from io import BytesIO
-
-def semana_atual_operacional():
-    """Semana domingo-sábado com o ano do domingo inicial."""
-    hoje = date.today()
-    domingo = hoje - timedelta(days=(hoje.weekday() + 1) % 7)
-    primeiro = date(domingo.year, 1, 1)
-    primeiro += timedelta(days=(6 - primeiro.weekday()) % 7)
-    numero = ((domingo - primeiro).days // 7) + 1
-    return f'{domingo.year}-{numero:02d}'
-
-
-def semana_chave(valor, periodo='', data_original=''):
-    """Lê AAAA-SS ou adapta relatórios antigos usando o período de referência."""
-    texto = str(valor).strip()
-    match = re.fullmatch(r'(\d{4})[-/](\d{1,2})', texto)
-    if match:
-        ano, numero = int(match.group(1)), int(match.group(2))
-        return f'{ano}-{numero:02d}' if 1 <= numero <= 53 else ''
-
-    antigo = re.fullmatch(r'(\d{1,2})(?:\.0)?', texto)
-    if not antigo or not 1 <= int(antigo.group(1)) <= 53:
-        return ''
-
-    numero = int(antigo.group(1))
-    inicio = re.search(r'\d{2}/\d{2}/\d{4}', str(periodo))
-    data_ref = pd.to_datetime(inicio.group(0), format='%d/%m/%Y', errors='coerce') if inicio else pd.NaT
-    if pd.isna(data_ref):
-        data_ref = pd.to_datetime(data_original, dayfirst=True, errors='coerce')
-        if pd.notna(data_ref) and data_ref.date() < date.today():
-            data_ref = pd.NaT  # semana vencida de relatório antigo já foi corrigida para hoje
-    if pd.notna(data_ref):
-        d = data_ref.date()
-        domingo = d - timedelta(days=(d.weekday() + 1) % 7)
-        ano = domingo.year
-    else:
-        ano = date.today().year
-    return f'{ano}-{numero:02d}'
-
-
-def coluna_semana(df, nome, periodo=None, data=None):
-    periodos = df[periodo] if periodo in df.columns else pd.Series('', index=df.index)
-    datas = df[data] if data in df.columns else pd.Series('', index=df.index)
-    return pd.Series(
-        (semana_chave(w, p, d) for w, p, d in zip(df[nome], periodos, datas)),
-        index=df.index, dtype='str'
-    )
-
 
 st.set_page_config(page_title='MRP | SETTA', page_icon='📦', layout='wide')
 st.markdown('''<style>.block-container{padding-top:1rem}.small{font-size:.8rem;color:#666}</style>''', unsafe_allow_html=True)
@@ -66,11 +17,7 @@ with st.sidebar:
     compras_file = st.file_uploader('4. Compras_Tratado', type=['xlsx','xlsm'])
     mt_file = st.file_uploader('5. MRP_TC_TP_Tratado', type=['xlsx','xlsm'])
     st.divider()
-    semana_atual = st.text_input('Semana atual (AAAA-SS)', value=semana_atual_operacional())
-
-if not re.fullmatch(r'\d{4}-(?:0[1-9]|[1-4]\d|5[0-3])', semana_atual):
-    st.error('Informe a semana atual no formato AAAA-SS, por exemplo 2027-02.')
-    st.stop()
+    semana_atual = st.number_input('Semana atual', 1, 53, 36, 1)
 
 if not all([cadastro_file, estoque_file, geral_file, compras_file, mt_file]):
     st.info('Envie as 5 planilhas tratadas + o Cadastro para iniciar o MRP.')
@@ -101,31 +48,29 @@ def load_sources(cb, eb, gb, pb, mb):
 
     rg = pd.read_excel(BytesIO(gb), sheet_name='RelatorioTratado')
     rg['Código'] = num(rg['Código'])
-    rg['Semana'] = coluna_semana(rg, 'SEMANA DE NECESSIDADE', 'PERIODO DA SEMANA', 'DATA MRP')
+    rg['Semana'] = num(rg['SEMANA DE NECESSIDADE'])
     rg['Pendência'] = num(rg['Pendência']).fillna(0)
     rg['Projeto'] = rg['Projeto'].fillna('').astype(str)
     rg = rg.dropna(subset=['Código']).copy()
     rg['Código'] = rg['Código'].astype(int)
-    rg['Semana válida'] = rg['Semana'].str.match(r'^\d{4}-\d{2}$', na=False)
+    rg['Semana válida'] = rg['Semana'].notna() & rg['Semana'].between(1,53)
     rg_mrp = rg[rg['Semana válida']].copy()
-    rg_mrp['Semana'] = rg_mrp['Semana'].astype(str)
+    rg_mrp['Semana'] = rg_mrp['Semana'].astype(int)
 
     cp = pd.read_excel(BytesIO(pb), sheet_name='ComprasTratado')
     cp['CÓD'] = num(cp['CÓD'])
-    for c in ['QUANTIDADE S.C','QUANTIDADE P.C']:
+    for c in ['QUANTIDADE S.C','SEMANA DE ATENDIMENTO S.C','QUANTIDADE P.C','SEMANA DE ATENDIMENTO P.C']:
         cp[c] = num(cp[c]).fillna(0)
     cp = cp.dropna(subset=['CÓD']).copy()
     cp['CÓD'] = cp['CÓD'].astype(int)
-    cp['SEMANA DE ATENDIMENTO S.C'] = coluna_semana(cp, 'SEMANA DE ATENDIMENTO S.C', 'PERIODO DA SEMANA S.C', 'DATA DA S.C')
-    cp['SEMANA DE ATENDIMENTO P.C'] = coluna_semana(cp, 'SEMANA DE ATENDIMENTO P.C', 'PERIODO DA SEMANA P.C', 'DATA DA P.C')
 
     mt = pd.read_excel(BytesIO(mb), sheet_name='MRP_TC_TP')
-    for c in ['CÓDIGO PRODUTO','MATERIAL','QUANTIDADE POR OF','QUANTIDADE TOTAL PREVISTA ENTREGA NA SEMANA','NECESSIDADE TOTAL DA SEMANA']:
+    for c in ['CÓDIGO PRODUTO','MATERIAL','SEMANA DE ENTREGA','SEMANA DE NECESSIDADE','QUANTIDADE POR OF','QUANTIDADE TOTAL PREVISTA ENTREGA NA SEMANA','NECESSIDADE TOTAL DA SEMANA']:
         if c in mt.columns: mt[c] = num(mt[c])
     mt['CÓDIGO PRODUTO'] = mt['CÓDIGO PRODUTO'].fillna(0).astype(int)
     mt['MATERIAL'] = mt['MATERIAL'].fillna(0).astype(int)
-    mt['SEMANA DE ENTREGA'] = coluna_semana(mt, 'SEMANA DE ENTREGA', 'PERIODO DA SEMANA DE ENTREGA', 'DATA DE ENTREGA')
-    mt['SEMANA DE NECESSIDADE'] = coluna_semana(mt, 'SEMANA DE NECESSIDADE', 'PERIODO DA SEMANA DE NECESSIDADE', 'DATA DE NECESSIDADE')
+    mt['SEMANA DE ENTREGA'] = mt['SEMANA DE ENTREGA'].fillna(0).astype(int)
+    mt['SEMANA DE NECESSIDADE'] = mt['SEMANA DE NECESSIDADE'].fillna(0).astype(int)
     mt['QUANTIDADE POR OF'] = mt['QUANTIDADE POR OF'].fillna(0)
     mt['QUANTIDADE TOTAL PREVISTA ENTREGA NA SEMANA'] = mt['QUANTIDADE TOTAL PREVISTA ENTREGA NA SEMANA'].fillna(0)
     mt['NECESSIDADE TOTAL DA SEMANA'] = mt['NECESSIDADE TOTAL DA SEMANA'].fillna(0)
@@ -139,30 +84,31 @@ sa_total = rg_mrp.groupby('Código')['Pendência'].sum()
 sa_week = rg_mrp.groupby(['Código','Semana'])['Pendência'].sum()
 
 # DEMANDA TC/TP: H + J + L. Soma da quantidade J por material e semana.
-tc_rows = mt[(mt['MATERIAL'] > 0) & (mt['SEMANA DE NECESSIDADE'].str.match(r'^\d{4}-\d{2}$', na=False))].copy()
+tc_rows = mt[(mt['MATERIAL'] > 0) & (mt['SEMANA DE NECESSIDADE'].between(1,53))].copy()
 tc_week = tc_rows.groupby(['MATERIAL','SEMANA DE NECESSIDADE'])['QUANTIDADE POR OF'].sum()
 tc_week.index.names = ['Código','Semana']
 tc_total = tc_week.groupby(level=0).sum()
 
 # P.C.: macro soma J; projeção só considera a quantidade na semana L.
-pc_week = cp[(cp['QUANTIDADE P.C'] > 0) & (cp['SEMANA DE ATENDIMENTO P.C'].str.match(r'^\d{4}-\d{2}$', na=False))].groupby(['CÓD','SEMANA DE ATENDIMENTO P.C'])['QUANTIDADE P.C'].sum()
+pc_week = cp[(cp['QUANTIDADE P.C'] > 0) & (cp['SEMANA DE ATENDIMENTO P.C'].between(1,53))].groupby(['CÓD','SEMANA DE ATENDIMENTO P.C'])['QUANTIDADE P.C'].sum()
 pc_week.index.names = ['Código','Semana']
 pc_total = cp[cp['QUANTIDADE P.C'] > 0].groupby('CÓD')['QUANTIDADE P.C'].sum()
 
 # S.C.: macro soma D; projeção somente S.C. com semana F.
 sc_all = cp[cp['QUANTIDADE S.C'] > 0].groupby('CÓD')['QUANTIDADE S.C'].sum()
-sc_week = cp[(cp['QUANTIDADE S.C'] > 0) & (cp['SEMANA DE ATENDIMENTO S.C'].str.match(r'^\d{4}-\d{2}$', na=False))].groupby(['CÓD','SEMANA DE ATENDIMENTO S.C'])['QUANTIDADE S.C'].sum()
+sc_week = cp[(cp['QUANTIDADE S.C'] > 0) & (cp['SEMANA DE ATENDIMENTO S.C'].between(1,53))].groupby(['CÓD','SEMANA DE ATENDIMENTO S.C'])['QUANTIDADE S.C'].sum()
 sc_week.index.names = ['Código','Semana']
 sc_dated = sc_week.groupby(level=0).sum()
 
 # FABRICAÇÃO: B + E; cada OP distinta = 1 peça.
-op = mt[(mt['CÓDIGO PRODUTO'] > 0) & (mt['SEMANA DE ENTREGA'].str.match(r'^\d{4}-\d{2}$', na=False))][['ORDEM DE PRODUÇÃO','CÓDIGO PRODUTO','SEMANA DE ENTREGA']].drop_duplicates()
+op = mt[(mt['CÓDIGO PRODUTO'] > 0) & (mt['SEMANA DE ENTREGA'].between(1,53))][['ORDEM DE PRODUÇÃO','CÓDIGO PRODUTO','SEMANA DE ENTREGA']].drop_duplicates()
 fab_week = op.groupby(['CÓDIGO PRODUTO','SEMANA DE ENTREGA']).size().astype(float)
 fab_week.index.names = ['Código','Semana']
 fab_total = fab_week.groupby(level=0).sum()
 
 keys = set(sa_week.index)|set(tc_week.index)|set(pc_week.index)|set(sc_week.index)|set(fab_week.index)
-weeks = sorted({w for _, w in keys if re.fullmatch(r'\d{4}-\d{2}', str(w))} | {semana_atual})
+weeks = sorted({int(w) for _,w in keys if 1 <= int(w) <= 53})
+if semana_atual not in weeks: weeks = sorted(set(weeks)|{int(semana_atual)})
 
 stock = est.groupby('COD_MATERIAL')['SALDO_DISPONIVEL'].sum()
 desc = cad.set_index('Código')['Descrição'].to_dict()
@@ -255,7 +201,7 @@ with tab1:
 
 with tab2:
     st.subheader('Demanda por Projeto')
-    st.caption('A demanda S.A. usa G (Pendência) e N (Semana de Necessidade). Sem semana AAAA-SS válida, a linha não entra no MRP.')
+    st.caption('A demanda S.A. usa G (Pendência) e N (Semana de Necessidade). Sem N numérico, a linha não entra no MRP.')
     codes=sorted(rg_mrp['Código'].unique())
     if codes:
         code2=st.selectbox('Material',codes,format_func=lambda x:f'{x} — {desc.get(x,"")}',key='project_code')
@@ -270,7 +216,7 @@ with st.expander('Regras do motor V1'):
     st.markdown('''
 - **Cadastro:** B Código, C Descrição, D Tipo; linha 1 vazia e cabeçalho na linha 2.
 - **Estoque:** A Código Material + E Saldo Disponível.
-- **S.A.:** C Código + G Pendência; só entra quando a Semana de Necessidade tiver ano e semana válidos.
+- **S.A.:** C Código + G Pendência; só entra quando N Semana de Necessidade for numérica.
 - **P.C.:** A Código + J Quantidade; L define a semana de chegada.
 - **S.C.:** A Código + D Quantidade; F define a semana. S.C. sem F não entra na cobertura da projeção.
 - **Fabricação:** B Código do Produto + E Semana de Entrega; cada OP distinta vale 1 peça.

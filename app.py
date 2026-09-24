@@ -154,8 +154,15 @@ fab_week = op.groupby(['CÓDIGO PRODUTO','SEMANA DE ENTREGA']).size().astype(flo
 fab_week.index.names = ['Código','Semana']
 fab_total = fab_week.groupby(level=0).sum()
 
+# Índice de semanas por material: não cria linhas para semanas sem movimentação.
+# Semanas futuras (inclusive 2028–2030) permanecem em ordem cronológica.
+from collections import defaultdict
 keys = set(sa_week.index)|set(tc_week.index)|set(pc_week.index)|set(sc_week.index)|set(fab_week.index)
 weeks = sorted({str(w) for _, w in keys if re.fullmatch(r'\d{4}-\d{2}', str(w))} | {semana_atual})
+semanas_por_material = defaultdict(set)
+for codigo_material, semana_movimento in keys:
+    if re.fullmatch(r'\d{4}-\d{2}', str(semana_movimento)):
+        semanas_por_material[codigo_material].add(str(semana_movimento))
 
 stock = est.groupby('COD_MATERIAL')['SALDO_DISPONIVEL'].sum()
 desc = cad.set_index('Código')['Descrição'].to_dict()
@@ -168,22 +175,29 @@ for code in cad['Código']:
     first_short = None
     total_new_sc = 0.0
     total_d = total_pc = total_sc_dated = total_fab = 0.0
-    has_move = False
-    for wk in weeks:
+    # Considera apenas as semanas em que este material tem movimento.
+    # Se o estoque inicial está negativo, preserva a criação de S.C. na primeira
+    # semana do horizonte, mesmo sem movimento (regra anterior do motor).
+    semanas_material = set(semanas_por_material.get(code, ()))
+    if saldo < 0 and weeks:
+        semanas_material.add(weeks[0])
+    for wk in sorted(semanas_material):
         dsa = float(sa_week.get((code,wk),0))
         dtc = float(tc_week.get((code,wk),0))
         demand = dsa + dtc
         pc = float(pc_week.get((code,wk),0))
         sc = float(sc_week.get((code,wk),0))
         fab = float(fab_week.get((code,wk),0))
-        has_move |= any(v != 0 for v in (demand,pc,sc,fab))
         saldo_antes = saldo + pc + sc + fab - demand
         new_sc = max(0.0, -saldo_antes)
         saldo_final = saldo_antes + new_sc
         if new_sc > 0 and first_short is None: first_short = wk
         total_new_sc += new_sc
         total_d += demand; total_pc += pc; total_sc_dated += sc; total_fab += fab
-        week_rows.append([code,desc.get(code,''),tipo.get(code,''),wk,saldo,dsa,dtc,demand,pc,sc,fab,saldo_antes,new_sc,saldo_final,'CRIAR S.C' if new_sc>0 else 'OK'])
+        # Mesmo com saldo final igual ao anterior, exibe movimentações de
+        # entrada/saída; oculta somente semanas sem qualquer alteração.
+        if any(v != 0 for v in (dsa,dtc,pc,sc,fab,new_sc)):
+            week_rows.append([code,desc.get(code,''),tipo.get(code,''),wk,saldo,dsa,dtc,demand,pc,sc,fab,saldo_antes,new_sc,saldo_final,'CRIAR S.C' if new_sc>0 else 'OK'])
         saldo = saldo_final
     macro_rows.append([code,desc.get(code,''),tipo.get(code,''),estoque,total_d,total_pc,total_sc_dated,float(sc_all.get(code,0)),total_fab,
                        estoque+total_pc+total_sc_dated+total_fab-total_d,total_new_sc,first_short if first_short else '', 'CRIAR S.C' if total_new_sc>0 else 'OK'])
@@ -221,7 +235,10 @@ with tab1:
         code=st.selectbox('Material',v['Código'].tolist(),format_func=lambda x:f'{x} — {desc.get(x,"")}')
         w=weekly[weekly['Código']==code].copy()
         w=w[(w['Semana']>=semana_atual)|((w['Demanda Total']!=0)|(w['P.C.']!=0)|(w['S.C.']!=0)|(w['Fabricação']!=0))]
-        st.dataframe(w,use_container_width=True,hide_index=True)
+        if w.empty:
+            st.info('Este material não possui movimentação semanal no horizonte carregado.')
+        else:
+            st.dataframe(w,use_container_width=True,hide_index=True)
 
         d=rg_mrp[rg_mrp['Código']==code][['Código','Projeto','Pendência','Semana']].sort_values(['Semana','Projeto'])
         if len(d):
@@ -268,7 +285,7 @@ with st.expander('Regras do motor V1'):
 - **S.C.:** A Código + D Quantidade; F define a semana. S.C. sem F não entra na cobertura da projeção.
 - **Fabricação:** B Código do Produto + E Semana de Entrega; cada OP distinta vale 1 peça.
 - **Demanda TC/TP:** H Material + J Quantidade + L Semana de Necessidade.
-- **Projeção:** semana a semana: saldo anterior + P.C. + S.C. datada + fabricação − demanda.
+- **Projeção:** apenas semanas com movimento ou criação de S.C.; saldo anterior + P.C. + S.C. datada + fabricação − demanda. Semanas sem movimento mantêm o mesmo saldo e não geram linha.
 - **Primeira falta:** quando o saldo fica negativo, o app cria S.C. exatamente para cobrir o déficit daquela primeira semana e normaliza o saldo para zero.
 - **S.C. aberta:** continua visível no macro, mas não é considerada cobertura enquanto não houver semana definida.
 ''')

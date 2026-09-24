@@ -26,4 +26,19 @@ if _source.count(_auto_old) != 1:
     raise RuntimeError("Fluxo de confirmação automática do MRP mudou.")
 _source = _source.replace(_auto_old, _auto_new, 1)
 
+# Exibe resultados e métricas ANTES da transmissão do histórico.
+# Evita a tela inteiramente vazia se a API demorar.
+_metric_anchor = 'm=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro[\'Demanda\'].sum():,.0f}"); m[2].metric("P.C.",f"{macro[\'P.C.\'].sum():,.0f}"); m[3].metric("S.C.",f"{macro[\'S.C.\'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro[\'DIV\']<0,\'DIV\']).sum():,.0f}")'
+_pre_save_anchor = '# Salva apenas uma vez por conjunto de arquivos carregado.\n'
+if _source.count(_metric_anchor) != 1 or _source.count(_pre_save_anchor) != 1:
+    raise RuntimeError("Não foi possível posicionar os indicadores antes do salvamento.")
+_source = _source.replace(
+    _pre_save_anchor,
+    'st.info("MRP calculado. Exibindo indicadores e iniciando confirmação do histórico compartilhado...")\\n'
+    + _metric_anchor + '\\n'
+    + _pre_save_anchor,
+    1,
+)
+_source = _source.replace(_metric_anchor + '\\n' + 'tab1,tab2=st.tabs', 'tab1,tab2=st.tabs', 1)
+
 '''

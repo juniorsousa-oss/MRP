@@ -1,4 +1,5 @@
-ANO_SEMANA_PATCH = r'''\n# ADEQUAÇÃO ANO-SEMANA NO MOTOR OPERACIONAL (executada depois dos outros patches)
+ANO_SEMANA_PATCH = r'''
+# ADEQUAÇÃO ANO-SEMANA NO MOTOR OPERACIONAL (executada depois dos outros patches)
 import re as _sem_re
 
 def _sem_trocar(antigo, novo, rotulo):
@@ -12,7 +13,7 @@ def semana_id(valor):
     if pd.isna(valor) or str(valor).strip() in ("", "nan", "None"):
         return float("nan")
     texto = str(valor).strip()
-    encontrado = re.fullmatch(r"(\\\\d{4})-(\\\\d{1,2})", texto)
+    encontrado = re.fullmatch(r"(\\d{4})-(\\d{1,2})", texto)
     if encontrado:
         ano, semana = int(encontrado.group(1)), int(encontrado.group(2))
     else:
@@ -62,7 +63,7 @@ def _inicio_semana(semana, ano=2026):
     if pd.isna(semana):
         return None
     texto = str(semana).strip()
-    achou = re.fullmatch(r"(\\\\d{4})-(\\\\d{1,2})", texto)
+    achou = re.fullmatch(r"(\\d{4})-(\\d{1,2})", texto)
     if achou:
         ano, numero = int(achou.group(1)), int(achou.group(2))
     else:
@@ -145,4 +146,5 @@ _display_replacement = '''    out=df.copy()
             out[col_semana] = out[col_semana].map(formatar_semana)
     colunas_quantidade={'''
 _source = _sem_trocar(_display_anchor, _display_replacement, "exibição do ano e semana")
-\n'''\n
+
+'''

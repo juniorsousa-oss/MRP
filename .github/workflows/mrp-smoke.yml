@@ -1,0 +1,43 @@
+name: Verificar compilacao MRP
+
+on:
+  push:
+    branches:
+      - main
+      - fix/mrp-historico-resiliencia-20260923
+    paths:
+      - 'app_mrp*.py'
+      - 'mrp_*patch.py'
+      - '.github/workflows/mrp-smoke.yml'
+
+jobs:
+  compile-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compilar arquivos e runtime com todos os patches
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import compileall
+          for f in Path(".").glob("*.py"):
+              if not compileall.compile_file(str(f), quiet=1):
+                  raise SystemExit(f"Arquivo com erro de sintaxe: {f}")
+          env = {"__file__": "app_mrp.py", "__name__": "__main__"}
+          entry = Path("app_mrp.py").read_text(encoding="utf-8")
+          stop_entry = 'exec(compile(_runtime_source, "app_mrp_runtime.py", "exec"), globals(), globals())'
+          assert entry.count(stop_entry) == 1
+          exec(compile(entry.split(stop_entry)[0], "app_mrp.py", "exec"), env, env)
+          runtime = env["_runtime_source"]
+          stop_runtime = 'exec(compile(_source, "app_mrp_original.py", "exec"), globals(), globals())'
+          assert runtime.count(stop_runtime) == 1
+          env["__file__"] = "app_mrp_runtime.py"
+          exec(compile(runtime.rsplit(stop_runtime, 1)[0], "app_mrp_runtime.py", "exec"), env, env)
+          compile(env["_source"], "app_mrp_original.py", "exec")
+          assert "compressed_payload" in env["_source"]
+          assert "RECUPERAR HISTÓRICO PELO EXCEL" in env["_source"]
+          print("Sintaxe dos arquivos e MRP final: OK")
+          PY

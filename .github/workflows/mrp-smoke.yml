@@ -42,6 +42,32 @@ jobs:
           # Round trip do formato compactado, sem conexão nem escrita no banco.
           import ast, json, re, gzip, base64
           parsed = ast.parse(env["_source"])
+          # Valida o motor efetivamente executado no Streamlit, sem banco nem uploads.
+          from datetime import date, timedelta
+          from types import SimpleNamespace
+          semana_defs = [n for n in parsed.body if isinstance(n, ast.FunctionDef)
+                         and n.name in {"semana_id", "formatar_semana", "_inicio_semana",
+                                        "periodo_semana", "ultimo_dia_util_semana"}]
+          assert len(semana_defs) == 5, "Funções da virada de ano não encontradas no runtime"
+          semana_scope = {"pd": SimpleNamespace(isna=lambda x: x is None),
+                          "date": date, "timedelta": timedelta, "re": re}
+          exec(compile(ast.Module(body=semana_defs, type_ignores=[]), "semanas_runtime.py", "exec"),
+               semana_scope, semana_scope)
+          sid = semana_scope["semana_id"]
+          periodo = semana_scope["periodo_semana"]
+          sexta = semana_scope["ultimo_dia_util_semana"]
+          fmt = semana_scope["formatar_semana"]
+          assert [sid(x) for x in ("2026-52", "2027-01", "2027-02", "2030-52")] == [
+              202652, 202701, 202702, 203052]
+          assert periodo(202652) == "27/12/2026 a 02/01/2027"
+          assert periodo(202702) == "10/01/2027 a 16/01/2027"
+          assert periodo(203052) == "29/12/2030 a 04/01/2031"
+          assert sexta(202702) == "15/01/2027"
+          assert fmt(202702) == "2027-02"
+          assert sid(0) != sid(0)  # sem semana não é confundido com semana válida
+          assert sid("SUSPENSO") != sid("SUSPENSO")
+          assert "range(semana_atual,ultima_semana+1)" not in env["_source"]
+          print("Virada de ano, período semanal e projeção esparsa: OK")
           compact_fn = next(n for n in parsed.body if isinstance(n, ast.FunctionDef) and n.name == "_mrp_compact_snapshot")
           get_fn = [n for n in parsed.body if isinstance(n, ast.FunctionDef) and n.name == "_sb_get"][-1]
           scope = {"json": json, "re": re, "_mrp_gzip": gzip, "_mrp_b64": base64, "_mrp_compact_fields": ("mrp_geral", "projecao_semanal", "demanda_projeto", "compra_mrp", "compras", "fabricacao")}

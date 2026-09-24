@@ -41,7 +41,7 @@ def chave_semana(valor, periodo="", data_original=""):
 def semanas_da_base(df, coluna, periodo=None, data=None):
     periodos = df[periodo] if periodo in df.columns else pd.Series("", index=df.index)
     datas = df[data] if data in df.columns else pd.Series("", index=df.index)
-    return pd.Series((chave_semana(w, p, d) for w, p, d in zip(df[coluna], periodos, datas)),
+    return pd.Series([chave_semana(w, p, d) for w, p, d in zip(df[coluna], periodos, datas)],
                      index=df.index, dtype=str)
 
 

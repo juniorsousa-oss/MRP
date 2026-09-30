@@ -238,7 +238,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)
   font-weight:700!important;
 }
 
-[data-testid="stElementContainer"]:has(style){
+[data-testid="stElementContainer"]:has(style):not(:has(.setta-logo-card)){
   display:none!important;
   margin:0!important;
   padding:0!important;

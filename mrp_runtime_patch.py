@@ -16,40 +16,40 @@ def _cache_source_function(signature, decorated_signature):
 # As cinco planilhas só são relidas quando os bytes realmente mudam.
 _cache_source_function(
     "def load_sources(cb,eb,gb,pb,mb):",
-    "@st.cache_data(show_spinner=False, max_entries=4)\\ndef load_sources(cb,eb,gb,pb,mb):",
+    "@st.cache_data(show_spinner=False, max_entries=4)\ndef load_sources(cb,eb,gb,pb,mb):",
 )
 
 # Exportações deixam de ser reconstruídas em todo clique/filtro.
 _cache_source_function(
     "def excel_bytes(sheets):",
-    "@st.cache_data(show_spinner=False, max_entries=12)\\ndef excel_bytes(sheets):",
+    "@st.cache_data(show_spinner=False, max_entries=12)\ndef excel_bytes(sheets):",
 )
 _cache_source_function(
     "def csv_bytes(df):",
-    "@st.cache_data(show_spinner=False, max_entries=24)\\ndef csv_bytes(df):",
+    "@st.cache_data(show_spinner=False, max_entries=24)\ndef csv_bytes(df):",
 )
 _cache_source_function(
     "def zip_bytes(files):",
-    "@st.cache_data(show_spinner=False, max_entries=12)\\ndef zip_bytes(files):",
+    "@st.cache_data(show_spinner=False, max_entries=12)\ndef zip_bytes(files):",
 )
 
 # Configuração visual é compartilhada e muda pouco.
 _cache_source_function(
     "def _config_get():",
-    "@st.cache_data(ttl=300, show_spinner=False)\\ndef _config_get():",
+    "@st.cache_data(ttl=300, show_spinner=False)\ndef _config_get():",
 )
-_cfg_save_old = '                _config_save(new_cfg)\\n                st.session_state["ui_config"] = _config_get()\\n'
-_cfg_save_new = '                _config_save(new_cfg)\\n                _config_get.clear()\\n                st.session_state["ui_config"] = _config_get()\\n'
+_cfg_save_old = '                _config_save(new_cfg)\n                st.session_state["ui_config"] = _config_get()\n'
+_cfg_save_new = '                _config_save(new_cfg)\n                _config_get.clear()\n                st.session_state["ui_config"] = _config_get()\n'
 if _cfg_save_old in _source:
     _source = _source.replace(_cfg_save_old, _cfg_save_new, 1)
 
 # Tratativas são compartilhadas. Cache curto reduz chamadas ao Supabase.
 _cache_source_function(
     "def _carregar_tratativas_salvas():",
-    "@st.cache_data(ttl=45, show_spinner=False)\\ndef _carregar_tratativas_salvas():",
+    "@st.cache_data(ttl=45, show_spinner=False)\ndef _carregar_tratativas_salvas():",
 )
-_trat_old = '    return len(base)\\n\\ndef render_tratativa_projetos():'
-_trat_new = '    _carregar_tratativas_salvas.clear()\\n    return len(base)\\n\\ndef render_tratativa_projetos():'
+_trat_old = '    return len(base)\n\ndef render_tratativa_projetos():'
+_trat_new = '    _carregar_tratativas_salvas.clear()\n    return len(base)\n\ndef render_tratativa_projetos():'
 if _trat_old in _source:
     _source = _source.replace(_trat_old, _trat_new, 1)
 
@@ -82,13 +82,13 @@ if '@st.fragment\ndef render_consulta_view():' not in _source:
     )
 
 _source = _source.replace(
-    '                render_mrp_history()\\n',
-    '                render_mrp_history_lazy()\\n',
+    '                render_mrp_history()\n',
+    '                render_mrp_history_lazy()\n',
     1,
 )
 _source = _source.replace(
-    'if st.session_state.get("auth_role") == "ADMIN":\\n    render_mrp_history()\\n\\n# trigger-final-2',
-    'if st.session_state.get("auth_role") == "ADMIN":\\n    render_mrp_history_lazy()\\n\\n# trigger-final-2',
+    'if st.session_state.get("auth_role") == "ADMIN":\n    render_mrp_history()\n\n# trigger-final-2',
+    'if st.session_state.get("auth_role") == "ADMIN":\n    render_mrp_history_lazy()\n\n# trigger-final-2',
     1,
 )
 """

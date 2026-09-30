@@ -120,6 +120,18 @@ _source = _source.replace(
     1,
 )
 
+# Normaliza códigos de material digitados com menos de 8 posições.
+_codigo_helper_anchor = 'def render_consulta_view():\n'
+_codigo_helper_impl = """def _normalizar_busca_codigo_8(chave):
+    valor = str(st.session_state.get(chave) or "").strip()
+    if re.fullmatch(r"\\d{1,7}", valor):
+        st.session_state[chave] = valor.zfill(8)
+
+"""
+if _source.count(_codigo_helper_anchor) != 1:
+    raise RuntimeError("Ponto de inclusão da normalização de código não encontrado.")
+_source = _source.replace(_codigo_helper_anchor, _codigo_helper_impl + _codigo_helper_anchor, 1)
+
 # 2) CONSULTA — Demanda Geral:
 # busca livre digitável + STATUS e TIPO por alternativa única.
 _old = """        with st.form("consulta_geral_filtros", border=False):
@@ -140,7 +152,7 @@ _new = """        with st.form("consulta_geral_filtros", border=False):
             tipo = c3.selectbox("TIPO", ["TODOS"] + tipos, key="consulta_tipo")
             _bpesq, _blimpa = st.columns([8,1])
             with _bpesq:
-                st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
+                st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary", on_click=_normalizar_busca_codigo_8, args=("consulta_busca_geral",))
             with _blimpa:
                 st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_busca_geral","consulta_tipo","consulta_status"))"""
 if _source.count(_old) != 1:
@@ -159,11 +171,11 @@ _new_logic = """        f = mg.copy()
                 f["Código"].fillna("").astype(str).str.strip()
                 .str.replace(r"\\.0$", "", regex=True)
             )
-            # Código numérico = busca EXATA. Evita retornar outro material por
-            # coincidência parcial. Zeros à esquerda são desconsiderados.
-            if re.fullmatch(r"0*\\d+", _bc):
-                _alvo_codigo = (_bc.lstrip("0") or "0")
-                _codigo_norm = _codigo_txt.str.lstrip("0").replace("", "0")
+            # Código numérico = padroniza para 8 posições e compara EXATO.
+            # Ex.: 50646 -> 00050646.
+            if re.fullmatch(r"\\d+", _bc):
+                _alvo_codigo = _bc.zfill(8) if len(_bc) < 8 else _bc
+                _codigo_norm = _codigo_txt.str.zfill(8)
                 f = f[_codigo_norm.eq(_alvo_codigo)]
             else:
                 # Texto = pesquisa literal (não regex) por código ou descrição.
@@ -240,7 +252,7 @@ _new = """    with st.form("admin_demanda_geral_filtros", border=False):
         with c3: tipo_filtro=st.selectbox("TIPO",["TODOS"]+sorted([x for x in cad["Tipo"].unique() if x]), key="admin_tipo_geral")
         _bpesq, _blimpa = st.columns([8,1])
         with _bpesq:
-            st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
+            st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary", on_click=_normalizar_busca_codigo_8, args=("admin_busca_geral",))
         with _blimpa:
             st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_geral","admin_status_geral","admin_tipo_geral"))"""
 if _source.count(_old) != 1:
@@ -264,9 +276,9 @@ _new_admin_search = """    if busca:
             v["Código"].fillna("").astype(str).str.strip()
             .str.replace(r"\\.0$", "", regex=True)
         )
-        if re.fullmatch(r"0*\\d+", b):
-            _admin_alvo = (b.lstrip("0") or "0")
-            _admin_codigo_norm = _admin_codigo_txt.str.lstrip("0").replace("", "0")
+        if re.fullmatch(r"\\d+", b):
+            _admin_alvo = b.zfill(8) if len(b) < 8 else b
+            _admin_codigo_norm = _admin_codigo_txt.str.zfill(8)
             v = v[_admin_codigo_norm.eq(_admin_alvo)]
         else:
             v = v[

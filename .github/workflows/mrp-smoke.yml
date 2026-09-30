@@ -36,7 +36,16 @@ jobs:
           assert runtime.count(stop_runtime) == 1
           env["__file__"] = "app_mrp_runtime.py"
           exec(compile(runtime.rsplit(stop_runtime, 1)[0], "app_mrp_runtime.py", "exec"), env, env)
-          compile(env["_source"], "app_mrp_original.py", "exec")
+          try:
+              compile(env["_source"], "app_mrp_original.py", "exec")
+          except SyntaxError as exc:
+              source_lines = env["_source"].splitlines()
+              start = max(0, (exc.lineno or 1) - 6)
+              end = min(len(source_lines), (exc.lineno or 1) + 5)
+              print("=== TRECHO DO RUNTIME COM ERRO ===")
+              for idx in range(start, end):
+                  print(f"{idx+1:04d}: {source_lines[idx]}")
+              raise
           assert "compressed_payload" in env["_source"]
           assert "RECUPERAR HISTÓRICO PELO EXCEL" in env["_source"]
           # Round trip do formato compactado, sem conexão nem escrita no banco.

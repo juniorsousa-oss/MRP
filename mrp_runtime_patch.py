@@ -48,6 +48,11 @@ _cache_source_function(
     "def _carregar_tratativas_salvas():",
     "@st.cache_data(ttl=45, show_spinner=False)\ndef _carregar_tratativas_salvas():",
 )
+
+_cache_source_function(
+    "def _carregar_tratativas_produto_salvas():",
+    "@st.cache_data(ttl=45, show_spinner=False)\ndef _carregar_tratativas_produto_salvas():",
+)
 _trat_old = '    return len(base)\n\ndef render_tratativa_projetos():'
 _trat_new = '    _carregar_tratativas_salvas.clear()\n    return len(base)\n\ndef render_tratativa_projetos():'
 if _trat_old in _source:

@@ -390,14 +390,14 @@ if _source.count(_publish_anchor) != 1:
     raise RuntimeError("Ponto de publicação do Relatório MRP não encontrado.")
 _source = _source.replace(_publish_anchor, _publish_code + "\n" + _publish_anchor, 1)
 
-_mrp_sources_footer_anchor = '''if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns) que não normalizam na Demanda por Projeto e exigem nova S.C.")
+_mrp_sources_footer_anchor = """if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns) que não normalizam na Demanda por Projeto e exigem nova S.C.")
 else: st.caption("Nenhum item da Demanda por Projeto exige nova S.C. no momento.")
-st.divider()'''
-_mrp_sources_footer_new = '''if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns) que não normalizam na Demanda por Projeto e exigem nova S.C.")
+st.divider()"""
+_mrp_sources_footer_new = """if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns) que não normalizam na Demanda por Projeto e exigem nova S.C.")
 else: st.caption("Nenhum item da Demanda por Projeto exige nova S.C. no momento.")
 st.markdown('<div class="topic-divider"></div>', unsafe_allow_html=True)
 if st.session_state.get("auth_role")=="ADMIN" and _central_bundle:
-    _render_mrp_central_status(_central_bundle)'''
+    _render_mrp_central_status(_central_bundle)"""
 if _source.count(_mrp_sources_footer_anchor) != 1:
     raise RuntimeError("Rodapé dos relatórios do MRP não encontrado para posicionar FONTES.")
 _source = _source.replace(_mrp_sources_footer_anchor, _mrp_sources_footer_new, 1)

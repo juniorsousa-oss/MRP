@@ -560,17 +560,19 @@ _source = _source.replace(
 # ---------------------------------------------------------
 # 7) SIDEBAR — mantém abaixo do STATUS GERAL apenas a SEMANA ATUAL.
 # ---------------------------------------------------------
-_old_week_sidebar = 'with st.sidebar:\n    st.divider(); st.markdown("**Semana atual identificada nas bases**"); st.number_input("Semana atual",min_value=1,max_value=53,value=semana_atual,disabled=True); st.caption(f"Fonte: {fonte_semana}")'
+_old_week_sidebar_number = 'with st.sidebar:\n    st.divider(); st.markdown("**Semana atual identificada nas bases**"); st.number_input("Semana atual",min_value=1,max_value=53,value=semana_atual,disabled=True); st.caption(f"Fonte: {fonte_semana}")'
+_old_week_sidebar_text = 'with st.sidebar:\n    st.divider(); st.markdown("**Semana atual identificada nas bases**"); st.text_input("Semana atual",value=formatar_semana(semana_atual),disabled=True); st.caption(f"Fonte: {fonte_semana}")'
 _new_week_sidebar = """with st.sidebar:
     st.divider()
-    _mrp_current_year=pd.Timestamp.now().year
     st.markdown(
         '<div class="sidebar-week-card">'
         '<div class="sidebar-week-label">SEMANA ATUAL</div>'
-        f'<div class="sidebar-week-value">{_mrp_current_year}-{int(semana_atual):02d}</div>'
+        f'<div class="sidebar-week-value">{formatar_semana(semana_atual)}</div>'
         '</div>',
         unsafe_allow_html=True,
     )"""
-if _old_week_sidebar in _source:
-    _source = _source.replace(_old_week_sidebar, _new_week_sidebar, 1)
+if _old_week_sidebar_text in _source:
+    _source = _source.replace(_old_week_sidebar_text, _new_week_sidebar, 1)
+elif _old_week_sidebar_number in _source:
+    _source = _source.replace(_old_week_sidebar_number, _new_week_sidebar, 1)
 '''

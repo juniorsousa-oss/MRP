@@ -238,6 +238,13 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)
   font-weight:700!important;
 }
 
+[data-testid="stElementContainer"]:has(style){
+  display:none!important;
+  margin:0!important;
+  padding:0!important;
+  height:0!important;
+  min-height:0!important;
+}
 .setta-brand{
   width:100%!important;
   min-height:128px!important;
@@ -249,7 +256,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)
   border-radius:16px!important;
   box-shadow:0 4px 14px rgba(24,39,75,.08)!important;
   box-sizing:border-box!important;
-  margin:0 0 1.45rem!important;
+  margin:0 0 2.55rem!important;
   padding:1.1rem 2rem!important;
 }
 .setta-brand-logo{
@@ -268,7 +275,8 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)
   margin:0!important;
 }
 div[data-testid="stElementContainer"]:has(.app-title){
-  margin-top:-.25rem!important;
+  margin-top:0!important;
+  padding-top:0!important;
 }
 [data-testid="stMarkdownContainer"] h1 a,
 [data-testid="stMarkdownContainer"] h2 a,

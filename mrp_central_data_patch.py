@@ -6,7 +6,9 @@ _source = "import central_mrp_data as _central_mrp\n" + _source
 
 _central_helper_anchor = 'with st.sidebar:\n    st.header("Acesso")'
 _central_helper = r"""
-def _mrp_load_sources_from_central(bundle):
+@st.cache_data(show_spinner=False, max_entries=4)
+def _mrp_load_sources_from_central(_bundle, signature):
+    bundle=_bundle
     if not bundle or not bundle.get("ready"):
         raise ValueError("As cinco bases do MRP ainda não estão disponíveis na Central de Dados.")
 
@@ -117,57 +119,60 @@ if _sidebar_start < 0 or _sidebar_end < 0:
     raise RuntimeError("Bloco lateral do MRP não encontrado para integração com a Central.")
 
 _central_sidebar = r"""with st.sidebar:
-    st.header("Acesso")
-    st.success(f"{st.session_state.get('auth_nome','Usuário')} — {st.session_state.get('auth_role','')}")
-    if st.button("SAIR", use_container_width=True):
+    st.markdown(
+        '<div class="sidebar-brand">'
+        '<div class="sidebar-brand-title">MRP</div>'
+        '<div class="sidebar-brand-sub">Planejamento de Materiais SETTA</div>'
+        '</div>'
+        '<div class="sidebar-section-label">NAVEGAÇÃO</div>',
+        unsafe_allow_html=True,
+    )
+
+    _mrp_role=st.session_state.get("auth_role")
+    _mrp_nav_options=["MRP ATUAL","HISTÓRICO"] if _mrp_role=="ADMIN" else ["MRP ATUAL"]
+    _mrp_nav=st.radio(
+        "NAVEGAÇÃO",
+        _mrp_nav_options,
+        label_visibility="collapsed",
+        key="mrp_sidebar_navigation",
+    )
+
+    st.markdown("---")
+    st.markdown(
+        '<div class="sidebar-info-card">'
+        f'<b>{str(st.session_state.get("auth_nome") or "USUÁRIO").upper()}</b><br>'
+        f'{str(_mrp_role or "").upper()}<br>'
+        'CENTRAL DE DADOS · AUTOMÁTICA'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("SAIR", use_container_width=True, key="mrp_logout"):
         _logout()
-    st.divider()
 
     _mrp_use_manual=False
     _central_bundle={}
+    usuario_mrp=st.session_state.get("auth_nome", "")
 
-    if st.session_state.get("auth_role") == "ADMIN":
-        st.markdown("### CENTRAL DE DADOS")
+    if _mrp_role=="ADMIN" and _mrp_nav=="MRP ATUAL":
         try:
             _central_bundle=_central_mrp.load_mrp_bundle()
         except Exception as _central_err:
             st.error(f"Central indisponível: {_central_err}")
             _central_bundle={}
 
-        if _central_bundle:
-            _cad_meta=_central_bundle.get("cadastro_meta") or {}
-            _der_meta=_central_bundle.get("derived_meta") or {}
-            _central_rows=[
-                ("CADASTROS",bool(_cad_meta.get("available")),str(_cad_meta.get("version") or 0)),
-                ("RELATÓRIO GERAL TRATADO",bool((_der_meta.get("relatorio_geral_tratado") or {}).get("available")),""),
-                ("ESTOQUE TRATADO",bool((_der_meta.get("estoque_tratado") or {}).get("available")),""),
-                ("COMPRAS TRATADO",bool((_der_meta.get("compras_tratado") or {}).get("available")),""),
-                ("TCTP TRATADO",bool((_der_meta.get("tctp_tratado") or {}).get("available")),""),
-            ]
-            for _label,_ok,_ver in _central_rows:
-                _suffix=f" · v{_ver}" if _ver else ""
-                st.caption(("✓ " if _ok else "○ ")+_label+_suffix)
-
         if _central_bundle.get("ready"):
             cadastro_file,estoque_file,geral_file,compras_file,mt_file=_central_mrp.make_refs(_central_bundle)
         else:
             cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
 
-        usuario_mrp=st.text_input(
-            "Usuário responsável pelo MRP",
-            value=st.session_state.get("auth_nome", ""),
-            placeholder="Nome do responsável",
-        )
-
         with st.expander("CONTINGÊNCIA", expanded=False):
-            st.caption("Use somente se a Central de Dados estiver indisponível.")
             _manual_enabled=st.checkbox("USAR ALIMENTAÇÃO MANUAL", key="mrp_manual_feed")
             if _manual_enabled:
-                _cad_manual=st.file_uploader("1. CADASTROS",type=["xlsx","xlsm","xltx"],key="mrp_manual_cad")
-                _est_manual=st.file_uploader("2. ESTOQUE TRATADO",type=["xlsx","xlsm"],key="mrp_manual_est")
-                _ger_manual=st.file_uploader("3. RELATÓRIO GERAL TRATADO",type=["xlsx","xlsm"],key="mrp_manual_ger")
-                _comp_manual=st.file_uploader("4. COMPRAS TRATADO",type=["xlsx","xlsm"],key="mrp_manual_comp")
-                _tctp_manual=st.file_uploader("5. TCTP TRATADO",type=["xlsx","xlsm"],key="mrp_manual_tctp")
+                _cad_manual=st.file_uploader("CADASTROS",type=["xlsx","xlsm","xltx"],key="mrp_manual_cad")
+                _est_manual=st.file_uploader("ESTOQUE TRATADO",type=["xlsx","xlsm"],key="mrp_manual_est")
+                _ger_manual=st.file_uploader("RELATÓRIO GERAL TRATADO",type=["xlsx","xlsm"],key="mrp_manual_ger")
+                _comp_manual=st.file_uploader("COMPRAS TRATADO",type=["xlsx","xlsm"],key="mrp_manual_comp")
+                _tctp_manual=st.file_uploader("TCTP TRATADO",type=["xlsx","xlsm"],key="mrp_manual_tctp")
                 if all([_cad_manual,_est_manual,_ger_manual,_comp_manual,_tctp_manual]):
                     cadastro_file=_cad_manual
                     estoque_file=_est_manual
@@ -176,13 +181,62 @@ _central_sidebar = r"""with st.sidebar:
                     mt_file=_tctp_manual
                     _mrp_use_manual=True
                     st.warning("MODO CONTINGÊNCIA ATIVO.")
-                else:
-                    st.caption("Anexe as cinco bases para ativar a contingência.")
     else:
         cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
-        usuario_mrp=st.session_state.get("auth_nome", "")
 """
 _source = _source[:_sidebar_start] + _central_sidebar + "\n" + _source[_sidebar_end:]
+
+_status_helper = r"""
+def _mrp_source_card_html(name,status,meta):
+    version=meta.get("version")
+    processed=meta.get("processed_at") or meta.get("last_update_at")
+    when=_central_mrp.format_dt(processed)
+    rows=meta.get("rows_count")
+    details=[]
+    if version not in (None,""):
+        details.append(f"v{version}")
+    if when!="—":
+        details.append(when)
+    if rows not in (None,""):
+        try:
+            details.append(f"{int(rows):,}".replace(",", ".")+" registros")
+        except Exception:
+            pass
+    detail=" · ".join(details) if details else "—"
+    return (
+        '<div class="mrp-source-card">'
+        f'<div class="mrp-source-name">{name}</div>'
+        f'<div class="mrp-source-status">{status}</div>'
+        f'<div class="mrp-source-meta">{detail}</div>'
+        '</div>'
+    )
+
+def _render_mrp_central_status(bundle):
+    if not bundle:
+        return
+    cad=bundle.get("cadastro_meta") or {}
+    der=bundle.get("derived_meta") or {}
+    cards=[
+        _mrp_source_card_html("CADASTROS","ATUALIZADO" if cad.get("available") else "AGUARDANDO",cad),
+        _mrp_source_card_html("RELATÓRIO GERAL TRATADO","ATUALIZADO" if (der.get("relatorio_geral_tratado") or {}).get("available") else "AGUARDANDO",der.get("relatorio_geral_tratado") or {}),
+        _mrp_source_card_html("ESTOQUE TRATADO","ATUALIZADO" if (der.get("estoque_tratado") or {}).get("available") else "AGUARDANDO",der.get("estoque_tratado") or {}),
+        _mrp_source_card_html("COMPRAS TRATADO","ATUALIZADO" if (der.get("compras_tratado") or {}).get("available") else "AGUARDANDO",der.get("compras_tratado") or {}),
+        _mrp_source_card_html("TCTP TRATADO","ATUALIZADO" if (der.get("tctp_tratado") or {}).get("available") else "AGUARDANDO",der.get("tctp_tratado") or {}),
+    ]
+    st.markdown(
+        '<div class="section-band"><div class="section-band-kicker">01 · FONTES</div>'
+        '<div class="section-band-title">CENTRAL DE DADOS</div></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<div class="mrp-source-grid">'+"".join(cards)+'</div>',unsafe_allow_html=True)
+    st.markdown('<div class="topic-divider"></div>',unsafe_allow_html=True)
+
+"""
+_source = _source.replace(
+    'if st.session_state.get("auth_role") == "CONSULTA":',
+    _status_helper + '\nif st.session_state.get("auth_role") == "CONSULTA":',
+    1,
+)
 
 _load_old = 'try: cad,est,rg,rg_mrp,cp,mt=load_sources(cadastro_file.getvalue(),estoque_file.getvalue(),geral_file.getvalue(),compras_file.getvalue(),mt_file.getvalue())\nexcept Exception as e: st.error(f"Erro ao carregar as bases: {e}"); st.stop()'
 _load_new = """try:
@@ -195,7 +249,10 @@ _load_new = """try:
             mt_file.getvalue(),
         )
     else:
-        cad,est,rg,rg_mrp,cp,mt=_mrp_load_sources_from_central(_central_bundle)
+        cad,est,rg,rg_mrp,cp,mt=_mrp_load_sources_from_central(
+            _central_bundle,
+            str(_central_bundle.get("signature") or ""),
+        )
 except Exception as e:
     st.error(f"Erro ao carregar as bases: {e}")
     st.stop()"""
@@ -213,8 +270,19 @@ if st.session_state.get("auth_role") == "ADMIN" and not _mrp_use_manual and _cen
             _central_bundle.get("dependency_versions") or {},
             _central_bundle.get("output_meta") or {},
         )
-        if _mrp_publish_result.get("changed"):
-            st.success("RELATÓRIO MRP atualizado automaticamente na Central de Dados.")
+        _mrp_output_meta=_mrp_publish_result.get("meta") or _central_bundle.get("output_meta") or {}
+        _mrp_output_when=_central_mrp.format_dt(_mrp_output_meta.get("processed_at"))
+        _mrp_output_rows=_mrp_output_meta.get("rows_count")
+        st.markdown(
+            '<div class="mrp-output-card">'
+            '<div><div class="mrp-output-kicker">RELATÓRIO MRP</div>'
+            '<div class="mrp-output-status">ATUALIZADO</div></div>'
+            f'<div class="mrp-output-meta">{_mrp_output_when}'
+            + (f' · {int(_mrp_output_rows):,} registros'.replace(",", ".") if _mrp_output_rows not in (None,"") else '')
+            + '</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown('<div class="topic-divider"></div>',unsafe_allow_html=True)
     except Exception as _publish_err:
         st.warning(f"MRP calculado, mas a publicação na Central falhou: {_publish_err}")
 

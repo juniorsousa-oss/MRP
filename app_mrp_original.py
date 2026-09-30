@@ -856,15 +856,7 @@ else:
     if not semanas_base: st.error("Não foi possível identificar a semana atual nas planilhas carregadas."); st.stop()
     semana_atual=min(int(s.min()) for s in semanas_base); fonte_semana="demais bases — fallback"
 with st.sidebar:
-    st.divider()
-    _mrp_current_year=pd.Timestamp.now().year
-    st.markdown(
-        '<div class="sidebar-week-card">'
-        '<div class="sidebar-week-label">SEMANA ATUAL</div>'
-        f'<div class="sidebar-week-value">{_mrp_current_year}-{int(semana_atual):02d}</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    st.divider(); st.markdown("**Semana atual identificada nas bases**"); st.number_input("Semana atual",min_value=1,max_value=53,value=semana_atual,disabled=True); st.caption(f"Fonte: {fonte_semana}")
 codigos_ii=set(cad.loc[cad["Tipo"].str.upper().eq("II"),"Código"])
 sa_week=rg_mrp.groupby(["Código","Semana"],as_index=False)["Pendência"].sum().rename(columns={"Pendência":"Demanda S.A."}); tc_rows=mt[(mt["Material"]>0)&mt["Semana Necessidade"].between(1,53)].copy(); tc_week=tc_rows.groupby(["Material","Semana Necessidade"],as_index=False)["Quantidade"].sum(); tc_week.columns=["Código","Semana","Demanda TC/TP"]; pc_week=cp[(cp["Quantidade P.C."]>0)&cp["Semana P.C."].between(1,53)].groupby(["Código","Semana P.C."],as_index=False)["Quantidade P.C."].sum(); pc_week.columns=["Código","Semana","P.C."]; sc_all=cp[cp["Quantidade S.C."]>0].groupby("Código",as_index=False)["Quantidade S.C."].sum().rename(columns={"Quantidade S.C.":"S.C."}); sc_week=cp[(cp["Quantidade S.C."]>0)&cp["Semana S.C."].between(1,53)].groupby(["Código","Semana S.C."],as_index=False)["Quantidade S.C."].sum(); sc_week.columns=["Código","Semana","S.C."]; op=mt[(mt["Código Produto"]>0)&mt["Semana Entrega"].between(1,53)].copy()
 # FABRICAÇÃO TC/TP: cada OP conta uma única vez por produto.

@@ -90,7 +90,7 @@ _source = _source.replace(
 
 # 2) CONSULTA — Demanda Geral:
 # busca livre digitável + STATUS e TIPO por alternativa única.
-_old = '''        with st.form("consulta_geral_filtros", border=False):
+_old = """        with st.form("consulta_geral_filtros", border=False):
             c1, c2, c3, c4 = st.columns(4)
             codigo = c1.selectbox("Código", ["Todos"] + cods, key="consulta_codigo")
             descricao = c2.selectbox("Descrição", ["Todos"] + descricoes, key="consulta_descricao")
@@ -100,8 +100,8 @@ _old = '''        with st.form("consulta_geral_filtros", border=False):
             with _bpesq:
                 st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
             with _blimpa:
-                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_codigo","consulta_descricao","consulta_tipo","consulta_status"))'''
-_new = '''        with st.form("consulta_geral_filtros", border=False):
+                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_codigo","consulta_descricao","consulta_tipo","consulta_status"))"""
+_new = """        with st.form("consulta_geral_filtros", border=False):
             c1, c2, c3 = st.columns(3)
             busca_consulta = c1.text_input("CÓDIGO / DESCRIÇÃO", key="consulta_busca_geral", placeholder="DIGITE O CÓDIGO OU PARTE DA DESCRIÇÃO")
             status = c2.selectbox("STATUS", ["TODOS"] + sorted(mg["Status"].fillna("").astype(str).unique().tolist()), key="consulta_status")
@@ -110,17 +110,17 @@ _new = '''        with st.form("consulta_geral_filtros", border=False):
             with _bpesq:
                 st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
             with _blimpa:
-                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_busca_geral","consulta_tipo","consulta_status"))'''
+                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_busca_geral","consulta_tipo","consulta_status"))"""
 if _source.count(_old) != 1:
     raise RuntimeError("Filtro final da Consulta Geral não encontrado.")
 _source = _source.replace(_old, _new, 1)
 
-_old_logic = '''        f = mg.copy()
+_old_logic = """        f = mg.copy()
         if codigo != "Todos": f = f[f["Código"].astype(str) == codigo]
         if descricao != "Todos": f = f[f["Descrição"].astype(str) == descricao]
         if tipo != "Todos": f = f[f["Tipo"].astype(str) == tipo]
-        if status != "Todos": f = f[f["Status"].astype(str) == status]'''
-_new_logic = '''        f = mg.copy()
+        if status != "Todos": f = f[f["Status"].astype(str) == status]"""
+_new_logic = """        f = mg.copy()
         if busca_consulta:
             _bc = busca_consulta.strip()
             f = f[
@@ -128,14 +128,14 @@ _new_logic = '''        f = mg.copy()
                 | f["Descrição"].astype(str).str.contains(_bc, case=False, na=False)
             ]
         if tipo != "TODOS": f = f[f["Tipo"].astype(str) == tipo]
-        if status != "TODOS": f = f[f["Status"].astype(str) == status]'''
+        if status != "TODOS": f = f[f["Status"].astype(str) == status]"""
 if _source.count(_old_logic) != 1:
     raise RuntimeError("Lógica final da Consulta Geral não encontrada.")
 _source = _source.replace(_old_logic, _new_logic, 1)
 
 # 3) CONSULTA — Demanda por Projeto:
 # pesquisa digitável + semana por alternativa única.
-_old = '''        with st.form("consulta_projeto_filtros", border=False):
+_old = """        with st.form("consulta_projeto_filtros", border=False):
             c1, c2, c3 = st.columns(3)
             projeto = c1.selectbox("Projeto", ["Todos"] + projetos, key="consulta_projeto")
             produto = c2.selectbox("Produto", ["Todos"] + produtos, key="consulta_produto")
@@ -144,8 +144,8 @@ _old = '''        with st.form("consulta_projeto_filtros", border=False):
             with _bpesq:
                 st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
             with _blimpa:
-                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_projeto","consulta_produto","consulta_semana"))'''
-_new = '''        with st.form("consulta_projeto_filtros", border=False):
+                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_projeto","consulta_produto","consulta_semana"))"""
+_new = """        with st.form("consulta_projeto_filtros", border=False):
             c1, c2 = st.columns(2)
             busca_projeto_consulta = c1.text_input("PROJETO / PRODUTO", key="consulta_busca_projeto", placeholder="DIGITE O PROJETO OU PRODUTO")
             semana = c2.selectbox("SEMANA DE NECESSIDADE", ["TODAS"] + semanas, key="consulta_semana")
@@ -153,30 +153,30 @@ _new = '''        with st.form("consulta_projeto_filtros", border=False):
             with _bpesq:
                 st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
             with _blimpa:
-                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_busca_projeto","consulta_semana"))'''
+                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_busca_projeto","consulta_semana"))"""
 if _source.count(_old) != 1:
     raise RuntimeError("Filtro final da Consulta por Projeto não encontrado.")
 _source = _source.replace(_old, _new, 1)
 
-_old_logic = '''        f = dem.copy()
+_old_logic = """        f = dem.copy()
         if projeto != "Todos": f = f[f["Projeto"].astype(str) == projeto]
         if produto != "Todos": f = f[f["Produto"].astype(str) == produto]
-        if semana != "Todas": f = f[f["Semana de Necessidade"].astype(str) == semana]'''
-_new_logic = '''        f = dem.copy()
+        if semana != "Todas": f = f[f["Semana de Necessidade"].astype(str) == semana]"""
+_new_logic = """        f = dem.copy()
         if busca_projeto_consulta:
             _bp = busca_projeto_consulta.strip()
             f = f[
                 f["Projeto"].astype(str).str.contains(_bp, case=False, na=False)
                 | f["Produto"].astype(str).str.contains(_bp, case=False, na=False)
             ]
-        if semana != "TODAS": f = f[f["Semana de Necessidade"].astype(str) == semana]'''
+        if semana != "TODAS": f = f[f["Semana de Necessidade"].astype(str) == semana]"""
 if _source.count(_old_logic) != 1:
     raise RuntimeError("Lógica final da Consulta por Projeto não encontrada.")
 _source = _source.replace(_old_logic, _new_logic, 1)
 
 # 4) ADMIN — Demanda Geral:
 # remove multiselect/chips e usa selectbox de alternativa única.
-_old = '''    with st.form("admin_demanda_geral_filtros", border=False):
+_old = """    with st.form("admin_demanda_geral_filtros", border=False):
         c1,c2,c3=st.columns(3)
         with c1: busca=st.text_input("Código / descrição", key="admin_busca_geral")
         with c2: status=st.multiselect("Status",["OK","CRIAR S.C."],default=["OK","CRIAR S.C."], key="admin_status_geral")
@@ -185,8 +185,8 @@ _old = '''    with st.form("admin_demanda_geral_filtros", border=False):
         with _bpesq:
             st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
         with _blimpa:
-            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_geral","admin_status_geral","admin_tipos_geral"))'''
-_new = '''    with st.form("admin_demanda_geral_filtros", border=False):
+            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_geral","admin_status_geral","admin_tipos_geral"))"""
+_new = """    with st.form("admin_demanda_geral_filtros", border=False):
         c1,c2,c3=st.columns(3)
         with c1: busca=st.text_input("CÓDIGO / DESCRIÇÃO", key="admin_busca_geral", placeholder="DIGITE O CÓDIGO OU PARTE DA DESCRIÇÃO")
         with c2: status=st.selectbox("STATUS",["TODOS","OK","CRIAR S.C."], key="admin_status_geral")
@@ -195,22 +195,22 @@ _new = '''    with st.form("admin_demanda_geral_filtros", border=False):
         with _bpesq:
             st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
         with _blimpa:
-            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_geral","admin_status_geral","admin_tipo_geral"))'''
+            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_geral","admin_status_geral","admin_tipo_geral"))"""
 if _source.count(_old) != 1:
     raise RuntimeError("Filtro final ADMIN da Demanda Geral não encontrado.")
 _source = _source.replace(_old, _new, 1)
 
-_old_logic = '''    if status: v=v[v["Status"].isin(status)]
-    if tipos: v=v[v["Tipo"].isin(tipos)]'''
-_new_logic = '''    if status != "TODOS": v=v[v["Status"].astype(str).eq(status)]
-    if tipo_filtro != "TODOS": v=v[v["Tipo"].astype(str).eq(tipo_filtro)]'''
+_old_logic = """    if status: v=v[v["Status"].isin(status)]
+    if tipos: v=v[v["Tipo"].isin(tipos)]"""
+_new_logic = """    if status != "TODOS": v=v[v["Status"].astype(str).eq(status)]
+    if tipo_filtro != "TODOS": v=v[v["Tipo"].astype(str).eq(tipo_filtro)]"""
 if _source.count(_old_logic) != 1:
     raise RuntimeError("Lógica final ADMIN da Demanda Geral não encontrada.")
 _source = _source.replace(_old_logic, _new_logic, 1)
 
 # 5) ADMIN — Demanda por Projeto:
 # pesquisa livre + semana única.
-_old = '''    with st.form("admin_demanda_projeto_filtros", border=False):
+_old = """    with st.form("admin_demanda_projeto_filtros", border=False):
         c1,c2=st.columns(2)
         with c1: busca2=st.text_input("Código / projeto", key="admin_busca_projeto")
         with c2: semana_filtro=st.multiselect("Semanas",sorted(demanda_projeto["Semana de Necessidade"].unique().tolist()) if len(demanda_projeto) else [], key="admin_semana_projeto")
@@ -218,8 +218,8 @@ _old = '''    with st.form("admin_demanda_projeto_filtros", border=False):
         with _bpesq:
             st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
         with _blimpa:
-            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_projeto","admin_semana_projeto"))'''
-_new = '''    with st.form("admin_demanda_projeto_filtros", border=False):
+            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_projeto","admin_semana_projeto"))"""
+_new = """    with st.form("admin_demanda_projeto_filtros", border=False):
         c1,c2=st.columns(2)
         with c1: busca2=st.text_input("CÓDIGO / PROJETO", key="admin_busca_projeto", placeholder="DIGITE O CÓDIGO OU PROJETO")
         with c2: semana_filtro=st.selectbox("SEMANA",["TODAS"]+sorted(demanda_projeto["Semana de Necessidade"].unique().tolist()) if len(demanda_projeto) else ["TODAS"], key="admin_semana_projeto")
@@ -227,7 +227,7 @@ _new = '''    with st.form("admin_demanda_projeto_filtros", border=False):
         with _bpesq:
             st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
         with _blimpa:
-            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_projeto","admin_semana_projeto"))'''
+            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_projeto","admin_semana_projeto"))"""
 if _source.count(_old) != 1:
     raise RuntimeError("Filtro final ADMIN da Demanda por Projeto não encontrado.")
 _source = _source.replace(_old, _new, 1)

@@ -6,7 +6,7 @@ MRP_PADRAO_FINAL_PATCH = r'''
 
 # 1) Cabeçalho superior: usa EXATAMENTE o mesmo componente do Conversor MRP.
 _old_brand_call = '_render_brand_header(UI_CONFIG)\n'
-_new_brand_call = '''_mrp_logo_src = str(UI_CONFIG.get("logo_data") or "")
+_new_brand_call = """_mrp_logo_src = str(UI_CONFIG.get("logo_data") or "")
 if _mrp_logo_src:
     _mrp_logo_html = f'<img src="{_mrp_logo_src}" alt="SETTA">'
 else:
@@ -15,7 +15,7 @@ st.markdown(
     f'<div class="setta-logo-card">{_mrp_logo_html}</div>',
     unsafe_allow_html=True,
 )
-'''
+"""
 if _source.count(_old_brand_call) != 1:
     raise RuntimeError("Renderização antiga do cabeçalho do MRP não encontrada.")
 _source = _source.replace(_old_brand_call, _new_brand_call, 1)

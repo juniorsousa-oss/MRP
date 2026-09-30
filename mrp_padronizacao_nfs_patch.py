@@ -70,6 +70,7 @@ section[data-testid="stSidebar"][aria-expanded="false"]{width:0!important;min-wi
 .sidebar-status-name{font-size:.68rem;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.025em}
 .sidebar-status-value{margin-top:.16rem;font-size:.8rem;font-weight:900;color:#111827;text-transform:uppercase}
 .sidebar-status-meta{margin-top:.24rem;color:#6b7280;font-size:.66rem;line-height:1.45;text-transform:uppercase}
+.sidebar-status-spacer{height:5rem!important;min-height:5rem!important}
 
 [data-testid="stTabs"] button{font-weight:800!important;text-transform:uppercase!important;letter-spacing:.015em!important}
 div[data-testid="stMarkdownContainer"] h1,
@@ -169,6 +170,10 @@ _new_sidebar = r"""with st.sidebar:
     )
 
     st.divider()
+    st.markdown(
+        '<div class="sidebar-status-spacer"></div>',
+        unsafe_allow_html=True,
+    )
     st.markdown(
         '<div class="sidebar-section-label">STATUS GERAL</div>',
         unsafe_allow_html=True,
@@ -515,6 +520,26 @@ if st.session_state.get("auth_role")=="ADMIN" and _mrp_page=="CONFIGURAÇÕES":
 _source = _source.replace(
     _config_anchor,
     _config_page + "\n" + _config_anchor,
+    1,
+)
+
+
+# ---------------------------------------------------------
+# 6) LIMPEZA DE CONTEÚDO — títulos duplicados e instrução discreta.
+# ---------------------------------------------------------
+_source = _source.replace(
+    '    st.subheader(UI_CONFIG["title_demanda_geral"]); ',
+    '    ',
+    1,
+)
+_source = _source.replace(
+    '    st.subheader(UI_CONFIG["title_demanda_projeto"]); ',
+    '    ',
+    1,
+)
+_source = _source.replace(
+    '    st.markdown("**Clique em uma linha para abrir o detalhamento do material.**")',
+    '    st.caption("Clique em uma linha para abrir o detalhamento do material.")',
     1,
 )
 '''

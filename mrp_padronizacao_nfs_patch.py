@@ -538,7 +538,7 @@ _source = _source.replace(
     '',
     1,
 )
-// Compatibilidade com a forma antiga, caso algum patch anterior volte a usá-la.
+# Compatibilidade com a forma antiga, caso algum patch anterior volte a usá-la.
 _source = _source.replace(
     '    st.subheader(UI_CONFIG["title_demanda_geral"]); ',
     '    ',

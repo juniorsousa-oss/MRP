@@ -49,13 +49,12 @@ if _source.count(_login_anchor) != 1:
     raise RuntimeError("Configuração pública do login não encontrada para padrão SETTA.")
 _source = _source.replace(_login_anchor, _login_new, 1)
 
-_ui_old = """UI_CONFIG = _config_get()
-st.session_state["ui_config"] = UI_CONFIG
-_apply_visual_theme(UI_CONFIG)
-_render_visual_settings(UI_CONFIG)
-_render_brand_header(UI_CONFIG)"""
-_ui_new = """UI_CONFIG = _config_get()
-try:
+_ui_settings_call = '_render_visual_settings(UI_CONFIG)\n'
+if _ui_settings_call in _source:
+    _source = _source.replace(_ui_settings_call, '', 1)
+
+_theme_anchor = '_apply_visual_theme(UI_CONFIG)\n'
+_theme_injection = """try:
     _mrp_visual_global=_central_mrp.load_visual_config()
     _mrp_global_logo=_central_mrp.logo_data_uri(_mrp_visual_global)
 except Exception:
@@ -76,11 +75,14 @@ UI_CONFIG.update({
     "color_text":"#111827",
 })
 st.session_state["ui_config"] = UI_CONFIG
-_apply_visual_theme(UI_CONFIG)
-_render_brand_header(UI_CONFIG)"""
-if _source.count(_ui_old) != 1:
-    raise RuntimeError("Bloco visual do MRP não encontrado para identidade global.")
-_source = _source.replace(_ui_old, _ui_new, 1)
+"""
+if _source.count(_theme_anchor) != 1:
+    raise RuntimeError("Aplicação do tema do MRP não encontrada para identidade global.")
+_source = _source.replace(
+    _theme_anchor,
+    _theme_injection + _theme_anchor,
+    1,
+)
 
 _title_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
 _setta_css = """

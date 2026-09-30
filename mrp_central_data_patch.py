@@ -114,7 +114,10 @@ _source = _source.replace(
 )
 
 _sidebar_start = _source.find('with st.sidebar:\n    st.header("Acesso")')
-_sidebar_end = _source.find('if st.session_state.get("auth_role") == "CONSULTA":', _sidebar_start)
+_sidebar_end = _source.find('if st.session_state.get("auth_role")=="ADMIN" and _central_bundle:
+    _render_mrp_central_status(_central_bundle)
+
+if st.session_state.get("auth_role") == "CONSULTA":', _sidebar_start)
 if _sidebar_start < 0 or _sidebar_end < 0:
     raise RuntimeError("Bloco lateral do MRP não encontrado para integração com a Central.")
 
@@ -129,10 +132,9 @@ _central_sidebar = r"""with st.sidebar:
     )
 
     _mrp_role=st.session_state.get("auth_role")
-    _mrp_nav_options=["MRP ATUAL","HISTÓRICO"] if _mrp_role=="ADMIN" else ["MRP ATUAL"]
-    _mrp_nav=st.radio(
+    st.radio(
         "NAVEGAÇÃO",
-        _mrp_nav_options,
+        ["MRP ATUAL"],
         label_visibility="collapsed",
         key="mrp_sidebar_navigation",
     )
@@ -146,14 +148,12 @@ _central_sidebar = r"""with st.sidebar:
         '</div>',
         unsafe_allow_html=True,
     )
-    if st.button("SAIR", use_container_width=True, key="mrp_logout"):
-        _logout()
 
     _mrp_use_manual=False
     _central_bundle={}
     usuario_mrp=st.session_state.get("auth_nome", "")
 
-    if _mrp_role=="ADMIN" and _mrp_nav=="MRP ATUAL":
+    if _mrp_role=="ADMIN":
         try:
             _central_bundle=_central_mrp.load_mrp_bundle()
         except Exception as _central_err:
@@ -165,7 +165,8 @@ _central_sidebar = r"""with st.sidebar:
         else:
             cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
 
-        with st.expander("CONTINGÊNCIA", expanded=False):
+        st.markdown('<div class="sidebar-section-label sidebar-tools-label">ALIMENTAÇÃO</div>', unsafe_allow_html=True)
+        with st.expander("CONTINGÊNCIA E RECUPERAÇÃO", expanded=False):
             _manual_enabled=st.checkbox("USAR ALIMENTAÇÃO MANUAL", key="mrp_manual_feed")
             if _manual_enabled:
                 _cad_manual=st.file_uploader("CADASTROS",type=["xlsx","xlsm","xltx"],key="mrp_manual_cad")
@@ -181,8 +182,105 @@ _central_sidebar = r"""with st.sidebar:
                     mt_file=_tctp_manual
                     _mrp_use_manual=True
                     st.warning("MODO CONTINGÊNCIA ATIVO.")
+
+            _pending=st.session_state.get("_mrp_pending_snapshots") or {}
+            if _pending:
+                st.markdown("**SALVAMENTO PENDENTE**")
+                for _pending_key,_pending_payload in list(_pending.items()):
+                    _pending_label=f"SEMANA {_pending_payload.get('semana_mrp') or '-'} · {_pending_key[:8]}"
+                    _backups=st.session_state.setdefault("_mrp_pending_backup_bytes",{})
+                    if _pending_key not in _backups:
+                        _backups[_pending_key]=_mrp_backup_bytes(_pending_payload)
+                    st.download_button(
+                        "BAIXAR CÓPIA — "+_pending_label,
+                        data=_backups[_pending_key],
+                        file_name="MRP_Pendente_"+_pending_key[:12]+".json.gz",
+                        mime="application/gzip",
+                        key="mrp_backup_"+_pending_key,
+                        use_container_width=True,
+                    )
+                    if st.button("SALVAR PENDENTE — "+_pending_label,key="mrp_retry_"+_pending_key,use_container_width=True):
+                        try:
+                            _sb_post(_pending_payload)
+                            st.session_state["_mrp_saved_sig"]=_pending_key
+                            st.success("Histórico confirmado.")
+                            st.rerun()
+                        except Exception as _pending_error:
+                            st.error(str(_pending_error))
+
+            st.markdown("**RECUPERAR CÓPIA**")
+            _restore_backup=st.file_uploader(
+                "Cópia .json.gz",
+                type=["gz"],
+                key="mrp_restore_backup_upload",
+            )
+            if _restore_backup is not None and st.button(
+                "RECUPERAR CÓPIA",
+                key="mrp_restore_backup_submit",
+                use_container_width=True,
+            ):
+                try:
+                    _restore_key,_restore_payload=_mrp_restore_backup(_restore_backup)
+                    st.session_state.setdefault("_mrp_pending_snapshots",{})[_restore_key]=_restore_payload
+                    _sb_post(_restore_payload)
+                    st.session_state["_mrp_saved_sig"]=_restore_key
+                    st.success("Cópia recuperada.")
+                    st.rerun()
+                except Exception as _restore_error:
+                    st.error(str(_restore_error))
+
+            st.markdown("**RECUPERAR PELO EXCEL**")
+            _restore_excel=st.file_uploader(
+                "MRP completo .xlsx",
+                type=["xlsx"],
+                key="mrp_restore_report",
+            )
+            if _restore_excel is not None:
+                _restore_week=st.number_input(
+                    "Semana do cálculo",
+                    min_value=1,
+                    max_value=53,
+                    value=38,
+                    key="mrp_restore_week",
+                )
+                if st.button("GRAVAR HISTÓRICO DO EXCEL",key="mrp_restore_excel_button",use_container_width=True):
+                    try:
+                        _blob=_restore_excel.getvalue()
+                        _restore_key=hashlib.sha256(
+                            b"MRP-EXCEL-RESTORE-V1|"+str(_restore_week).encode("ascii")+_blob
+                        ).hexdigest()
+                        _names={
+                            "mrp_geral":"MRP_Geral",
+                            "projecao_semanal":"Projecao_Semanal",
+                            "demanda_projeto":"Demanda_Projeto",
+                            "compra_mrp":"Compra_MRP",
+                            "compras":"Compras",
+                            "fabricacao":"Fabricacao",
+                        }
+                        _sheets=pd.read_excel(BytesIO(_blob),sheet_name=list(_names.values()))
+                        _payload={
+                            "semana_mrp":int(_restore_week),
+                            "usuario":str(st.session_state.get("auth_nome") or "Não informado")+" — recuperado de Excel",
+                            "calculation_key":_restore_key,
+                        }
+                        for _field,_sheet_name in _names.items():
+                            _sheet=_sheets[_sheet_name]
+                            _payload[_field]=json.loads(
+                                _sheet.to_json(orient="records",force_ascii=False,date_format="iso")
+                            )
+                        _sb_post(_payload)
+                        st.session_state["_mrp_saved_sig"]=_restore_key
+                        st.success("Histórico recuperado.")
+                        st.rerun()
+                    except Exception as _excel_error:
+                        st.error(f"Histórico não recuperado: {_excel_error}")
+
     else:
         cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
+
+    st.markdown("---")
+    if st.button("SAIR", use_container_width=True, key="mrp_logout"):
+        _logout()
 """
 _source = _source[:_sidebar_start] + _central_sidebar + "\n" + _source[_sidebar_end:]
 
@@ -237,6 +335,11 @@ _source = _source.replace(
     _status_helper + '\nif st.session_state.get("auth_role") == "CONSULTA":',
     1,
 )
+
+
+_week_sidebar_legacy = 'with st.sidebar:\n    st.divider(); st.markdown("**Semana atual identificada nas bases**"); st.number_input("Semana atual",min_value=1,max_value=53,value=semana_atual,disabled=True); st.caption(f"Fonte: {fonte_semana}")\n'
+if _week_sidebar_legacy in _source:
+    _source = _source.replace(_week_sidebar_legacy, '', 1)
 
 _load_old = 'try: cad,est,rg,rg_mrp,cp,mt=load_sources(cadastro_file.getvalue(),estoque_file.getvalue(),geral_file.getvalue(),compras_file.getvalue(),mt_file.getvalue())\nexcept Exception as e: st.error(f"Erro ao carregar as bases: {e}"); st.stop()'
 _load_new = """try:
@@ -298,19 +401,10 @@ _auto_save = """        if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
                 save_snapshot(semana_atual,usuario_mrp,macro,proj,demanda_projeto,compras_mrp,cp,fab_det,calculation_key=_mrp_sig)
                 st.session_state["_mrp_saved_sig"]=_mrp_sig
                 st.success("MRP salvo no histórico compartilhado.")"""
-_manual_history = """        if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
-            st.session_state["_mrp_current_unsaved_sig"]=_mrp_sig"""
-if _source.count(_auto_save) != 1:
-    raise RuntimeError("Fluxo automático de histórico do MRP não encontrado.")
-_source = _source.replace(_auto_save, _manual_history, 1)
-
-_metric_anchor = 'm=st.columns(5);'
-_history_ui = r"""
-if st.session_state.get("auth_role") == "ADMIN" and "_mrp_sig" in locals():
-    if st.session_state.get("_mrp_saved_sig") == _mrp_sig:
-        st.caption("HISTÓRICO: ESTE PROCESSAMENTO JÁ FOI GRAVADO.")
-    elif st.button("SALVAR MRP NO HISTÓRICO", type="primary", use_container_width=True, key="mrp_save_history_current"):
-        try:
+_manual_history = """        _mrp_today=pd.Timestamp.now(tz="America/Sao_Paulo").strftime("%Y-%m-%d")
+        _mrp_daily_key=hashlib.sha256(f"MRP-DIARIO|{_mrp_today}".encode("utf-8")).hexdigest()
+        if st.session_state.get("_mrp_daily_attempt_day")!=_mrp_today:
+            st.session_state["_mrp_daily_attempt_day"]=_mrp_today
             save_snapshot(
                 semana_atual,
                 usuario_mrp,
@@ -320,16 +414,16 @@ if st.session_state.get("auth_role") == "ADMIN" and "_mrp_sig" in locals():
                 compras_mrp,
                 cp,
                 fab_det,
-                calculation_key=_mrp_sig,
+                calculation_key=_mrp_daily_key,
             )
-            st.session_state["_mrp_saved_sig"]=_mrp_sig
-            st.session_state.pop("_mrp_current_unsaved_sig", None)
-            st.success("MRP salvo no histórico compartilhado.")
-            st.rerun()
-        except Exception as _history_err:
-            st.error(f"Não foi possível confirmar o histórico: {_history_err}")
+            st.session_state["_mrp_saved_sig"]=_mrp_daily_key
+            st.session_state["_mrp_daily_saved_day"]=_mrp_today"""
+if _source.count(_auto_save) != 1:
+    raise RuntimeError("Fluxo automático de histórico do MRP não encontrado.")
+_source = _source.replace(_auto_save, _manual_history, 1)
 
-"""
+_metric_anchor = 'm=st.columns(5);'
+_history_ui = ""
 if _source.count(_metric_anchor) != 1:
     raise RuntimeError("Ponto dos indicadores do MRP não encontrado.")
 _source = _source.replace(_metric_anchor, _history_ui + "\n" + _metric_anchor, 1)

@@ -114,10 +114,7 @@ _source = _source.replace(
 )
 
 _sidebar_start = _source.find('with st.sidebar:\n    st.header("Acesso")')
-_sidebar_end = _source.find('if st.session_state.get("auth_role")=="ADMIN" and _central_bundle:
-    _render_mrp_central_status(_central_bundle)
-
-if st.session_state.get("auth_role") == "CONSULTA":', _sidebar_start)
+_sidebar_end = _source.find('if st.session_state.get("auth_role") == "CONSULTA":', _sidebar_start)
 if _sidebar_start < 0 or _sidebar_end < 0:
     raise RuntimeError("Bloco lateral do MRP não encontrado para integração com a Central.")
 
@@ -332,7 +329,10 @@ def _render_mrp_central_status(bundle):
 """
 _source = _source.replace(
     'if st.session_state.get("auth_role") == "CONSULTA":',
-    _status_helper + '\nif st.session_state.get("auth_role") == "CONSULTA":',
+    _status_helper
+    + '\nif st.session_state.get("auth_role")=="ADMIN" and _central_bundle:\n'
+    + '    _render_mrp_central_status(_central_bundle)\n\n'
+    + 'if st.session_state.get("auth_role") == "CONSULTA":',
     1,
 )
 

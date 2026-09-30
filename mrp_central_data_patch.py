@@ -294,7 +294,7 @@ def _mrp_source_card_html(name,status,meta):
         details.append(when)
     if rows not in (None,""):
         try:
-            details.append(f"{int(rows):,}".replace(",", ".")+" registros")
+            details.append(f"{int(rows):,}".replace(",", ".")+" REGISTROS")
         except Exception:
             pass
     detail=" · ".join(details) if details else "—"
@@ -319,20 +319,17 @@ def _render_mrp_central_status(bundle):
         _mrp_source_card_html("TCTP TRATADO","ATUALIZADO" if (der.get("tctp_tratado") or {}).get("available") else "AGUARDANDO",der.get("tctp_tratado") or {}),
     ]
     st.markdown(
-        '<div class="section-band"><div class="section-band-kicker">01 · FONTES</div>'
+        '<div class="section-band"><div class="section-band-kicker">04 · FONTES</div>'
         '<div class="section-band-title">CENTRAL DE DADOS</div></div>',
         unsafe_allow_html=True,
     )
     st.markdown('<div class="mrp-source-grid">'+"".join(cards)+'</div>',unsafe_allow_html=True)
-    st.markdown('<div class="topic-divider"></div>',unsafe_allow_html=True)
 
 """
 _source = _source.replace(
     'if st.session_state.get("auth_role") == "CONSULTA":',
     _status_helper
-    + '\nif st.session_state.get("auth_role")=="ADMIN" and _central_bundle:\n'
-    + '    _render_mrp_central_status(_central_bundle)\n\n'
-    + 'if st.session_state.get("auth_role") == "CONSULTA":',
+    + '\nif st.session_state.get("auth_role") == "CONSULTA":',
     1,
 )
 
@@ -381,11 +378,10 @@ if st.session_state.get("auth_role") == "ADMIN" and not _mrp_use_manual and _cen
             '<div><div class="mrp-output-kicker">RELATÓRIO MRP</div>'
             '<div class="mrp-output-status">ATUALIZADO</div></div>'
             f'<div class="mrp-output-meta">{_mrp_output_when}'
-            + (f' · {int(_mrp_output_rows):,} registros'.replace(",", ".") if _mrp_output_rows not in (None,"") else '')
+            + (f' · {int(_mrp_output_rows):,} REGISTROS'.replace(",", ".") if _mrp_output_rows not in (None,"") else '')
             + '</div></div>',
             unsafe_allow_html=True,
         )
-        st.markdown('<div class="topic-divider"></div>',unsafe_allow_html=True)
     except Exception as _publish_err:
         st.warning(f"MRP calculado, mas a publicação na Central falhou: {_publish_err}")
 
@@ -393,6 +389,18 @@ if st.session_state.get("auth_role") == "ADMIN" and not _mrp_use_manual and _cen
 if _source.count(_publish_anchor) != 1:
     raise RuntimeError("Ponto de publicação do Relatório MRP não encontrado.")
 _source = _source.replace(_publish_anchor, _publish_code + "\n" + _publish_anchor, 1)
+
+_mrp_sources_footer_anchor = '''if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns) que não normalizam na Demanda por Projeto e exigem nova S.C.")
+else: st.caption("Nenhum item da Demanda por Projeto exige nova S.C. no momento.")
+st.divider()'''
+_mrp_sources_footer_new = '''if len(compras_mrp): st.caption(f"Arquivo de compra gerado com {len(compras_mrp)} item(ns) que não normalizam na Demanda por Projeto e exigem nova S.C.")
+else: st.caption("Nenhum item da Demanda por Projeto exige nova S.C. no momento.")
+st.markdown('<div class="topic-divider"></div>', unsafe_allow_html=True)
+if st.session_state.get("auth_role")=="ADMIN" and _central_bundle:
+    _render_mrp_central_status(_central_bundle)'''
+if _source.count(_mrp_sources_footer_anchor) != 1:
+    raise RuntimeError("Rodapé dos relatórios do MRP não encontrado para posicionar FONTES.")
+_source = _source.replace(_mrp_sources_footer_anchor, _mrp_sources_footer_new, 1)
 
 _auto_save = """        if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
             if _mrp_sig in st.session_state.get("_mrp_pending_snapshots", {}):

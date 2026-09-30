@@ -12,6 +12,26 @@ from mrp_filtros_visual_patch import FILTROS_VISUAL_PATCH
 from mrp_login_patch import LOGIN_PATCH
 from mrp_login_spacing_patch import LOGIN_SPACING_PATCH
 from mrp_ano_semana_patch import ANO_SEMANA_PATCH
+
+# O indicador visual de "Semana atual" não é parte da lógica de cálculo.
+# Alguns layouts já o convertem/ocultam antes deste patch. Evita derrubar o
+# aplicativo quando o widget já estiver em outra forma.
+_ano_semana_widget_strict = '''_source = _sem_trocar(
+    'st.number_input("Semana atual",min_value=1,max_value=53,value=semana_atual,disabled=True)',
+    'st.text_input("Semana atual",value=formatar_semana(semana_atual),disabled=True)',
+    "indicador da semana atual"
+)'''
+_ano_semana_widget_safe = '''_semana_input_antigo = 'st.number_input("Semana atual",min_value=1,max_value=53,value=semana_atual,disabled=True)'
+_semana_input_novo = 'st.text_input("Semana atual",value=formatar_semana(semana_atual),disabled=True)'
+if _semana_input_antigo in _source:
+    _source = _source.replace(_semana_input_antigo, _semana_input_novo, 1)
+# Se o widget já tiver sido alterado/ocultado por outro patch, segue sem erro.'''
+if _ano_semana_widget_strict in ANO_SEMANA_PATCH:
+    ANO_SEMANA_PATCH = ANO_SEMANA_PATCH.replace(
+        _ano_semana_widget_strict,
+        _ano_semana_widget_safe,
+        1,
+    )
 from mrp_runtime_patch import PERFORMANCE_PATCH
 from mrp_setta_padrao_patch import SETTA_PADRAO_PATCH
 from mrp_padrao_final_patch import MRP_PADRAO_FINAL_PATCH

@@ -256,7 +256,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)
   border-radius:16px!important;
   box-shadow:0 4px 14px rgba(24,39,75,.08)!important;
   box-sizing:border-box!important;
-  margin:0 0 2.55rem!important;
+  margin:0 0 1.85rem!important;
   padding:1.1rem 2rem!important;
 }
 .setta-brand-logo{
@@ -298,6 +298,7 @@ div[data-testid="stElementContainer"]:has(.app-title){
   color:#4f5661!important;
   font-size:.94rem!important;
   line-height:1.35!important;
+  text-transform:uppercase!important;
 }
 
 .section-band{
@@ -376,6 +377,7 @@ div[data-testid="stElementContainer"]:has(.app-title){
   font-size:.65rem;
   color:#94a3b8;
   line-height:1.35;
+  text-transform:uppercase;
 }
 
 .mrp-output-card{
@@ -407,6 +409,7 @@ div[data-testid="stElementContainer"]:has(.app-title){
   font-weight:700;
   color:#166534;
   text-align:right;
+  text-transform:uppercase;
 }
 
 div[data-testid="stMetric"]{
@@ -441,6 +444,10 @@ div[data-testid="stMetricValue"]{
   letter-spacing:-.02em!important;
 }
 
+[data-testid="stWidgetLabel"] p{
+  text-transform:uppercase!important;
+  font-weight:700!important;
+}
 div[data-baseweb="tab-list"]{
   gap:1.05rem!important;
   border-bottom:1px solid #cbd5e1!important;
@@ -524,7 +531,7 @@ _source = _source.replace(
 
 _metric_anchor = 'm=st.columns(5);'
 _metric_header = """st.markdown(
-    '<div class="section-band"><div class="section-band-kicker">02 · VISÃO GERAL</div>'
+    '<div class="section-band"><div class="section-band-kicker">01 · VISÃO DE DADOS</div>'
     '<div class="section-band-title">INDICADORES DO MRP</div></div>',
     unsafe_allow_html=True,
 )
@@ -541,7 +548,7 @@ for _tabs_anchor in _tabs_candidates:
         _source = _source.replace(
             _tabs_anchor,
             'st.markdown(\'<div class="topic-divider"></div>\', unsafe_allow_html=True)\n'
-            'st.markdown(\'<div class="section-band"><div class="section-band-kicker">03 · ANÁLISE</div><div class="section-band-title">DEMANDA</div></div>\', unsafe_allow_html=True)\n'
+            'st.markdown(\'<div class="section-band"><div class="section-band-kicker">02 · DEMANDA</div><div class="section-band-title">DEMANDA</div></div>\', unsafe_allow_html=True)\n'
             + _tabs_anchor,
             1,
         )
@@ -552,7 +559,7 @@ if _export_anchor in _source:
     _source = _source.replace(
         _export_anchor,
         'st.markdown(\'<div class="topic-divider"></div>\', unsafe_allow_html=True); '
-        'st.markdown(\'<div class="section-band"><div class="section-band-kicker">04 · EXPORTAÇÃO</div><div class="section-band-title">RELATÓRIOS</div></div>\', unsafe_allow_html=True)',
+        'st.markdown(\'<div class="section-band"><div class="section-band-kicker">03 · RELATÓRIOS</div><div class="section-band-title">RELATÓRIOS</div></div>\', unsafe_allow_html=True)',
         1,
     )
 '''

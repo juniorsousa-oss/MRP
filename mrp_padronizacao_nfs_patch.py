@@ -48,7 +48,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)
 [data-testid="stMain"] .block-container,
 .stMain .block-container{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important;padding-top:3.2rem!important;padding-left:2.7rem!important;padding-right:2.7rem!important;padding-bottom:3rem!important}
 div[data-testid="stElementContainer"]:has(.app-title){margin-top:0!important;padding-top:0!important}
-div[data-testid="stElementContainer"]:has(.setta-logo-card){margin-top:0!important;padding-top:30px!important}
+div[data-testid="stElementContainer"]:has(.setta-logo-card){margin-top:0!important;padding-top:20px!important}
 section[data-testid="stSidebar"][aria-expanded="false"]{width:0!important;min-width:0!important;max-width:0!important;flex-basis:0!important}
 
 .setta-logo-card{width:100%!important;min-height:128px!important;display:flex!important;align-items:center!important;justify-content:center!important;background:#fff!important;border:1px solid #e5e8ee!important;border-radius:16px!important;box-shadow:0 4px 14px rgba(24,39,75,.08)!important;box-sizing:border-box!important;margin:0 0 2.55rem 0!important;padding:1.1rem 2rem!important}

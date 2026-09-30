@@ -19,6 +19,7 @@ from mrp_desempenho_final_patch import DESEMPENHO_FINAL_PATCH
 from mrp_central_data_patch import CENTRAL_DATA_PATCH
 
 # Mantém toda a lógica funcional validada no runtime estável e aplica somente
+# smoke-layout-performance-20260930
 # a persistência/detalhamento das OPs de produção interna e o status de entrega.
 _runtime_path = Path(__file__).with_name("app_mrp_runtime.py")
 _runtime_source = _runtime_path.read_text(encoding="utf-8")

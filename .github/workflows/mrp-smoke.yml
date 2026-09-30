@@ -47,7 +47,11 @@ jobs:
                   print(f"{idx+1:04d}: {source_lines[idx]}")
               raise
           assert "compressed_payload" in env["_source"]
-          assert "RECUPERAR HISTÓRICO PELO EXCEL" in env["_source"]
+          assert "CONTINGÊNCIA E RECUPERAÇÃO" in env["_source"]
+          assert "MRP calculado. Iniciando confirmação do histórico compartilhado..." not in env["_source"]
+          assert '["MRP ATUAL","HISTÓRICO"]' not in env["_source"]
+          assert "_mrp_compute_cache_key" in env["_source"]
+          assert "MRP-DIARIO|" in env["_source"]
           # Round trip do formato compactado, sem conexão nem escrita no banco.
           import ast, json, re, gzip, base64
           parsed = ast.parse(env["_source"])

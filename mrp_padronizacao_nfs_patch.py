@@ -45,12 +45,13 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)
 .stMain{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}
 [data-testid="stAppViewContainer"] .main .block-container,
 [data-testid="stMain"] .block-container,
-.stMain .block-container{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}
+.stMain .block-container{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important;padding-top:3.2rem!important;padding-left:2.7rem!important;padding-right:2.7rem!important;padding-bottom:3rem!important}
+div[data-testid="stElementContainer"]:has(.app-title){margin-top:0!important;padding-top:0!important}
+div[data-testid="stElementContainer"]:has(.setta-logo-card){margin-top:0!important;padding-top:0!important}
 section[data-testid="stSidebar"][aria-expanded="false"]{width:0!important;min-width:0!important;max-width:0!important;flex-basis:0!important}
 
 .setta-logo-card{width:100%!important;min-height:128px!important;display:flex!important;align-items:center!important;justify-content:center!important;background:#fff!important;border:1px solid #e5e8ee!important;border-radius:16px!important;box-shadow:0 4px 14px rgba(24,39,75,.08)!important;box-sizing:border-box!important;margin:0 0 2.55rem 0!important;padding:1.1rem 2rem!important}
 .setta-logo-card img{display:block!important;width:auto!important;height:auto!important;max-width:205px!important;max-height:86px!important;object-fit:contain!important}
-.setta-logo-card{margin-top:.55rem!important}
 .app-title{margin:0!important;padding:0!important;font-size:2.55rem!important;line-height:1.08!important;font-weight:800!important;letter-spacing:-.04em!important;color:#050505!important}
 .app-subtitle,.app-sub,.setta-main-description{margin-top:.72rem!important;margin-bottom:1.65rem!important;color:#4f5661!important;font-size:.94rem!important;line-height:1.35!important;text-transform:uppercase!important}
 
@@ -71,7 +72,10 @@ section[data-testid="stSidebar"][aria-expanded="false"]{width:0!important;min-wi
 .sidebar-status-name{font-size:.68rem;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.025em}
 .sidebar-status-value{margin-top:.16rem;font-size:.8rem;font-weight:900;color:#111827;text-transform:uppercase}
 .sidebar-status-meta{margin-top:.24rem;color:#6b7280;font-size:.66rem;line-height:1.45;text-transform:uppercase}
-.sidebar-status-spacer{height:5rem!important;min-height:5rem!important}
+section[data-testid="stSidebar"] hr{margin:.85rem 0!important}
+.sidebar-week-card{background:#f8fafc;border:1px solid #e5e8ee;border-radius:10px;padding:.72rem .85rem;color:#6b7280;font-size:.72rem;line-height:1.45}
+.sidebar-week-label{font-size:.66rem;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.035em}
+.sidebar-week-value{margin-top:.16rem;font-size:.82rem;font-weight:900;color:#111827;text-transform:uppercase}
 
 [data-testid="stTabs"] button{font-weight:800!important;text-transform:uppercase!important;letter-spacing:.015em!important}
 div[data-testid="stMarkdownContainer"] h1,
@@ -171,10 +175,6 @@ _new_sidebar = r"""with st.sidebar:
     )
 
     st.divider()
-    st.markdown(
-        '<div class="sidebar-status-spacer"></div>',
-        unsafe_allow_html=True,
-    )
     st.markdown(
         '<div class="sidebar-section-label">STATUS GERAL</div>',
         unsafe_allow_html=True,
@@ -554,4 +554,22 @@ _source = _source.replace(
     '    st.caption("Clique em uma linha para abrir o detalhamento do material.")',
     1,
 )
+
+
+# ---------------------------------------------------------
+# 7) SIDEBAR — mantém abaixo do STATUS GERAL apenas a SEMANA ATUAL.
+# ---------------------------------------------------------
+_old_week_sidebar = 'with st.sidebar:\n    st.divider(); st.markdown("**Semana atual identificada nas bases**"); st.number_input("Semana atual",min_value=1,max_value=53,value=semana_atual,disabled=True); st.caption(f"Fonte: {fonte_semana}")'
+_new_week_sidebar = '''with st.sidebar:
+    st.divider()
+    _mrp_current_year=pd.Timestamp.now().year
+    st.markdown(
+        '<div class="sidebar-week-card">'
+        '<div class="sidebar-week-label">SEMANA ATUAL</div>'
+        f'<div class="sidebar-week-value">{_mrp_current_year}-{int(semana_atual):02d}</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )'''
+if _old_week_sidebar in _source:
+    _source = _source.replace(_old_week_sidebar, _new_week_sidebar, 1)
 '''

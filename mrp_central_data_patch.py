@@ -4,7 +4,7 @@ CENTRAL_DATA_PATCH = r'''
 # =========================================================
 _source = "import central_mrp_data as _central_mrp\n" + _source
 
-_central_helper_anchor = 'st.title(UI_CONFIG["section_main_title"])'
+_central_helper_anchor = 'with st.sidebar:\n    st.header("Acesso")'
 _central_helper = r"""
 def _mrp_load_sources_from_central(bundle):
     if not bundle or not bundle.get("ready"):

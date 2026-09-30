@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import base64
 import gzip
 import io
 import json
 import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -18,6 +21,7 @@ DEFAULT_SUPABASE_ANON_KEY = (
     or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1aXhhenB4a3ZuaXFsZG1tbnRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1MTYwNTMsImV4cCI6MjEwMzA5MjA1M30.jNFaIG1FcDYnMAoVaI23UYMuRL1BpZmuqu_LPEYb88E"
 )
 BUCKET = "setta-data"
+TZ = ZoneInfo("America/Sao_Paulo")
 
 DERIVED_INPUTS = [
     "relatorio_geral_tratado",
@@ -82,22 +86,85 @@ def api_call(action: str, payload: dict | None = None, timeout: int = 60) -> dic
     return data
 
 
-def _source_status(keys: list[str]) -> dict[str, dict]:
-    rows = api_call("source_status", {"keys": keys}, timeout=30).get("data") or []
-    return {
+@st.cache_data(show_spinner=False, ttl=15, max_entries=8)
+def _bundle_state_cached(
+    source_keys: tuple[str, ...],
+    derived_keys: tuple[str, ...],
+) -> tuple[dict[str, dict], dict[str, dict]]:
+    payload = api_call(
+        "bundle_state",
+        {
+            "source_keys": list(source_keys),
+            "derived_keys": list(derived_keys),
+        },
+        timeout=30,
+    ).get("data") or {}
+
+    source_rows = payload.get("sources") or []
+    derived_rows = payload.get("derived") or []
+
+    sources = {
         str(row.get("source_key")): row
-        for row in rows
+        for row in source_rows
         if isinstance(row, dict)
     }
-
-
-def _derived_status(keys: list[str]) -> dict[str, dict]:
-    rows = api_call("derived_status", {"keys": keys}, timeout=30).get("data") or []
-    return {
+    derived = {
         str(row.get("base_key")): row
-        for row in rows
+        for row in derived_rows
         if isinstance(row, dict)
     }
+    return sources, derived
+
+
+def clear_state_cache() -> None:
+    _bundle_state_cached.clear()
+
+
+@st.cache_data(show_spinner=False, ttl=60, max_entries=2)
+def load_visual_config() -> dict:
+    row = api_call(
+        "visual_get",
+        {"app_key": "setta_global"},
+        timeout=30,
+    ).get("data") or {}
+    return {
+        "logo_data": row.get("logo_data") or "",
+        "logo_mime": row.get("logo_mime") or "image/png",
+        "favicon_data": row.get("favicon_data") or "",
+        "favicon_mime": row.get("favicon_mime") or "image/png",
+    }
+
+
+def format_dt(value: Any) -> str:
+    if not value:
+        return "—"
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=TZ)
+        return dt.astimezone(TZ).strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        return str(value)
+
+
+def logo_data_uri(config: dict | None = None) -> str:
+    cfg = config or load_visual_config()
+    data = str(cfg.get("logo_data") or "").strip()
+    if not data:
+        return ""
+    mime = str(cfg.get("logo_mime") or "image/png")
+    return f"data:{mime};base64,{data}"
+
+
+def favicon_bytes(config: dict | None = None) -> bytes:
+    cfg = config or load_visual_config()
+    data = str(cfg.get("favicon_data") or "").strip()
+    if not data:
+        return b""
+    try:
+        return base64.b64decode(data, validate=True)
+    except Exception:
+        return b""
 
 
 @st.cache_data(show_spinner=False, ttl=3600, max_entries=8)
@@ -165,8 +232,10 @@ def dependency_signature(versions: dict[str, str]) -> str:
 
 
 def load_mrp_bundle() -> dict:
-    sources = _source_status(["cadastros"])
-    derived = _derived_status(DERIVED_INPUTS + ["relatorio_mrp"])
+    sources, derived = _bundle_state_cached(
+        ("cadastros",),
+        tuple(DERIVED_INPUTS + ["relatorio_mrp"]),
+    )
 
     cadastro_meta = sources.get("cadastros") or {
         "source_key": "cadastros",

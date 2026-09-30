@@ -152,6 +152,33 @@ section[data-testid="stSidebar"] .block-container{
   font-size:.76rem;
   line-height:1.55;
 }
+.sidebar-tools-label{
+  margin-top:1.15rem!important;
+}
+section[data-testid="stSidebar"] details{
+  border:1px solid #e5e8ee!important;
+  border-radius:10px!important;
+  background:#fff!important;
+  margin:.35rem 0!important;
+  overflow:hidden!important;
+}
+section[data-testid="stSidebar"] details summary{
+  min-height:42px!important;
+  display:flex!important;
+  align-items:center!important;
+  font-size:.78rem!important;
+  font-weight:700!important;
+  color:#374151!important;
+}
+section[data-testid="stSidebar"] details summary p{
+  text-transform:uppercase!important;
+  font-size:.78rem!important;
+  font-weight:700!important;
+}
+section[data-testid="stSidebar"] .stButton>button{
+  min-height:42px!important;
+}
+
 section[data-testid="stSidebar"] div[role="radiogroup"]{
   display:flex;
   flex-direction:column;
@@ -222,7 +249,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)
   border-radius:16px!important;
   box-shadow:0 4px 14px rgba(24,39,75,.08)!important;
   box-sizing:border-box!important;
-  margin:0 0 2.55rem!important;
+  margin:0 0 1.45rem!important;
   padding:1.1rem 2rem!important;
 }
 .setta-brand-logo{
@@ -239,6 +266,14 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)
   max-height:86px!important;
   object-fit:contain!important;
   margin:0!important;
+}
+div[data-testid="stElementContainer"]:has(.app-title){
+  margin-top:-.25rem!important;
+}
+[data-testid="stMarkdownContainer"] h1 a,
+[data-testid="stMarkdownContainer"] h2 a,
+[data-testid="stMarkdownContainer"] h3 a{
+  display:none!important;
 }
 .app-title{
   margin:0!important;
@@ -399,13 +434,21 @@ div[data-testid="stMetricValue"]{
 }
 
 div[data-baseweb="tab-list"]{
-  gap:.25rem!important;
-  border-bottom:1px solid #e5e8ee!important;
+  gap:1.05rem!important;
+  border-bottom:1px solid #cbd5e1!important;
+  overflow-x:auto!important;
+  white-space:nowrap!important;
+  scrollbar-width:none!important;
 }
+div[data-baseweb="tab-list"]::-webkit-scrollbar{display:none!important}
 div[data-baseweb="tab-list"] button{
+  flex:0 0 auto!important;
+  padding:.68rem .15rem .62rem!important;
   color:#64748b!important;
+  font-size:.76rem!important;
   font-weight:800!important;
   text-transform:uppercase!important;
+  letter-spacing:.01em!important;
 }
 div[data-baseweb="tab-list"] button[aria-selected="true"]{
   color:#111827!important;
@@ -446,6 +489,7 @@ hr{
   .mrp-source-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 }
 @media(max-width:900px){
+  div[data-testid="stElementContainer"]:has(.app-title){margin-top:0!important}
   .block-container{
     padding-top:2rem!important;
     padding-left:1rem!important;
@@ -480,15 +524,20 @@ _metric_header = """st.markdown(
 if _source.count(_metric_anchor) == 1:
     _source = _source.replace(_metric_anchor, _metric_header + _metric_anchor, 1)
 
-_tabs_anchor = 'tab1,tab2,tab3=st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"], "TRATATIVA DE PROJETOS"])'
-if _tabs_anchor in _source:
-    _source = _source.replace(
-        _tabs_anchor,
-        'st.markdown(\'<div class="topic-divider"></div>\', unsafe_allow_html=True)\n'
-        'st.markdown(\'<div class="section-band"><div class="section-band-kicker">03 · ANÁLISE</div><div class="section-band-title">DEMANDA</div></div>\', unsafe_allow_html=True)\n'
-        + _tabs_anchor,
-        1,
-    )
+_tabs_candidates = [
+    'tab1,tab2,tab3,tab4=st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"], "TRATATIVA DE PROJETOS", "COMPARATIVO MRP"])',
+    'tab1,tab2,tab3=st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"], "TRATATIVA DE PROJETOS"])',
+]
+for _tabs_anchor in _tabs_candidates:
+    if _tabs_anchor in _source:
+        _source = _source.replace(
+            _tabs_anchor,
+            'st.markdown(\'<div class="topic-divider"></div>\', unsafe_allow_html=True)\n'
+            'st.markdown(\'<div class="section-band"><div class="section-band-kicker">03 · ANÁLISE</div><div class="section-band-title">DEMANDA</div></div>\', unsafe_allow_html=True)\n'
+            + _tabs_anchor,
+            1,
+        )
+        break
 
 _export_anchor = 'st.divider(); st.subheader(UI_CONFIG["section_export_title"])'
 if _export_anchor in _source:

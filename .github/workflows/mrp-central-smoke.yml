@@ -1,0 +1,43 @@
+name: Validar Central MRP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'central_mrp_data.py'
+      - 'mrp_central_data_patch.py'
+      - 'requirements.txt'
+      - '.github/workflows/mrp-central-smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  central-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+      - name: Ler bases atuais da Central
+        run: |
+          python - <<'PY'
+          import central_mrp_data as central
+
+          bundle = central.load_mrp_bundle()
+          assert bundle.get("ready") is True, bundle
+          assert len(bundle.get("cadastros_bytes") or b"") > 0
+          expected = {
+              "relatorio_geral_tratado",
+              "estoque_tratado",
+              "compras_tratado",
+              "tctp_tratado",
+          }
+          for key in expected:
+              frame = bundle.get(key)
+              assert frame is not None and not frame.empty, key
+              print(key, len(frame), list(frame.columns)[:5])
+          print("dependency_versions", bundle.get("dependency_versions"))
+          print("CENTRAL_MRP_OK")
+          PY

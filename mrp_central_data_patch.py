@@ -185,7 +185,7 @@ _central_sidebar = r"""with st.sidebar:
 _source = _source[:_sidebar_start] + _central_sidebar + "\n" + _source[_sidebar_end:]
 
 _load_old = 'try: cad,est,rg,rg_mrp,cp,mt=load_sources(cadastro_file.getvalue(),estoque_file.getvalue(),geral_file.getvalue(),compras_file.getvalue(),mt_file.getvalue())\nexcept Exception as e: st.error(f"Erro ao carregar as bases: {e}"); st.stop()'
-_load_new = '''try:
+_load_new = """try:
     if _mrp_use_manual:
         cad,est,rg,rg_mrp,cp,mt=load_sources(
             cadastro_file.getvalue(),
@@ -198,7 +198,7 @@ _load_new = '''try:
         cad,est,rg,rg_mrp,cp,mt=_mrp_load_sources_from_central(_central_bundle)
 except Exception as e:
     st.error(f"Erro ao carregar as bases: {e}")
-    st.stop()'''
+    st.stop()"""
 if _source.count(_load_old) != 1:
     raise RuntimeError("Chamada de leitura das cinco bases do MRP não encontrada.")
 _source = _source.replace(_load_old, _load_new, 1)
@@ -223,15 +223,15 @@ if _source.count(_publish_anchor) != 1:
     raise RuntimeError("Ponto de publicação do Relatório MRP não encontrado.")
 _source = _source.replace(_publish_anchor, _publish_code + "\n" + _publish_anchor, 1)
 
-_auto_save = '''        if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
+_auto_save = """        if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
             if _mrp_sig in st.session_state.get("_mrp_pending_snapshots", {}):
                 st.error("MRP calculado, mas o histórico ainda NÃO está confirmado. Use HISTÓRICO MRP PENDENTE no menu lateral para salvar sem recalcular.")
             else:
                 save_snapshot(semana_atual,usuario_mrp,macro,proj,demanda_projeto,compras_mrp,cp,fab_det,calculation_key=_mrp_sig)
                 st.session_state["_mrp_saved_sig"]=_mrp_sig
-                st.success("MRP salvo no histórico compartilhado.")'''
-_manual_history = '''        if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
-            st.session_state["_mrp_current_unsaved_sig"]=_mrp_sig'''
+                st.success("MRP salvo no histórico compartilhado.")"""
+_manual_history = """        if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
+            st.session_state["_mrp_current_unsaved_sig"]=_mrp_sig"""
 if _source.count(_auto_save) != 1:
     raise RuntimeError("Fluxo automático de histórico do MRP não encontrado.")
 _source = _source.replace(_auto_save, _manual_history, 1)

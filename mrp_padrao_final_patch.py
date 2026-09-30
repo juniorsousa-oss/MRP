@@ -155,12 +155,27 @@ _old_logic = """        f = mg.copy()
 _new_logic = """        f = mg.copy()
         if busca_consulta:
             _bc = busca_consulta.strip()
-            f = f[
-                f["Código"].astype(str).str.contains(_bc, case=False, na=False)
-                | f["Descrição"].astype(str).str.contains(_bc, case=False, na=False)
-            ]
+            _codigo_txt = (
+                f["Código"].fillna("").astype(str).str.strip()
+                .str.replace(r"\\.0$", "", regex=True)
+            )
+            # Código numérico = busca EXATA. Evita retornar outro material por
+            # coincidência parcial. Zeros à esquerda são desconsiderados.
+            if re.fullmatch(r"0*\\d+", _bc):
+                _alvo_codigo = (_bc.lstrip("0") or "0")
+                _codigo_norm = _codigo_txt.str.lstrip("0").replace("", "0")
+                f = f[_codigo_norm.eq(_alvo_codigo)]
+            else:
+                # Texto = pesquisa literal (não regex) por código ou descrição.
+                f = f[
+                    _codigo_txt.str.contains(_bc, case=False, na=False, regex=False)
+                    | f["Descrição"].fillna("").astype(str).str.contains(
+                        _bc, case=False, na=False, regex=False
+                    )
+                ]
         if tipo != "TODOS": f = f[f["Tipo"].astype(str) == tipo]
-        if status != "TODOS": f = f[f["Status"].astype(str) == status]"""
+        if status != "TODOS": f = f[f["Status"].astype(str) == status]
+        f = f.reset_index(drop=True)"""
 if _source.count(_old_logic) != 1:
     raise RuntimeError("Lógica final da Consulta Geral não encontrada.")
 _source = _source.replace(_old_logic, _new_logic, 1)
@@ -239,6 +254,31 @@ _new_logic = """    if status != "TODOS": v=v[v["Status"].astype(str).eq(status)
 if _source.count(_old_logic) != 1:
     raise RuntimeError("Lógica final ADMIN da Demanda Geral não encontrada.")
 _source = _source.replace(_old_logic, _new_logic, 1)
+
+# Pesquisa ADMIN — código numérico exato; descrição permanece pesquisa literal parcial.
+_old_admin_search = """    if busca:
+        b=busca.strip(); v=v[v["Código"].astype(str).str.contains(b,na=False)|v["Descrição"].str.contains(b,case=False,na=False)]"""
+_new_admin_search = """    if busca:
+        b=busca.strip()
+        _admin_codigo_txt = (
+            v["Código"].fillna("").astype(str).str.strip()
+            .str.replace(r"\\.0$", "", regex=True)
+        )
+        if re.fullmatch(r"0*\\d+", b):
+            _admin_alvo = (b.lstrip("0") or "0")
+            _admin_codigo_norm = _admin_codigo_txt.str.lstrip("0").replace("", "0")
+            v = v[_admin_codigo_norm.eq(_admin_alvo)]
+        else:
+            v = v[
+                _admin_codigo_txt.str.contains(b, case=False, na=False, regex=False)
+                | v["Descrição"].fillna("").astype(str).str.contains(
+                    b, case=False, na=False, regex=False
+                )
+            ]
+        v = v.reset_index(drop=True)"""
+if _source.count(_old_admin_search) != 1:
+    raise RuntimeError("Pesquisa ADMIN da Demanda Geral não encontrada.")
+_source = _source.replace(_old_admin_search, _new_admin_search, 1)
 
 # 5) ADMIN — Demanda por Projeto:
 # pesquisa livre + semana única.

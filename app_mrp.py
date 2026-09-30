@@ -13,6 +13,8 @@ from mrp_header_padrao_patch import HEADER_PADRAO_PATCH
 from mrp_login_patch import LOGIN_PATCH
 from mrp_login_spacing_patch import LOGIN_SPACING_PATCH
 from mrp_ano_semana_patch import ANO_SEMANA_PATCH
+from mrp_runtime_patch import PERFORMANCE_PATCH
+from mrp_setta_padrao_patch import SETTA_PADRAO_PATCH
 from mrp_central_data_patch import CENTRAL_DATA_PATCH
 
 # Mantém toda a lógica funcional validada no runtime estável e aplica somente
@@ -104,7 +106,7 @@ if _old_export in _source:
 
 _runtime_source = _runtime_source.replace(
     _exec_anchor,
-    _producao_patch + "\n" + ENTREGA_PATCH + "\n" + LAYOUT_PATCH + "\n" + COMPRA_TCTP_PATCH + "\n" + FILTROS_PATCH + "\n" + COMPARATIVO_PATCH + "\n" + UI_ADEQUACOES_PATCH + "\n" + TRATATIVA_PRODUTO_PATCH + "\n" + FILTROS_VISUAL_PATCH + "\n" + HEADER_PADRAO_PATCH + "\n" + LOGIN_PATCH + "\n" + LOGIN_SPACING_PATCH + "\n" + CONEXAO_PATCH + "\n" + SALVAMENTO_COMPACTO_PATCH + "\n" + ANO_SEMANA_PATCH + "\n" + CENTRAL_DATA_PATCH + "\n" + _exec_anchor,
+    PERFORMANCE_PATCH + "\n" + _producao_patch + "\n" + ENTREGA_PATCH + "\n" + LAYOUT_PATCH + "\n" + COMPRA_TCTP_PATCH + "\n" + FILTROS_PATCH + "\n" + COMPARATIVO_PATCH + "\n" + UI_ADEQUACOES_PATCH + "\n" + TRATATIVA_PRODUTO_PATCH + "\n" + FILTROS_VISUAL_PATCH + "\n" + HEADER_PADRAO_PATCH + "\n" + LOGIN_PATCH + "\n" + LOGIN_SPACING_PATCH + "\n" + CONEXAO_PATCH + "\n" + SALVAMENTO_COMPACTO_PATCH + "\n" + ANO_SEMANA_PATCH + "\n" + CENTRAL_DATA_PATCH + "\n" + SETTA_PADRAO_PATCH + "\n" + _exec_anchor,
     1,
 )
 

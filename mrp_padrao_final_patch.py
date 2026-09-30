@@ -6,19 +6,9 @@ MRP_PADRAO_FINAL_PATCH = r'''
 
 # 1) Cabeçalho superior: usa EXATAMENTE o mesmo componente do Conversor MRP.
 _old_brand_call = '_render_brand_header(UI_CONFIG)\n'
-_new_brand_call = """_mrp_logo_src = str(UI_CONFIG.get("logo_data") or "")
-if _mrp_logo_src:
-    _mrp_logo_html = f'<img src="{_mrp_logo_src}" alt="SETTA">'
-else:
-    _mrp_logo_html = '<div style="font-size:2rem;font-weight:800;color:#202124">SETTA</div>'
-st.markdown(
-    f'<div class="setta-logo-card">{_mrp_logo_html}</div>',
-    unsafe_allow_html=True,
-)
-"""
 if _source.count(_old_brand_call) != 1:
     raise RuntimeError("Renderização antiga do cabeçalho do MRP não encontrada.")
-_source = _source.replace(_old_brand_call, _new_brand_call, 1)
+_source = _source.replace(_old_brand_call, '', 1)
 
 _header_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
 _header_css = """
@@ -114,9 +104,19 @@ div[data-testid="stMetricLabel"] p,
 """
 if _source.count(_header_anchor) != 1:
     raise RuntimeError("Título principal do MRP não encontrado para o padrão final do cabeçalho.")
+_header_render = """_mrp_logo_src = str(UI_CONFIG.get("logo_data") or "")
+if _mrp_logo_src:
+    _mrp_logo_html = f'<img src="{_mrp_logo_src}" alt="SETTA">'
+else:
+    _mrp_logo_html = '<div style="font-size:2rem;font-weight:800;color:#202124">SETTA</div>'
+st.markdown(
+    _header_css + f'<div class="setta-logo-card">{_mrp_logo_html}</div>',
+    unsafe_allow_html=True,
+)
+"""
 _source = _source.replace(
     _header_anchor,
-    'st.markdown(' + repr(_header_css) + ', unsafe_allow_html=True)\n' + _header_anchor,
+    _header_render + _header_anchor,
     1,
 )
 

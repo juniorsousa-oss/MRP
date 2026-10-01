@@ -47,7 +47,11 @@ jobs:
                   print(f"{idx+1:04d}: {source_lines[idx]}")
               raise
           assert "compressed_payload" in env["_source"]
-          assert "CONTINGÊNCIA E RECUPERAÇÃO" in env["_source"]
+          assert "CONFIGURAÇÕES" in env["_source"]
+          assert "MOSTRAR RESÍDUOS" in env["_source"]
+          assert "GERENCIAR CARGA — TRATATIVA DE PROJETOS" in env["_source"]
+          assert "GERENCIAR CARGA — PRODUTOS POR PROJETO" in env["_source"]
+          assert "_mrp_numero_br" in env["_source"]
           assert "MRP calculado. Iniciando confirmação do histórico compartilhado..." not in env["_source"]
           assert '["MRP ATUAL","HISTÓRICO"]' not in env["_source"]
           assert "_mrp_compute_cache_key" in env["_source"]

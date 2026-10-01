@@ -383,7 +383,7 @@ _replace_once('    st.info(UI_CONFIG["main_notice"])\n', '', "remoção do aviso
 # M Data MRP | N Data CM | O Condição | P Semana Necessidade
 # S Vinculação da Data
 # =========================================================
-_old_rg = '''    gr=pd.read_excel(BytesIO(gb),sheet_name="RelatorioTratado"); rg=pd.DataFrame({"Código":num(gr.iloc[:,2]),"Pendência":num(gr.iloc[:,6]).fillna(0),"Data Solicitação":pd.to_datetime(gr.iloc[:,3],errors="coerce",dayfirst=True),"Semana":num(gr.iloc[:,13]),"Projeto":gr.iloc[:,1].fillna("").astype(str).str.strip(),"Data CM":pd.to_datetime(gr.iloc[:,12],errors="coerce",dayfirst=True)}).dropna(subset=["Código"]); rg["Código"]=rg["Código"].astype("int64"); rg_mrp=rg[rg["Semana"].notna()&rg["Semana"].between(1,53)].copy(); rg_mrp["Semana"]=rg_mrp["Semana"].astype("int64")'''
+_old_rg = '''    gr=pd.read_excel(BytesIO(gb),sheet_name="RelatorioTratado"); rg=pd.DataFrame({"Código":num(gr.iloc[:,2]),"Pendência":num(gr.iloc[:,6]).fillna(0),"Data Solicitação":pd.to_datetime(gr.iloc[:,3],errors="coerce",dayfirst=True),"Semana":num(gr.iloc[:,13]),"Projeto":gr.iloc[:,1].fillna("").astype(str).str.strip(),"Data CM":pd.to_datetime(gr.iloc[:,12],errors="coerce",dayfirst=True)}).dropna(subset=["Código"]); rg["Código"]=rg["Código"].astype("int64"); rg=rg[rg["Código"].isin(_cad_valid_codes)].copy(); rg_mrp=rg[rg["Semana"].notna()&rg["Semana"].between(1,53)].copy(); rg_mrp["Semana"]=rg_mrp["Semana"].astype("int64")'''
 
 _new_rg = '''    gr=pd.read_excel(BytesIO(gb),sheet_name="RelatorioTratado")
     if gr.shape[1]<=18: raise ValueError("A base RelatorioGeral_Tratado não possui até a coluna S na estrutura esperada.")
@@ -399,6 +399,7 @@ _new_rg = '''    gr=pd.read_excel(BytesIO(gb),sheet_name="RelatorioTratado")
         "Vinculação da Data":gr.iloc[:,18].fillna("").astype(str).str.strip(),
     }).dropna(subset=["Código"])
     rg["Código"]=rg["Código"].astype("int64")
+    rg=rg[rg["Código"].isin(_cad_valid_codes)].copy()
     rg_mrp=rg[rg["Semana"].notna()&rg["Semana"].between(1,53)].copy()
     rg_mrp["Semana"]=rg_mrp["Semana"].astype("int64")'''
 

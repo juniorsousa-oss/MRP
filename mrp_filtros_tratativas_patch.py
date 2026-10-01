@@ -1,0 +1,409 @@
+ADEQUACOES_FILTROS_TRATATIVAS_PATCH = r'''
+# =========================================================
+# ADEQUAÇÕES — FILTROS, RESÍDUOS, KPIs E TRATATIVAS
+# Aplicado por último para preservar os demais patches.
+# =========================================================
+
+def _final_replace(old, new, label):
+    global _source
+    if _source.count(old) != 1:
+        raise RuntimeError(f"Adequação final não localizada: {label}.")
+    _source = _source.replace(old, new, 1)
+
+# ---------------------------------------------------------
+# 1) HELPERS — número brasileiro e identificação de resíduos.
+# ---------------------------------------------------------
+_helper_anchor = "def render_consulta_view():\n"
+_helper_impl = """def _mrp_numero_br(valor, max_casas=2):
+    try:
+        numero=float(valor)
+    except (TypeError, ValueError, OverflowError):
+        return str(valor)
+    if pd.isna(numero):
+        return ""
+    casas=0 if abs(numero-round(numero))<1e-9 else max_casas
+    texto=f"{numero:,.{casas}f}"
+    texto=texto.replace(",", "#").replace(".", ",").replace("#", ".")
+    if casas:
+        texto=texto.rstrip("0").rstrip(",")
+    return texto
+
+def _mrp_residuo_mask(df):
+    mask=pd.Series(False,index=df.index,dtype=bool)
+    for coluna in ("Ação","Resumo"):
+        if coluna in df.columns:
+            serie=df[coluna].fillna("").astype(str).map(_texto_normalizado)
+            mask=mask | serie.str.contains("RESIDUO",regex=False,na=False)
+    return mask
+
+def _mrp_codigo_mask(serie, valor):
+    alvo=str(valor or "").strip()
+    if not alvo:
+        return pd.Series(True,index=serie.index,dtype=bool)
+    codigos=serie.fillna("").astype(str).str.strip().str.replace(r"\\.0$","",regex=True)
+    if re.fullmatch(r"\\d+",alvo):
+        alvo=alvo.zfill(8) if len(alvo)<8 else alvo
+        return codigos.str.zfill(8).eq(alvo)
+    return codigos.str.contains(alvo,case=False,na=False,regex=False)
+
+"""
+_final_replace(_helper_anchor, _helper_impl + _helper_anchor, "helpers de filtros e números")
+
+# ---------------------------------------------------------
+# 2) KPIs — ponto para milhar e vírgula para decimal.
+# ---------------------------------------------------------
+_metric_old = """m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.",f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.",f"{macro['S.C.'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro['DIV']<0,'DIV']).sum():,.0f}")"""
+_metric_new = """m=st.columns(5); m[0].metric("Materiais no MRP",_mrp_numero_br(len(macro))); m[1].metric("Demanda total",_mrp_numero_br(macro["Demanda"].sum())); m[2].metric("P.C.",_mrp_numero_br(macro["P.C."].sum())); m[3].metric("S.C.",_mrp_numero_br(macro["S.C."].sum())); m[4].metric("Criar S.C.",_mrp_numero_br((-macro.loc[macro["DIV"]<0,"DIV"]).sum()))"""
+_final_replace(_metric_old, _metric_new, "formatação brasileira dos indicadores")
+
+# ---------------------------------------------------------
+# 3) CONSULTA — DEMANDA GERAL: filtros separados.
+# ---------------------------------------------------------
+_consulta_geral_form_old = """        with st.form("consulta_geral_filtros", border=False):
+            c1, c2, c3 = st.columns(3)
+            busca_consulta = c1.text_input("CÓDIGO / DESCRIÇÃO", key="consulta_busca_geral", placeholder="DIGITE O CÓDIGO OU PARTE DA DESCRIÇÃO")
+            status = c2.selectbox("STATUS", ["TODOS"] + sorted(mg["Status"].fillna("").astype(str).unique().tolist()), key="consulta_status")
+            tipo = c3.selectbox("TIPO", ["TODOS"] + tipos, key="consulta_tipo")
+            _bpesq, _blimpa = st.columns([8,1])
+            with _bpesq:
+                st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary", on_click=_normalizar_busca_codigo_8, args=("consulta_busca_geral",))
+            with _blimpa:
+                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_busca_geral","consulta_tipo","consulta_status"))"""
+_consulta_geral_form_new = """        with st.form("consulta_geral_filtros", border=False):
+            c1, c2, c3, c4 = st.columns(4)
+            codigo_consulta = c1.text_input("CÓDIGO", key="consulta_codigo_busca", placeholder="DIGITE O CÓDIGO")
+            descricao_consulta = c2.text_input("DESCRIÇÃO", key="consulta_descricao_busca", placeholder="DIGITE PARTE DA DESCRIÇÃO")
+            tipo = c3.selectbox("TIPO", ["TODOS"] + tipos, key="consulta_tipo")
+            status = c4.selectbox("STATUS", ["TODOS"] + sorted(mg["Status"].fillna("").astype(str).unique().tolist()), key="consulta_status")
+            _bpesq, _blimpa = st.columns([8,1])
+            with _bpesq:
+                st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary", on_click=_normalizar_busca_codigo_8, args=("consulta_codigo_busca",))
+            with _blimpa:
+                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_codigo_busca","consulta_descricao_busca","consulta_tipo","consulta_status"))"""
+_final_replace(_consulta_geral_form_old, _consulta_geral_form_new, "filtros separados da Demanda Geral em consulta")
+
+_consulta_geral_logic_old = """        f = mg.copy()
+        if busca_consulta:
+            _bc = busca_consulta.strip()
+            _codigo_txt = (
+                f["Código"].fillna("").astype(str).str.strip()
+                .str.replace(r"\\.0$", "", regex=True)
+            )
+            # Código numérico = padroniza para 8 posições e compara EXATO.
+            # Ex.: 50646 -> 00050646.
+            if re.fullmatch(r"\\d+", _bc):
+                _alvo_codigo = _bc.zfill(8) if len(_bc) < 8 else _bc
+                _codigo_norm = _codigo_txt.str.zfill(8)
+                f = f[_codigo_norm.eq(_alvo_codigo)]
+            else:
+                # Texto = pesquisa literal (não regex) por código ou descrição.
+                f = f[
+                    _codigo_txt.str.contains(_bc, case=False, na=False, regex=False)
+                    | f["Descrição"].fillna("").astype(str).str.contains(
+                        _bc, case=False, na=False, regex=False
+                    )
+                ]
+        if tipo != "TODOS": f = f[f["Tipo"].astype(str) == tipo]
+        if status != "TODOS": f = f[f["Status"].astype(str) == status]
+        f = f.reset_index(drop=True)"""
+_consulta_geral_logic_new = """        f = mg.copy()
+        if codigo_consulta:
+            f=f[_mrp_codigo_mask(f["Código"],codigo_consulta)]
+        if descricao_consulta:
+            _dc=descricao_consulta.strip()
+            f=f[f["Descrição"].fillna("").astype(str).str.contains(_dc,case=False,na=False,regex=False)]
+        if tipo != "TODOS": f = f[f["Tipo"].astype(str) == tipo]
+        if status != "TODOS": f = f[f["Status"].astype(str) == status]
+        f = f.reset_index(drop=True)"""
+_final_replace(_consulta_geral_logic_old, _consulta_geral_logic_new, "lógica dos filtros separados da Demanda Geral em consulta")
+
+# ---------------------------------------------------------
+# 4) CONSULTA — DEMANDA POR PROJETO: 4 filtros + resíduos.
+# ---------------------------------------------------------
+_consulta_proj_form_old = """        with st.form("consulta_projeto_filtros", border=False):
+            c1, c2 = st.columns(2)
+            busca_projeto_consulta = c1.text_input("PROJETO / PRODUTO", key="consulta_busca_projeto", placeholder="DIGITE O PROJETO OU PRODUTO")
+            semana = c2.selectbox("SEMANA DE NECESSIDADE", ["TODAS"] + semanas, key="consulta_semana")
+            _bpesq, _blimpa = st.columns([8,1])
+            with _bpesq:
+                st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
+            with _blimpa:
+                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_busca_projeto","consulta_semana"))"""
+_consulta_proj_form_new = """        with st.form("consulta_projeto_filtros", border=False):
+            c1, c2, c3, c4 = st.columns(4)
+            projeto_consulta = c1.text_input("PROJETO", key="consulta_projeto_busca", placeholder="DIGITE O PROJETO")
+            produto_consulta = c2.text_input("PRODUTO", key="consulta_produto_busca", placeholder="DIGITE O CÓDIGO")
+            descricao_projeto_consulta = c3.text_input("DESCRIÇÃO", key="consulta_projeto_descricao", placeholder="DIGITE PARTE DA DESCRIÇÃO")
+            _semana_opts = ["TODAS"] + semanas
+            semana = c4.selectbox("SEMANA", _semana_opts, key="consulta_semana", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
+            mostrar_residuos_consulta = st.checkbox("MOSTRAR RESÍDUOS", value=False, key="consulta_mostrar_residuos")
+            _bpesq, _blimpa = st.columns([8,1])
+            with _bpesq:
+                st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
+            with _blimpa:
+                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_projeto_busca","consulta_produto_busca","consulta_projeto_descricao","consulta_semana","consulta_mostrar_residuos"))"""
+_final_replace(_consulta_proj_form_old, _consulta_proj_form_new, "filtros separados da Demanda por Projeto em consulta")
+
+_consulta_proj_logic_old = """        f = dem.copy()
+        if busca_projeto_consulta:
+            _bp = busca_projeto_consulta.strip()
+            f = f[
+                f["Projeto"].astype(str).str.contains(_bp, case=False, na=False)
+                | f["Produto"].astype(str).str.contains(_bp, case=False, na=False)
+            ]
+        if semana != "TODAS": f = f[f["Semana de Necessidade"].astype(str) == semana]"""
+_consulta_proj_logic_new = """        f = dem.copy()
+        if not mostrar_residuos_consulta:
+            f=f[~_mrp_residuo_mask(f)]
+        if projeto_consulta:
+            _pc=projeto_consulta.strip()
+            f=f[f["Projeto"].fillna("").astype(str).str.contains(_pc,case=False,na=False,regex=False)]
+        if produto_consulta:
+            f=f[_mrp_codigo_mask(f["Produto"],produto_consulta)]
+        if descricao_projeto_consulta:
+            _dpc=descricao_projeto_consulta.strip()
+            f=f[f["Descrição"].fillna("").astype(str).str.contains(_dpc,case=False,na=False,regex=False)]
+        if semana != "TODAS": f = f[f["Semana de Necessidade"].astype(str) == str(semana)]
+        f=f.reset_index(drop=True)"""
+_final_replace(_consulta_proj_logic_old, _consulta_proj_logic_new, "lógica da Demanda por Projeto em consulta")
+
+# ---------------------------------------------------------
+# 5) ADMIN — DEMANDA GERAL: filtros separados.
+# ---------------------------------------------------------
+_admin_geral_form_old = """    with st.form("admin_demanda_geral_filtros", border=False):
+        c1,c2,c3=st.columns(3)
+        with c1: busca=st.text_input("CÓDIGO / DESCRIÇÃO", key="admin_busca_geral", placeholder="DIGITE O CÓDIGO OU PARTE DA DESCRIÇÃO")
+        with c2: status=st.selectbox("STATUS",["TODOS","OK","CRIAR S.C."], key="admin_status_geral")
+        with c3: tipo_filtro=st.selectbox("TIPO",["TODOS"]+sorted([x for x in cad["Tipo"].unique() if x]), key="admin_tipo_geral")
+        _bpesq, _blimpa = st.columns([8,1])
+        with _bpesq:
+            st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary", on_click=_normalizar_busca_codigo_8, args=("admin_busca_geral",))
+        with _blimpa:
+            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_geral","admin_status_geral","admin_tipo_geral"))"""
+_admin_geral_form_new = """    with st.form("admin_demanda_geral_filtros", border=False):
+        c1,c2,c3,c4=st.columns(4)
+        with c1: codigo_admin=st.text_input("CÓDIGO", key="admin_codigo_geral", placeholder="DIGITE O CÓDIGO")
+        with c2: descricao_admin=st.text_input("DESCRIÇÃO", key="admin_descricao_geral", placeholder="DIGITE PARTE DA DESCRIÇÃO")
+        with c3: tipo_filtro=st.selectbox("TIPO",["TODOS"]+sorted([x for x in cad["Tipo"].unique() if x]), key="admin_tipo_geral")
+        with c4: status=st.selectbox("STATUS",["TODOS","OK","CRIAR S.C."], key="admin_status_geral")
+        _bpesq, _blimpa = st.columns([8,1])
+        with _bpesq:
+            st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary", on_click=_normalizar_busca_codigo_8, args=("admin_codigo_geral",))
+        with _blimpa:
+            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_codigo_geral","admin_descricao_geral","admin_status_geral","admin_tipo_geral"))"""
+_final_replace(_admin_geral_form_old, _admin_geral_form_new, "filtros separados da Demanda Geral ADMIN")
+
+_admin_search_old = """    if busca:
+        b=busca.strip()
+        _admin_codigo_txt = (
+            v["Código"].fillna("").astype(str).str.strip()
+            .str.replace(r"\\.0$", "", regex=True)
+        )
+        if re.fullmatch(r"\\d+", b):
+            _admin_alvo = b.zfill(8) if len(b) < 8 else b
+            _admin_codigo_norm = _admin_codigo_txt.str.zfill(8)
+            v = v[_admin_codigo_norm.eq(_admin_alvo)]
+        else:
+            v = v[
+                _admin_codigo_txt.str.contains(b, case=False, na=False, regex=False)
+                | v["Descrição"].fillna("").astype(str).str.contains(
+                    b, case=False, na=False, regex=False
+                )
+            ]
+        v = v.reset_index(drop=True)"""
+_admin_search_new = """    if codigo_admin:
+        v=v[_mrp_codigo_mask(v["Código"],codigo_admin)]
+    if descricao_admin:
+        _da=descricao_admin.strip()
+        v=v[v["Descrição"].fillna("").astype(str).str.contains(_da,case=False,na=False,regex=False)]
+    v=v.reset_index(drop=True)"""
+_final_replace(_admin_search_old, _admin_search_new, "lógica dos filtros separados da Demanda Geral ADMIN")
+
+# ---------------------------------------------------------
+# 6) ADMIN — DEMANDA POR PROJETO: 4 filtros + resíduos.
+# ---------------------------------------------------------
+_admin_proj_form_old = """    with st.form("admin_demanda_projeto_filtros", border=False):
+        c1,c2=st.columns(2)
+        with c1: busca2=st.text_input("CÓDIGO / PROJETO", key="admin_busca_projeto", placeholder="DIGITE O CÓDIGO OU PROJETO")
+        with c2: semana_filtro=st.selectbox("SEMANA",["TODAS"]+sorted(demanda_projeto["Semana de Necessidade"].unique().tolist()) if len(demanda_projeto) else ["TODAS"], key="admin_semana_projeto")
+        _bpesq, _blimpa = st.columns([8,1])
+        with _bpesq:
+            st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
+        with _blimpa:
+            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_projeto","admin_semana_projeto"))"""
+_admin_proj_form_new = """    with st.form("admin_demanda_projeto_filtros", border=False):
+        c1,c2,c3,c4=st.columns(4)
+        with c1: projeto_admin=st.text_input("PROJETO", key="admin_projeto_busca", placeholder="DIGITE O PROJETO")
+        with c2: produto_admin=st.text_input("PRODUTO", key="admin_produto_busca", placeholder="DIGITE O CÓDIGO")
+        with c3: descricao_proj_admin=st.text_input("DESCRIÇÃO", key="admin_proj_descricao", placeholder="DIGITE PARTE DA DESCRIÇÃO")
+        _semana_admin_opts=["TODAS"]+sorted(demanda_projeto["Semana de Necessidade"].dropna().unique().tolist()) if len(demanda_projeto) else ["TODAS"]
+        with c4: semana_filtro=st.selectbox("SEMANA",_semana_admin_opts, key="admin_semana_projeto", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
+        mostrar_residuos_admin=st.checkbox("MOSTRAR RESÍDUOS", value=False, key="admin_mostrar_residuos")
+        _bpesq, _blimpa = st.columns([8,1])
+        with _bpesq:
+            st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
+        with _blimpa:
+            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_projeto_busca","admin_produto_busca","admin_proj_descricao","admin_semana_projeto","admin_mostrar_residuos"))"""
+_final_replace(_admin_proj_form_old, _admin_proj_form_new, "filtros separados da Demanda por Projeto ADMIN")
+
+_admin_proj_logic_old = """    d=demanda_projeto.copy()
+    if busca2:
+        b2=busca2.strip(); d=d[d["Produto"].astype(str).str.contains(b2,na=False)|d["Projeto"].str.contains(b2,case=False,na=False)]
+    if semana_filtro != "TODAS": d=d[d["Semana de Necessidade"] == semana_filtro]"""
+_admin_proj_logic_new = """    d=demanda_projeto.copy()
+    if not mostrar_residuos_admin:
+        d=d[~_mrp_residuo_mask(d)]
+    if projeto_admin:
+        _pa=projeto_admin.strip()
+        d=d[d["Projeto"].fillna("").astype(str).str.contains(_pa,case=False,na=False,regex=False)]
+    if produto_admin:
+        d=d[_mrp_codigo_mask(d["Produto"],produto_admin)]
+    if descricao_proj_admin:
+        _dpa=descricao_proj_admin.strip()
+        d=d[d["Descrição"].fillna("").astype(str).str.contains(_dpa,case=False,na=False,regex=False)]
+    if semana_filtro != "TODAS": d=d[d["Semana de Necessidade"] == semana_filtro]
+    d=d.reset_index(drop=True)"""
+_final_replace(_admin_proj_logic_old, _admin_proj_logic_new, "lógica da Demanda por Projeto ADMIN")
+
+# ---------------------------------------------------------
+# 7) TRATATIVA DE PROJETOS — gestão de carga recolhida e só ADMIN.
+# ---------------------------------------------------------
+_project_admin_old = """    if st.session_state.get("auth_role")=="ADMIN":
+        modelo=pd.DataFrame({"Projeto":["EXEMPLO"],"OBS":["RESÍDUO"]})
+        c1,c2=st.columns([1,1])
+        with c1:
+            st.download_button(
+                "BAIXAR MODELO DE CARGA",
+                excel_bytes({"Tratativas":modelo}),
+                "Modelo_Tratativa_Projetos.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="download_modelo_tratativas",
+            )
+        with c2:
+            uploaded=st.file_uploader(
+                "Subir carga de tratativas",
+                type=["xlsx","xlsm","csv"],
+                key="tratativa_projetos_upload",
+                help="Use as colunas Projeto e OBS. OBS em branco remove a tratativa já salva para o projeto.",
+            )
+
+        if uploaded is not None:
+            try:
+                carga=_carregar_tratativas_arquivo(uploaded)
+                sig=hashlib.sha256(uploaded.getvalue()).hexdigest()
+                if st.session_state.get("_tratativa_upload_saved_sig")!=sig:
+                    total=_salvar_tratativas_db(carga)
+                    st.session_state["_tratativa_upload_saved_sig"]=sig
+                    st.success(f"{total} tratativa(s) processada(s) e salva(s) no banco.")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Não foi possível salvar a carga de tratativas: {e}")
+"""
+_project_admin_new = """    if st.session_state.get("auth_role")=="ADMIN":
+        with st.expander("GERENCIAR CARGA — TRATATIVA DE PROJETOS", expanded=False):
+            st.caption("Baixe o modelo ou importe uma carga de tratativas. Esta área é exclusiva para ADMIN.")
+            modelo=pd.DataFrame({"Projeto":["EXEMPLO"],"OBS":["RESÍDUO"]})
+            c1,c2=st.columns([1,1])
+            with c1:
+                st.download_button(
+                    "BAIXAR MODELO DE CARGA",
+                    excel_bytes({"Tratativas":modelo}),
+                    "Modelo_Tratativa_Projetos.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="download_modelo_tratativas",
+                )
+            with c2:
+                uploaded=st.file_uploader(
+                    "IMPORTAR CARGA",
+                    type=["xlsx","xlsm","csv"],
+                    key="tratativa_projetos_upload",
+                    help="Use as colunas Projeto e OBS. OBS em branco remove a tratativa já salva para o projeto.",
+                )
+
+            if uploaded is not None:
+                try:
+                    carga=_carregar_tratativas_arquivo(uploaded)
+                    sig=hashlib.sha256(uploaded.getvalue()).hexdigest()
+                    if st.session_state.get("_tratativa_upload_saved_sig")!=sig:
+                        total=_salvar_tratativas_db(carga)
+                        st.session_state["_tratativa_upload_saved_sig"]=sig
+                        st.success(f"{total} tratativa(s) processada(s) e salva(s) no banco.")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Não foi possível salvar a carga de tratativas: {e}")
+"""
+_final_replace(_project_admin_old, _project_admin_new, "gestão recolhida da Tratativa de Projetos")
+
+# ---------------------------------------------------------
+# 8) TRATATIVA DE PRODUTOS POR PROJETO — mesma regra.
+# ---------------------------------------------------------
+_product_admin_old = """    if st.session_state.get("auth_role")=="ADMIN":
+        modelo=pd.DataFrame({"Projeto":["EXEMPLO"],"Produto":["00000001"],"OBS":["RESÍDUO"]})
+        c1,c2=st.columns([1,1])
+        with c1:
+            st.download_button(
+                "BAIXAR MODELO — PRODUTO",
+                excel_bytes({"Tratativas_Produtos":modelo}),
+                "Modelo_Tratativa_Produtos_Projeto.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="download_modelo_tratativas_produto",
+            )
+        with c2:
+            uploaded=st.file_uploader(
+                "Subir tratativa por produto",
+                type=["xlsx","xlsm","csv"],
+                key="tratativa_produto_upload",
+                help="Use as colunas Projeto, Produto e OBS. OBS em branco remove a tratativa desse produto no projeto.",
+            )
+
+        if uploaded is not None:
+            try:
+                carga=_carregar_tratativas_produto_arquivo(uploaded)
+                sig=hashlib.sha256(uploaded.getvalue()).hexdigest()
+                if st.session_state.get("_tratativa_produto_upload_saved_sig")!=sig:
+                    total=_salvar_tratativas_produto_db(carga)
+                    st.session_state["_tratativa_produto_upload_saved_sig"]=sig
+                    st.success(f"{total} tratativa(s) de produto processada(s) e salva(s) no banco.")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Não foi possível salvar a carga de tratativas por produto: {e}")
+"""
+_product_admin_new = """    if st.session_state.get("auth_role")=="ADMIN":
+        with st.expander("GERENCIAR CARGA — PRODUTOS POR PROJETO", expanded=False):
+            st.caption("Baixe o modelo ou importe uma carga por Projeto + Produto. Esta área é exclusiva para ADMIN.")
+            modelo=pd.DataFrame({"Projeto":["EXEMPLO"],"Produto":["00000001"],"OBS":["RESÍDUO"]})
+            c1,c2=st.columns([1,1])
+            with c1:
+                st.download_button(
+                    "BAIXAR MODELO — PRODUTO",
+                    excel_bytes({"Tratativas_Produtos":modelo}),
+                    "Modelo_Tratativa_Produtos_Projeto.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="download_modelo_tratativas_produto",
+                )
+            with c2:
+                uploaded=st.file_uploader(
+                    "IMPORTAR CARGA",
+                    type=["xlsx","xlsm","csv"],
+                    key="tratativa_produto_upload",
+                    help="Use as colunas Projeto, Produto e OBS. OBS em branco remove a tratativa desse produto no projeto.",
+                )
+
+            if uploaded is not None:
+                try:
+                    carga=_carregar_tratativas_produto_arquivo(uploaded)
+                    sig=hashlib.sha256(uploaded.getvalue()).hexdigest()
+                    if st.session_state.get("_tratativa_produto_upload_saved_sig")!=sig:
+                        total=_salvar_tratativas_produto_db(carga)
+                        st.session_state["_tratativa_produto_upload_saved_sig"]=sig
+                        st.success(f"{total} tratativa(s) de produto processada(s) e salva(s) no banco.")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Não foi possível salvar a carga de tratativas por produto: {e}")
+"""
+_final_replace(_product_admin_old, _product_admin_new, "gestão recolhida da Tratativa de Produtos por Projeto")
+'''

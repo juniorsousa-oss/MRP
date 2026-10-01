@@ -19,21 +19,50 @@ def _mrp_load_sources_from_central(_bundle, signature):
     _cad_code=_cad_cols.get("CODIGO") or _cad_cols.get("CÓDIGO")
     _cad_desc=_cad_cols.get("DESCRICAO") or _cad_cols.get("DESCRIÇÃO")
     _cad_tipo=_cad_cols.get("TIPO")
-    _cad_bloq=_cad_cols.get("BLQ. DE TELA") or _cad_cols.get("BLQ DE TELA")
+    _cad_ativo=_cad_cols.get("ATIVO")
     if not all([_cad_code,_cad_desc,_cad_tipo]):
         raise ValueError("CADASTROS sem colunas obrigatórias: Codigo, Descricao e Tipo.")
+
+    def _cad_codigo_canonico(value):
+        if value is None or pd.isna(value):
+            return ""
+        if not isinstance(value,str):
+            parsed=pd.to_numeric(pd.Series([value]),errors="coerce").iloc[0]
+            if pd.notna(parsed) and float(parsed).is_integer():
+                digits=str(int(parsed))
+                return digits.zfill(8) if len(digits)<=8 else digits
+        return str(value).strip()
+
+    _cad_code_text=_cad_raw[_cad_code].map(_cad_codigo_canonico)
+    _cad_valid_code=_cad_code_text.str.fullmatch(r"\d{8}",na=False)
+
+    if _cad_ativo:
+        _cad_ativo_value=_cad_raw[_cad_ativo].fillna("").astype(str).str.strip().str.upper()
+        _cad_ok_status=_cad_ativo_value.isin(["S",""])
+        _cad_blocked=_cad_ativo_value.eq("N")
+    else:
+        _cad_ativo_value=pd.Series("",index=_cad_raw.index,dtype=str)
+        _cad_ok_status=pd.Series(True,index=_cad_raw.index)
+        _cad_blocked=pd.Series(False,index=_cad_raw.index)
+
+    _cad_ok=_cad_valid_code & _cad_ok_status
+    _cad_inconsistent=(~_cad_valid_code & _cad_ok_status) | (~_cad_ok_status & ~_cad_blocked)
+
     cad=pd.DataFrame({
-        "Código":num(_cad_raw[_cad_code]),
+        "Código Texto":_cad_code_text,
         "Descrição":_cad_raw[_cad_desc],
         "Tipo":_cad_raw[_cad_tipo],
-        "Bloqueio":(_cad_raw[_cad_bloq] if _cad_bloq else ""),
+        "Ativo":_cad_ativo_value,
     })
+    cad=cad[_cad_ok].copy()
+    cad["Código"]=pd.to_numeric(cad["Código Texto"],errors="coerce")
     cad=cad.dropna(subset=["Código"])
     cad["Código"]=cad["Código"].astype("int64")
     cad["Descrição"]=cad["Descrição"].fillna("").astype(str).str.strip()
     cad["Tipo"]=cad["Tipo"].fillna("").astype(str).str.strip()
-    cad["Bloqueio"]=cad["Bloqueio"].fillna("").astype(str).str.strip().replace({"Nao":"Não","NAO":"Não","SIM":"Sim"})
-    cad=cad.drop_duplicates("Código",keep="first").reset_index(drop=True)
+    cad["Ativo"]=cad["Ativo"].fillna("").astype(str).str.strip()
+    cad=cad.drop(columns=["Código Texto"]).drop_duplicates("Código",keep="first").reset_index(drop=True)
+    _cad_valid_codes=set(cad["Código"].tolist())
 
     er=bundle["estoque_tratado"].copy()
     _est_req=["COD_MATERIAL","SALDO_DISPONIVEL"]
@@ -45,6 +74,7 @@ def _mrp_load_sources_from_central(_bundle, signature):
         "Saldo em Estoque":num(er["SALDO_DISPONIVEL"]).fillna(0),
     }).dropna(subset=["Código"])
     est["Código"]=est["Código"].astype("int64")
+    est=est[est["Código"].isin(_cad_valid_codes)].copy()
     est=est.groupby("Código",as_index=False)["Saldo em Estoque"].sum()
 
     gr=bundle["relatorio_geral_tratado"].copy()
@@ -68,6 +98,7 @@ def _mrp_load_sources_from_central(_bundle, signature):
         "Vinculação da Data":gr["VINCULAÇÃO DA DATA"].fillna("").astype(str).str.strip(),
     }).dropna(subset=["Código"])
     rg["Código"]=rg["Código"].astype("int64")
+    rg=rg[rg["Código"].isin(_cad_valid_codes)].copy()
     rg_mrp=rg[
         rg["Semana"].notna()
         & rg["Semana"].between(200001,999953)
@@ -93,6 +124,7 @@ def _mrp_load_sources_from_central(_bundle, signature):
         "Saldo em Pré Nota":num(cr["PRÉ-NOTA"]).fillna(0),
     }).dropna(subset=["Código"])
     cp["Código"]=cp["Código"].astype("int64")
+    cp=cp[cp["Código"].isin(_cad_valid_codes)].copy()
     for c in ["Nº S.C.","Nº P.C."]:
         cp[c]=cp[c].fillna("").astype(str).str.replace(r"\.0$","",regex=True).str.strip()
 
@@ -114,6 +146,10 @@ def _mrp_load_sources_from_central(_bundle, signature):
     })
     mt["Código Produto"]=mt["Código Produto"].fillna(0).astype("int64")
     mt["Material"]=mt["Material"].fillna(0).astype("int64")
+    mt=mt[
+        mt["Código Produto"].isin(_cad_valid_codes)
+        & mt["Material"].isin(_cad_valid_codes)
+    ].copy()
 
     return cad,est,rg,rg_mrp,cp,mt
 

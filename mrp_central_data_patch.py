@@ -12,14 +12,27 @@ def _mrp_load_sources_from_central(_bundle, signature):
     if not bundle or not bundle.get("ready"):
         raise ValueError("As cinco bases do MRP ainda não estão disponíveis na Central de Dados.")
 
-    raw=pd.read_excel(BytesIO(bundle["cadastros_bytes"]),sheet_name="Listagem do Browse",header=None)
-    cad=raw.iloc[2:,[1,2,3]].copy()
-    cad.columns=["Código","Descrição","Tipo"]
-    cad["Código"]=num(cad["Código"])
+    # CADASTROS: leitura por cabeçalho para aceitar o relatório antigo
+    # e o novo, sem depender do nome da aba.
+    _cad_raw=pd.read_excel(BytesIO(bundle["cadastros_bytes"]),sheet_name=0,header=1)
+    _cad_cols={str(x).strip().upper():x for x in _cad_raw.columns}
+    _cad_code=_cad_cols.get("CODIGO") or _cad_cols.get("CÓDIGO")
+    _cad_desc=_cad_cols.get("DESCRICAO") or _cad_cols.get("DESCRIÇÃO")
+    _cad_tipo=_cad_cols.get("TIPO")
+    _cad_bloq=_cad_cols.get("BLQ. DE TELA") or _cad_cols.get("BLQ DE TELA")
+    if not all([_cad_code,_cad_desc,_cad_tipo]):
+        raise ValueError("CADASTROS sem colunas obrigatórias: Codigo, Descricao e Tipo.")
+    cad=pd.DataFrame({
+        "Código":num(_cad_raw[_cad_code]),
+        "Descrição":_cad_raw[_cad_desc],
+        "Tipo":_cad_raw[_cad_tipo],
+        "Bloqueio":(_cad_raw[_cad_bloq] if _cad_bloq else ""),
+    })
     cad=cad.dropna(subset=["Código"])
     cad["Código"]=cad["Código"].astype("int64")
     cad["Descrição"]=cad["Descrição"].fillna("").astype(str).str.strip()
     cad["Tipo"]=cad["Tipo"].fillna("").astype(str).str.strip()
+    cad["Bloqueio"]=cad["Bloqueio"].fillna("").astype(str).str.strip().replace({"Nao":"Não","NAO":"Não","SIM":"Sim"})
     cad=cad.drop_duplicates("Código",keep="first").reset_index(drop=True)
 
     er=bundle["estoque_tratado"].copy()

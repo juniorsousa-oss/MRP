@@ -590,7 +590,7 @@ def compare_mrp_general(old,new):
                 ov=float(pd.to_numeric(ao.get(c,0),errors="coerce") or 0); nv=float(pd.to_numeric(bo.get(c,0),errors="coerce") or 0)
                 if abs(nv-ov)>1e-9: changed=True; break
             if not changed:
-                for c in ["Tipo","Bloqueio","Status","Semana de Atendimento","Período de Atendimento"]:
+                for c in ["Tipo","Status","Semana de Atendimento","Período de Atendimento"]:
                     if str(ao.get(c,""))!=str(bo.get(c,"")): changed=True; break
             classification="ALTERADO" if changed else "SEM ALTERAÇÃO"
             if str(ao.get("Status",""))=="CRIAR S.C." and str(bo.get("Status",""))=="OK": classification="NORMALIZADO"
@@ -674,7 +674,7 @@ def render_consulta_view():
             proj.loc[faltantes, "Período da Semana"] = proj.loc[faltantes, "Semana"].apply(periodo_semana)
 
     # Ordem oficial das colunas: nunca depender da ordem do JSON/Supabase.
-    MRP_COLS = ["Código", "Descrição", "Tipo", "Bloqueio", "Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo", "DIV", "Status", "Semana de Atendimento", "Período de Atendimento"]
+    MRP_COLS = ["Código", "Descrição", "Tipo", "Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo", "DIV", "Status", "Semana de Atendimento", "Período de Atendimento"]
     PROJ_COLS = ["Código", "Descrição", "Tipo", "Semana", "Período da Semana", "Saldo Inicial", "Demanda", "P.C.", "S.C.", "Produzindo", "Resumo Final"]
     DEM_COLS = ["Projeto", "Produto", "Descrição", "Última Solicitação", "Data CM", "Semana de Necessidade", "Semana de Atendimento", "Necessidade", "Estoque", "Pré Nota", "P.C.", "Fabricação", "S.C.", "Ação"]
 
@@ -788,32 +788,66 @@ def render_consulta_view():
 
 def load_sources(cb,eb,gb,pb,mb):
     # CADASTROS: compatível com o layout antigo e o novo.
-    # A aba pode mudar de nome; o cabeçalho permanece na linha 2.
+    # A aba pode mudar de nome; os campos são encontrados pelo cabeçalho.
     _cad_raw=pd.read_excel(BytesIO(cb),sheet_name=0,header=1)
     _cad_cols={str(x).strip().upper():x for x in _cad_raw.columns}
     _cad_code=_cad_cols.get("CODIGO") or _cad_cols.get("CÓDIGO")
     _cad_desc=_cad_cols.get("DESCRICAO") or _cad_cols.get("DESCRIÇÃO")
     _cad_tipo=_cad_cols.get("TIPO")
-    _cad_bloq=_cad_cols.get("BLQ. DE TELA") or _cad_cols.get("BLQ DE TELA")
+    _cad_ativo=_cad_cols.get("ATIVO")
     if not all([_cad_code,_cad_desc,_cad_tipo]):
         raise ValueError("CADASTROS sem colunas obrigatórias: Codigo, Descricao e Tipo.")
+
+    def _cad_codigo_canonico(value):
+        if value is None or pd.isna(value):
+            return ""
+        # Quando o Excel entrega como número, os zeros à esquerda podem sumir.
+        # Nesse caso recompõe o padrão Protheus de 8 posições.
+        if not isinstance(value,str):
+            parsed=pd.to_numeric(pd.Series([value]),errors="coerce").iloc[0]
+            if pd.notna(parsed) and float(parsed).is_integer():
+                digits=str(int(parsed))
+                return digits.zfill(8) if len(digits)<=8 else digits
+        # Quando a origem já entrega texto, não corrige silenciosamente um
+        # cadastro fora do padrão; ele deve ser classificado como inconsistente.
+        return str(value).strip()
+
+    _cad_code_text=_cad_raw[_cad_code].map(_cad_codigo_canonico)
+    _cad_valid_code=_cad_code_text.str.fullmatch(r"\d{8}",na=False)
+
+    if _cad_ativo:
+        _cad_ativo_value=_cad_raw[_cad_ativo].fillna("").astype(str).str.strip().str.upper()
+        _cad_ok_status=_cad_ativo_value.isin(["S",""])
+        _cad_blocked=_cad_ativo_value.eq("N")
+    else:
+        # Compatibilidade temporária com a fonte antiga até a V4 ser publicada.
+        _cad_ativo_value=pd.Series("",index=_cad_raw.index,dtype=str)
+        _cad_ok_status=pd.Series(True,index=_cad_raw.index)
+        _cad_blocked=pd.Series(False,index=_cad_raw.index)
+
+    _cad_ok=_cad_valid_code & _cad_ok_status
+    _cad_inconsistent=(~_cad_valid_code & _cad_ok_status) | (~_cad_ok_status & ~_cad_blocked)
+
     cad=pd.DataFrame({
-        "Código":num(_cad_raw[_cad_code]),
+        "Código Texto":_cad_code_text,
         "Descrição":_cad_raw[_cad_desc],
         "Tipo":_cad_raw[_cad_tipo],
-        "Bloqueio":(_cad_raw[_cad_bloq] if _cad_bloq else ""),
+        "Ativo":_cad_ativo_value,
     })
+    cad=cad[_cad_ok].copy()
+    cad["Código"]=pd.to_numeric(cad["Código Texto"],errors="coerce")
     cad=cad.dropna(subset=["Código"]).copy()
     cad["Código"]=cad["Código"].astype("int64")
     cad["Descrição"]=cad["Descrição"].fillna("").astype(str).str.strip()
     cad["Tipo"]=cad["Tipo"].fillna("").astype(str).str.strip()
-    cad["Bloqueio"]=cad["Bloqueio"].fillna("").astype(str).str.strip().replace({"Nao":"Não","NAO":"Não","SIM":"Sim"})
-    cad=cad.drop_duplicates("Código",keep="first").reset_index(drop=True)
-    er=pd.read_excel(BytesIO(eb),sheet_name="EstoqueTratado"); est=pd.DataFrame({"Código":num(er.iloc[:,0]),"Saldo em Estoque":num(er.iloc[:,4]).fillna(0)}).dropna(subset=["Código"]); est["Código"]=est["Código"].astype("int64"); est=est.groupby("Código",as_index=False)["Saldo em Estoque"].sum()
-    gr=pd.read_excel(BytesIO(gb),sheet_name="RelatorioTratado"); rg=pd.DataFrame({"Código":num(gr.iloc[:,2]),"Pendência":num(gr.iloc[:,6]).fillna(0),"Data Solicitação":pd.to_datetime(gr.iloc[:,3],errors="coerce",dayfirst=True),"Semana":num(gr.iloc[:,13]),"Projeto":gr.iloc[:,1].fillna("").astype(str).str.strip(),"Data CM":pd.to_datetime(gr.iloc[:,12],errors="coerce",dayfirst=True)}).dropna(subset=["Código"]); rg["Código"]=rg["Código"].astype("int64"); rg_mrp=rg[rg["Semana"].notna()&rg["Semana"].between(1,53)].copy(); rg_mrp["Semana"]=rg_mrp["Semana"].astype("int64")
+    cad["Ativo"]=cad["Ativo"].fillna("").astype(str).str.strip()
+    cad=cad.drop(columns=["Código Texto"]).drop_duplicates("Código",keep="first").reset_index(drop=True)
+    _cad_valid_codes=set(cad["Código"].tolist())
+    er=pd.read_excel(BytesIO(eb),sheet_name="EstoqueTratado"); est=pd.DataFrame({"Código":num(er.iloc[:,0]),"Saldo em Estoque":num(er.iloc[:,4]).fillna(0)}).dropna(subset=["Código"]); est["Código"]=est["Código"].astype("int64"); est=est[est["Código"].isin(_cad_valid_codes)].copy(); est=est.groupby("Código",as_index=False)["Saldo em Estoque"].sum()
+    gr=pd.read_excel(BytesIO(gb),sheet_name="RelatorioTratado"); rg=pd.DataFrame({"Código":num(gr.iloc[:,2]),"Pendência":num(gr.iloc[:,6]).fillna(0),"Data Solicitação":pd.to_datetime(gr.iloc[:,3],errors="coerce",dayfirst=True),"Semana":num(gr.iloc[:,13]),"Projeto":gr.iloc[:,1].fillna("").astype(str).str.strip(),"Data CM":pd.to_datetime(gr.iloc[:,12],errors="coerce",dayfirst=True)}).dropna(subset=["Código"]); rg["Código"]=rg["Código"].astype("int64"); rg=rg[rg["Código"].isin(_cad_valid_codes)].copy(); rg_mrp=rg[rg["Semana"].notna()&rg["Semana"].between(1,53)].copy(); rg_mrp["Semana"]=rg_mrp["Semana"].astype("int64")
     cr=pd.read_excel(BytesIO(pb),sheet_name="ComprasTratado");
     if cr.shape[1]<=14: raise ValueError("A base Compras_Tratado não possui a coluna O para o saldo de Pré Nota.")
-    cp=pd.DataFrame({"Código":num(cr.iloc[:,0]),"Quantidade S.C.":num(cr.iloc[:,3]).fillna(0),"Semana S.C.":num(cr.iloc[:,5]),"Quantidade P.C.":num(cr.iloc[:,9]).fillna(0),"Semana P.C.":num(cr.iloc[:,11]),"Nº S.C.":cr.iloc[:,2],"Nº P.C.":cr.iloc[:,8],"Saldo em Pré Nota":num(cr.iloc[:,14]).fillna(0)}).dropna(subset=["Código"]); cp["Código"]=cp["Código"].astype("int64")
+    cp=pd.DataFrame({"Código":num(cr.iloc[:,0]),"Quantidade S.C.":num(cr.iloc[:,3]).fillna(0),"Semana S.C.":num(cr.iloc[:,5]),"Quantidade P.C.":num(cr.iloc[:,9]).fillna(0),"Semana P.C.":num(cr.iloc[:,11]),"Nº S.C.":cr.iloc[:,2],"Nº P.C.":cr.iloc[:,8],"Saldo em Pré Nota":num(cr.iloc[:,14]).fillna(0)}).dropna(subset=["Código"]); cp["Código"]=cp["Código"].astype("int64"); cp=cp[cp["Código"].isin(_cad_valid_codes)].copy()
     for c in ["Nº S.C.","Nº P.C."]: cp[c]=cp[c].fillna("").astype(str).str.replace(r"\.0$","",regex=True).str.strip()
     mt=pd.read_excel(BytesIO(mb),sheet_name="MRP_TC_TP"); col_by_pos(mt,1,"Código Produto"); col_by_pos(mt,4,"Semana Entrega"); col_by_pos(mt,7,"Material"); col_by_pos(mt,9,"Quantidade"); col_by_pos(mt,11,"Semana Necessidade"); mt["Código Produto"]=mt["Código Produto"].fillna(0).astype("int64"); mt["Semana Entrega"]=mt["Semana Entrega"].fillna(0).astype("int64"); mt["Material"]=mt["Material"].fillna(0).astype("int64"); mt["Semana Necessidade"]=mt["Semana Necessidade"].fillna(0).astype("int64"); mt["Quantidade"]=mt["Quantidade"].fillna(0.0); mt["ORDEM DE PRODUÇÃO"]=mt.get("ORDEM DE PRODUÇÃO",pd.Series(mt.index+1,index=mt.index))
     return cad,est,rg,rg_mrp,cp,mt
@@ -967,7 +1001,7 @@ if st.session_state.get("auth_role") == "ADMIN":
         st.warning(f"O MRP foi calculado, mas não foi possível salvar o histórico compartilhado: {_save_err}")
 m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.",f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.",f"{macro['S.C.'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro['DIV']<0,'DIV']).sum():,.0f}")
 tab1,tab2=st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"]])
-macro_cols=["Código","Descrição","Tipo","Bloqueio","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status","Semana de Atendimento","Período de Atendimento"]
+macro_cols=["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","DIV","Status","Semana de Atendimento","Período de Atendimento"]
 with tab1:
     st.subheader(UI_CONFIG["title_demanda_geral"]); c1,c2,c3=st.columns(3)
     with c1: busca=st.text_input("Código / descrição")

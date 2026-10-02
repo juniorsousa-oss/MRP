@@ -113,7 +113,7 @@ section[data-testid="stSidebar"]{
   border-right:1px solid #e8ebf0!important;
 }
 section[data-testid="stSidebar"] .block-container{
-  padding-top:1.6rem!important;
+  padding-top:calc(1.6rem + 5px)!important;
   padding-left:1rem!important;
   padding-right:1rem!important;
 }

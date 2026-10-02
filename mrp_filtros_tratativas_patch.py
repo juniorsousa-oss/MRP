@@ -196,9 +196,6 @@ _consulta_proj_logic_new = """        f = dem.copy()
         if semana != "TODAS": f = f[f["Semana de Necessidade"].astype(str) == str(semana)]
         f=f.reset_index(drop=True)"""
 _final_replace(_consulta_proj_logic_old, _consulta_proj_logic_new, "lógica da Demanda por Projeto em consulta")
-_consulta_table_old = '        st.dataframe(f, use_container_width=True, hide_index=True, column_order=DEM_COLS)'
-_consulta_table_new = '        st.caption("SINALEIRO: 🟢 ATENDIMENTO NO PRAZO OU ANTES · 🟡 ATÉ 2 SEMANAS DE ATRASO · 🔴 ACIMA DE 2 SEMANAS OU SEM PREVISÃO")\n        st.dataframe(f, use_container_width=True, hide_index=True, column_order=DEM_COLS)'
-_final_replace(_consulta_table_old, _consulta_table_new, "legenda do Sinaleiro na consulta")
 
 # ---------------------------------------------------------
 # 5) ADMIN — DEMANDA GERAL: filtros separados.
@@ -297,9 +294,6 @@ _admin_proj_logic_new = """    d=demanda_projeto.copy()
     if semana_filtro != "TODAS": d=d[d["Semana de Necessidade"] == semana_filtro]
     d=d.reset_index(drop=True)"""
 _final_replace(_admin_proj_logic_old, _admin_proj_logic_new, "lógica da Demanda por Projeto ADMIN")
-_admin_table_old = '    st.dataframe(d,use_container_width=True,height=600,hide_index=True)'
-_admin_table_new = '    st.caption("SINALEIRO: 🟢 ATENDIMENTO NO PRAZO OU ANTES · 🟡 ATÉ 2 SEMANAS DE ATRASO · 🔴 ACIMA DE 2 SEMANAS OU SEM PREVISÃO")\n    st.dataframe(d,use_container_width=True,height=600,hide_index=True)'
-_final_replace(_admin_table_old, _admin_table_new, "legenda do Sinaleiro no ADMIN")
 
 # ---------------------------------------------------------
 # 6.1) DETALHAMENTO DA DEMANDA GERAL — somente demandas aptas.

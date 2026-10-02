@@ -50,6 +50,9 @@ jobs:
           assert "CONFIGURAÇÕES" in env["_source"]
           assert "MOSTRAR DEMANDAS NÃO APTAS" in env["_source"]
           assert "_mrp_demanda_nao_apta_mask" in env["_source"]
+          assert "_mrp_sinaleiro_semana" in env["_source"]
+          assert '"Sinaleiro":_mrp_sinaleiro_semana' in env["_source"]
+          assert '"Semana de Atendimento", "Sinaleiro", "Necessidade"' in env["_source"]
           assert "d_dem = d_dem[~_mrp_demanda_nao_apta_mask(d_dem)]" in env["_source"]
           assert "d=d[~_mrp_demanda_nao_apta_mask(d)].reset_index(drop=True)" in env["_source"]
           assert "GERENCIAR CARGA — TRATATIVA DE PROJETOS" in env["_source"]
@@ -86,6 +89,18 @@ jobs:
           assert fmt(202702) == "2027-02"
           assert sid(0) != sid(0)  # sem semana não é confundido com semana válida
           assert sid("SUSPENSO") != sid("SUSPENSO")
+          sinal_fn = next(n for n in parsed.body if isinstance(n, ast.FunctionDef) and n.name == "_mrp_sinaleiro_semana")
+          semana_scope["_inicio_semana"] = semana_scope["_inicio_semana"]
+          exec(compile(ast.Module(body=[sinal_fn], type_ignores=[]), "sinaleiro_runtime.py", "exec"), semana_scope, semana_scope)
+          sinal = semana_scope["_mrp_sinaleiro_semana"]
+          assert sinal(202640, 202640) == "🟢"
+          assert sinal(202640, 202639) == "🟢"
+          assert sinal(202640, 202641) == "🟡"
+          assert sinal(202640, 202642) == "🟡"
+          assert sinal(202640, 202643) == "🔴"
+          assert sinal(202652, 202701) == "🟡"
+          assert sinal(202652, "NN") == "🔴"
+          assert sinal(202652, "N/A") == "⚪"
           assert "range(semana_atual,ultima_semana+1)" not in env["_source"]
           print("Virada de ano, período semanal e projeção esparsa: OK")
           compact_fn = next(n for n in parsed.body if isinstance(n, ast.FunctionDef) and n.name == "_mrp_compact_snapshot")

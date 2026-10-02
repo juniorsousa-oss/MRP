@@ -66,6 +66,20 @@ def _mrp_sinaleiro_semana(semana_necessidade, semana_atendimento):
         return "🟡"
     return "🔴"
 
+def _mrp_status_atendimento_series(df):
+    if df is None or df.empty:
+        return pd.Series(dtype=str,index=getattr(df,"index",None))
+    status=df.apply(
+        lambda _r:_mrp_sinaleiro_semana(
+            _r.get("Semana de Necessidade"),
+            _r.get("Semana de Atendimento"),
+        ),
+        axis=1,
+    )
+    nao_aptas=_mrp_demanda_nao_apta_mask(df)
+    status.loc[nao_aptas]="⚪"
+    return status
+
 def _mrp_codigo_mask(serie, valor):
     alvo=str(valor or "").strip()
     if not alvo:
@@ -83,7 +97,13 @@ _final_replace(_helper_anchor, _helper_impl + _helper_anchor, "helpers de filtro
 # 2) KPIs — ponto para milhar e vírgula para decimal.
 # ---------------------------------------------------------
 _metric_old = """m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.",f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.",f"{macro['S.C.'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro['DIV']<0,'DIV']).sum():,.0f}")"""
-_metric_new = """m=st.columns(5); m[0].metric("Materiais no MRP",_mrp_numero_br(len(macro))); m[1].metric("Demanda total",_mrp_numero_br(macro["Demanda"].sum())); m[2].metric("P.C.",_mrp_numero_br(macro["P.C."].sum())); m[3].metric("S.C.",_mrp_numero_br(macro["S.C."].sum())); m[4].metric("Criar S.C.",_mrp_numero_br((-macro.loc[macro["DIV"]<0,"DIV"]).sum()))"""
+_metric_new = """_status_dashboard=_mrp_status_atendimento_series(demanda_projeto)
+m=st.columns(5)
+m[0].metric("Demandas no MRP",_mrp_numero_br(len(demanda_projeto)))
+m[1].metric("Dentro do Prazo",_mrp_numero_br((_status_dashboard=="🟢").sum()))
+m[2].metric("Atenção ao Prazo",_mrp_numero_br((_status_dashboard=="🟡").sum()))
+m[3].metric("Atendimento Crítico",_mrp_numero_br((_status_dashboard=="🔴").sum()))
+m[4].metric("Demandas Não Aptas",_mrp_numero_br((_status_dashboard=="⚪").sum()))"""
 _final_replace(_metric_old, _metric_new, "formatação brasileira dos indicadores")
 
 # ---------------------------------------------------------
@@ -293,10 +313,10 @@ _admin_proj_logic_new = """    d=demanda_projeto.copy()
         d=d[d["Descrição"].fillna("").astype(str).str.contains(_dpa,case=False,na=False,regex=False)]
     if semana_filtro != "TODAS": d=d[d["Semana de Necessidade"] == semana_filtro]
     d=d.reset_index(drop=True)
-    if "Sinaleiro" in d.columns:
-        d=d.drop(columns=["Sinaleiro"])
+    if "Status de Atendimento" in d.columns:
+        d=d.drop(columns=["Status de Atendimento"])
     _sinal_pos=list(d.columns).index("Semana de Atendimento")+1 if "Semana de Atendimento" in d.columns else len(d.columns)
-    d.insert(_sinal_pos,"Sinaleiro",d.apply(lambda _r:_mrp_sinaleiro_semana(_r.get("Semana de Necessidade"),_r.get("Semana de Atendimento")),axis=1))"""
+    d.insert(_sinal_pos,"Status de Atendimento",_mrp_status_atendimento_series(d))"""
 _final_replace(_admin_proj_logic_old, _admin_proj_logic_new, "lógica da Demanda por Projeto ADMIN")
 
 # ---------------------------------------------------------
@@ -311,18 +331,18 @@ _admin_detail_new = '        d=demanda_projeto[demanda_projeto["Produto"]==code]
 _final_replace(_admin_detail_old, _admin_detail_new, "detalhe da Demanda Geral ADMIN sem demandas não aptas")
 
 # ---------------------------------------------------------
-# 6.2) SINALEIRO — comparação Necessidade x Atendimento.
+# 6.2) STATUS DE ATENDIMENTO — comparação Necessidade x Atendimento.
 # ---------------------------------------------------------
 _final_replace(
     'DEM_COLS = ["Projeto", "Produto", "Descrição", "Última Solicitação", "Data CM", "Semana de Necessidade", "Semana de Atendimento", "Necessidade", "Estoque", "Pré Nota", "P.C.", "Fabricação", "S.C.", "Ação", "Resumo"]',
-    'DEM_COLS = ["Projeto", "Produto", "Descrição", "Última Solicitação", "Data CM", "Semana de Necessidade", "Semana de Atendimento", "Sinaleiro", "Necessidade", "Estoque", "Pré Nota", "P.C.", "Fabricação", "S.C.", "Ação", "Resumo"]',
-    "Sinaleiro na ordem oficial da consulta"
+    'DEM_COLS = ["Projeto", "Produto", "Descrição", "Última Solicitação", "Data CM", "Semana de Necessidade", "Semana de Atendimento", "Status de Atendimento", "Necessidade", "Estoque", "Pré Nota", "P.C.", "Fabricação", "S.C.", "Ação", "Resumo"]',
+    "Status de Atendimento na ordem oficial da consulta"
 )
 
 _final_replace(
     '    dem = fix_columns(dem, DEM_COLS)',
-    '    dem = fix_columns(dem, DEM_COLS)\n    dem["Sinaleiro"]=dem.apply(lambda _r:_mrp_sinaleiro_semana(_r.get("Semana de Necessidade"),_r.get("Semana de Atendimento")),axis=1)',
-    "recalcula Sinaleiro em snapshots antigos e atuais"
+    '    dem = fix_columns(dem, DEM_COLS)\n    dem["Status de Atendimento"]=_mrp_status_atendimento_series(dem)',
+    "recalcula Status de Atendimento em snapshots antigos e atuais"
 )
 
 # ---------------------------------------------------------

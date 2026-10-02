@@ -27,7 +27,9 @@ jobs:
 
           bundle = central.load_mrp_bundle()
           assert bundle.get("ready") is True, bundle
-          assert len(bundle.get("cadastros_bytes") or b"") > 0
+          cadastro = bundle.get("cadastros_frame")
+          assert cadastro is not None and not cadastro.empty, "cadastros_frame"
+          print("cadastros", len(cadastro), list(cadastro.columns)[:5])
           expected = {
               "relatorio_geral_tratado",
               "estoque_tratado",

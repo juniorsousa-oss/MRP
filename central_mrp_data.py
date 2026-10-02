@@ -30,6 +30,24 @@ DERIVED_INPUTS = [
     "tctp_tratado",
 ]
 
+# Mesmas dependências usadas pelo Conversor MRP para decidir se uma base
+# tratada precisa ser reprocessada.
+DERIVED_SOURCE_DEPENDENCIES = {
+    "relatorio_geral_tratado": ("relatorio_geral", "for001", "for022"),
+    "estoque_tratado": ("analitico", "endereco"),
+    "compras_tratado": ("sc", "pc", "pre_nota"),
+    "tctp_tratado": ("pmp", "h001"),
+}
+RAW_INPUTS = tuple(
+    sorted(
+        {
+            source_key
+            for dependencies in DERIVED_SOURCE_DEPENDENCIES.values()
+            for source_key in dependencies
+        }
+    )
+)
+
 SESSION = requests.Session()
 SESSION.headers.update({"Connection": "keep-alive"})
 
@@ -209,6 +227,70 @@ def _derived_token(meta: dict) -> str:
     )
 
 
+def _int_version(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except Exception:
+        return 0
+
+
+def derived_freshness(
+    sources: dict[str, dict],
+    derived: dict[str, dict],
+) -> dict[str, dict]:
+    """Compara versões atuais das fontes com as versões usadas nas bases tratadas."""
+    stale: dict[str, dict] = {}
+    for base_key, dependencies in DERIVED_SOURCE_DEPENDENCIES.items():
+        meta = derived.get(base_key) or {}
+        registered = {
+            str(key): _int_version(value)
+            for key, value in (meta.get("source_versions") or {}).items()
+        }
+
+        differences = []
+        for source_key in dependencies:
+            source_meta = sources.get(source_key) or {}
+            current_version = _int_version(source_meta.get("version"))
+            base_version = _int_version(registered.get(source_key))
+            if not bool(source_meta.get("available")):
+                differences.append(
+                    {
+                        "source_key": source_key,
+                        "current_version": current_version,
+                        "base_version": base_version,
+                        "reason": "FONTE INDISPONÍVEL",
+                    }
+                )
+            elif current_version != base_version:
+                differences.append(
+                    {
+                        "source_key": source_key,
+                        "current_version": current_version,
+                        "base_version": base_version,
+                        "reason": "VERSÃO DIVERGENTE",
+                    }
+                )
+
+        if not bool(meta.get("available")):
+            stale[base_key] = {
+                "reason": "BASE INDISPONÍVEL",
+                "differences": differences,
+            }
+        elif differences:
+            stale[base_key] = {
+                "reason": "BASE DESATUALIZADA",
+                "differences": differences,
+            }
+    return stale
+
+
+def _normalized_versions(value: dict | None) -> dict[str, str]:
+    return {
+        str(key): str(val)
+        for key, val in (value or {}).items()
+    }
+
+
 def dependency_versions(
     cadastro_meta: dict,
     derived_meta: dict[str, dict],
@@ -231,9 +313,14 @@ def dependency_signature(versions: dict[str, str]) -> str:
     )
 
 
-def load_mrp_bundle() -> dict:
+def load_mrp_bundle(force_check: bool = False) -> dict:
+    # Na primeira abertura da sessão, ignora qualquer estado em cache e consulta
+    # a Central imediatamente, reproduzindo a checagem de versões do Conversor.
+    if force_check:
+        clear_state_cache()
+
     sources, derived = _bundle_state_cached(
-        ("cadastros",),
+        tuple(["cadastros", *RAW_INPUTS]),
         tuple(DERIVED_INPUTS + ["relatorio_mrp"]),
     )
 
@@ -250,18 +337,32 @@ def load_mrp_bundle() -> dict:
         "available": False,
     }
 
-    ready = bool(cadastro_meta.get("available")) and all(
-        bool(input_meta[key].get("available"))
-        for key in DERIVED_INPUTS
+    stale_inputs = derived_freshness(sources, input_meta)
+    ready = (
+        bool(cadastro_meta.get("available"))
+        and all(bool(input_meta[key].get("available")) for key in DERIVED_INPUTS)
+        and not stale_inputs
     )
     versions = dependency_versions(cadastro_meta, input_meta)
     signature = dependency_signature(versions)
 
+    output_stale = (
+        not bool(output_meta.get("available"))
+        or _normalized_versions(output_meta.get("source_versions"))
+        != _normalized_versions(versions)
+    )
+
     bundle = {
         "ready": ready,
         "cadastro_meta": cadastro_meta,
+        "source_meta": {
+            key: sources.get(key) or {"source_key": key, "available": False}
+            for key in RAW_INPUTS
+        },
         "derived_meta": input_meta,
         "output_meta": output_meta,
+        "stale_inputs": stale_inputs,
+        "output_stale": output_stale,
         "dependency_versions": versions,
         "signature": signature,
     }
@@ -332,13 +433,6 @@ def _payload(frame: pd.DataFrame) -> bytes:
         index=False,
     )
     return gzip.compress(text.encode("utf-8"), compresslevel=6)
-
-
-def _normalized_versions(value: dict | None) -> dict[str, str]:
-    return {
-        str(key): str(val)
-        for key, val in (value or {}).items()
-    }
 
 
 def publish_relatorio_mrp_if_changed(

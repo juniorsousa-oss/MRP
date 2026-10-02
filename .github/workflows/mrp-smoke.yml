@@ -65,7 +65,7 @@ jobs:
           assert "mrp_sidebar_nav_" in env["_source"]
           assert 'type="primary" if _page==_mrp_page else "secondary"' in env["_source"]
           assert "sidebar-status-spacer" in env["_source"]
-          assert 'div[role="radiogroup"]' not in env["_source"]
+          assert 'st.radio(\n        "Página"' not in env["_source"]
           assert 'if st.session_state.get("auth_role") == "CONSULTA":' not in env["_source"]
           assert 'if st.session_state.get("auth_role")=="ADMIN":\n        with st.expander("GERENCIAR CARGA — TRATATIVA DE PROJETOS"' in env["_source"]
           assert "mrp_kpi_action_{key}" in env["_source"]

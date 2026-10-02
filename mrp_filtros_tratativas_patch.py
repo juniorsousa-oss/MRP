@@ -28,23 +28,13 @@ _helper_impl = """def _mrp_numero_br(valor, max_casas=2):
         texto=texto.rstrip("0").rstrip(",")
     return texto
 
-def _mrp_demanda_nao_apta_mask(df):
-    """Identifica demandas desconsideradas: RESÍDUO, SUSPENSO ou CANCELADO."""
+def _mrp_residuo_mask(df):
     mask=pd.Series(False,index=df.index,dtype=bool)
-    for coluna in ("Ação","Resumo","Condição","OBS Tratativa"):
+    for coluna in ("Ação","Resumo"):
         if coluna in df.columns:
             serie=df[coluna].fillna("").astype(str).map(_texto_normalizado)
-            mask=(
-                mask
-                | serie.str.contains("RESIDUO",regex=False,na=False)
-                | serie.str.contains("SUSPENSO",regex=False,na=False)
-                | serie.str.contains("CANCELADO",regex=False,na=False)
-            )
+            mask=mask | serie.str.contains("RESIDUO",regex=False,na=False)
     return mask
-
-def _mrp_residuo_mask(df):
-    # Compatibilidade com referências antigas: agora representa toda demanda não apta.
-    return _mrp_demanda_nao_apta_mask(df)
 
 def _mrp_codigo_mask(serie, valor):
     alvo=str(valor or "").strip()
@@ -146,7 +136,7 @@ _consulta_proj_form_new = """        with st.form("consulta_projeto_filtros", bo
             descricao_projeto_consulta = c3.text_input("DESCRIÇÃO", key="consulta_projeto_descricao", placeholder="DIGITE PARTE DA DESCRIÇÃO")
             _semana_opts = ["TODAS"] + semanas
             semana = c4.selectbox("SEMANA", _semana_opts, key="consulta_semana", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
-            mostrar_residuos_consulta = st.checkbox("MOSTRAR DEMANDAS NÃO APTAS", value=False, key="consulta_mostrar_residuos", help="Inclui resíduos, demandas suspensas e canceladas.")
+            mostrar_residuos_consulta = st.checkbox("MOSTRAR RESÍDUOS", value=False, key="consulta_mostrar_residuos")
             _bpesq, _blimpa = st.columns([8,1])
             with _bpesq:
                 st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
@@ -164,7 +154,7 @@ _consulta_proj_logic_old = """        f = dem.copy()
         if semana != "TODAS": f = f[f["Semana de Necessidade"].astype(str) == semana]"""
 _consulta_proj_logic_new = """        f = dem.copy()
         if not mostrar_residuos_consulta:
-            f=f[~_mrp_demanda_nao_apta_mask(f)]
+            f=f[~_mrp_residuo_mask(f)]
         if projeto_consulta:
             _pc=projeto_consulta.strip()
             f=f[f["Projeto"].fillna("").astype(str).str.contains(_pc,case=False,na=False,regex=False)]
@@ -248,7 +238,7 @@ _admin_proj_form_new = """    with st.form("admin_demanda_projeto_filtros", bord
         with c3: descricao_proj_admin=st.text_input("DESCRIÇÃO", key="admin_proj_descricao", placeholder="DIGITE PARTE DA DESCRIÇÃO")
         _semana_admin_opts=["TODAS"]+sorted(demanda_projeto["Semana de Necessidade"].dropna().unique().tolist()) if len(demanda_projeto) else ["TODAS"]
         with c4: semana_filtro=st.selectbox("SEMANA",_semana_admin_opts, key="admin_semana_projeto", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
-        mostrar_residuos_admin=st.checkbox("MOSTRAR DEMANDAS NÃO APTAS", value=False, key="admin_mostrar_residuos", help="Inclui resíduos, demandas suspensas e canceladas.")
+        mostrar_residuos_admin=st.checkbox("MOSTRAR RESÍDUOS", value=False, key="admin_mostrar_residuos")
         _bpesq, _blimpa = st.columns([8,1])
         with _bpesq:
             st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
@@ -262,7 +252,7 @@ _admin_proj_logic_old = """    d=demanda_projeto.copy()
     if semana_filtro != "TODAS": d=d[d["Semana de Necessidade"] == semana_filtro]"""
 _admin_proj_logic_new = """    d=demanda_projeto.copy()
     if not mostrar_residuos_admin:
-        d=d[~_mrp_demanda_nao_apta_mask(d)]
+        d=d[~_mrp_residuo_mask(d)]
     if projeto_admin:
         _pa=projeto_admin.strip()
         d=d[d["Projeto"].fillna("").astype(str).str.contains(_pa,case=False,na=False,regex=False)]
@@ -274,20 +264,6 @@ _admin_proj_logic_new = """    d=demanda_projeto.copy()
     if semana_filtro != "TODAS": d=d[d["Semana de Necessidade"] == semana_filtro]
     d=d.reset_index(drop=True)"""
 _final_replace(_admin_proj_logic_old, _admin_proj_logic_new, "lógica da Demanda por Projeto ADMIN")
-
-# ---------------------------------------------------------
-# 6.1) DETALHAMENTO DA DEMANDA GERAL — somente demandas aptas.
-# O drill-down não possui opção para reexibir resíduos/suspensas/canceladas.
-# ---------------------------------------------------------
-_consulta_detail_old = '                d_dem = fix_columns(dem[dem["Produto"].astype(str) == selecionado], DEM_COLS)'
-_consulta_detail_new = '''                d_dem = fix_columns(dem[dem["Produto"].astype(str) == selecionado], DEM_COLS)
-                d_dem = d_dem[~_mrp_demanda_nao_apta_mask(d_dem)].reset_index(drop=True)'''
-_final_replace(_consulta_detail_old, _consulta_detail_new, "detalhe da Demanda Geral CONSULTA sem demandas não aptas")
-
-_admin_detail_old = '        d=demanda_projeto[demanda_projeto["Produto"]==code]'
-_admin_detail_new = '''        d=demanda_projeto[demanda_projeto["Produto"]==code].copy()
-        d=d[~_mrp_demanda_nao_apta_mask(d)].reset_index(drop=True)'''
-_final_replace(_admin_detail_old, _admin_detail_new, "detalhe da Demanda Geral ADMIN sem demandas não aptas")
 
 # ---------------------------------------------------------
 # 7) TRATATIVA DE PROJETOS — gestão de carga recolhida e só ADMIN.

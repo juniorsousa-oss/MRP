@@ -263,8 +263,7 @@ _source = _source[:_sidebar_start] + _sidebar_v1 + "\n" + _source[_sidebar_end:]
 # CSS do padrão validado. Aplicado por último para neutralizar o layout
 # automático e as regras antigas de radio/details da sidebar.
 _sidebar_css_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
-_sidebar_css = r"""
-st.markdown("""
+_sidebar_css_html = """
 <style>
 section[data-testid="stSidebar"]{
   background:#fff!important;
@@ -488,8 +487,8 @@ section[data-testid="stSidebar"] details{
   margin-top:14px!important;
 }
 </style>
-""", unsafe_allow_html=True)
 """
+_sidebar_css = 'st.markdown(' + repr(_sidebar_css_html) + ', unsafe_allow_html=True)\n'
 if _source.count(_sidebar_css_anchor) != 1:
     raise RuntimeError("Âncora do título principal não encontrada para CSS da SIDEBAR SETTA V1.")
 _source = _source.replace(

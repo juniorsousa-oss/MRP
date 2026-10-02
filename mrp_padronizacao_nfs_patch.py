@@ -79,6 +79,190 @@ section[data-testid="stSidebar"] hr{margin:.85rem 0!important}
 .sidebar-week-label{font-size:.66rem;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.035em}
 .sidebar-week-value{margin-top:.16rem;font-size:.82rem;font-weight:900;color:#111827;text-transform:uppercase}
 
+/* ======================================================
+   SIDEBAR SETTA V1 — PADRÃO VALIDADO NO CONVERSOR MRP
+   26 / 20 / 8 / 42 / 2 / 20 / 20 / 8 px
+   ====================================================== */
+section[data-testid="stSidebar"] .block-container{
+  width:260px!important;
+  min-width:260px!important;
+  max-width:260px!important;
+  box-sizing:border-box!important;
+  padding-top:26px!important;
+  padding-left:16px!important;
+  padding-right:16px!important;
+}
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{
+  gap:0!important;
+  row-gap:0!important;
+}
+section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(.setta-sidebar){
+  margin:0!important;
+  padding:0!important;
+}
+.setta-sidebar{
+  width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  box-sizing:border-box!important;
+  font-family:inherit!important;
+}
+.setta-sidebar *{box-sizing:border-box!important}
+.sidebar-brand{
+  width:100%!important;
+  background:#f8fafc!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:12px!important;
+  padding:14px 16px!important;
+  margin:0 0 20px 0!important;
+}
+.sidebar-brand-title{
+  margin:0!important;
+  padding:0!important;
+  font-size:15px!important;
+  font-weight:800!important;
+  line-height:18px!important;
+  color:#111827!important;
+  letter-spacing:-.01em!important;
+}
+.sidebar-brand-sub{
+  margin:3px 0 0 0!important;
+  padding:0!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  line-height:16px!important;
+  color:#6b7280!important;
+}
+.sidebar-section-label{
+  display:block!important;
+  margin:0 0 8px 0!important;
+  padding:0!important;
+  color:#374151!important;
+  font-size:12px!important;
+  line-height:15px!important;
+  font-weight:800!important;
+  text-transform:uppercase!important;
+  letter-spacing:.055em!important;
+}
+.sidebar-nav{
+  display:flex!important;
+  flex-direction:column!important;
+  width:100%!important;
+  gap:2px!important;
+  margin:0!important;
+  padding:0!important;
+}
+.sidebar-nav-link{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  width:100%!important;
+  height:42px!important;
+  min-height:42px!important;
+  max-height:42px!important;
+  margin:0!important;
+  padding:0 12px 0 24px!important;
+  border:1px solid transparent!important;
+  border-radius:10px!important;
+  background:transparent!important;
+  color:#374151!important;
+  text-decoration:none!important;
+  font-size:13px!important;
+  line-height:16px!important;
+  font-weight:500!important;
+  text-align:left!important;
+}
+.sidebar-nav-link:hover{
+  background:#f8fafc!important;
+  border-color:#e5e7eb!important;
+  color:#111827!important;
+  text-decoration:none!important;
+}
+.sidebar-nav-link.active{
+  background:#111827!important;
+  border-color:#111827!important;
+  color:#fff!important;
+  font-weight:700!important;
+  box-shadow:0 5px 14px rgba(17,24,39,.14)!important;
+}
+.sidebar-nav-link.active::before{
+  content:""!important;
+  position:absolute!important;
+  left:7px!important;
+  top:50%!important;
+  width:4px!important;
+  height:20px!important;
+  border-radius:999px!important;
+  background:#ef4444!important;
+  transform:translateY(-50%)!important;
+}
+.sidebar-divider{
+  display:block!important;
+  width:100%!important;
+  height:1px!important;
+  min-height:1px!important;
+  background:#d1d5db!important;
+  margin:20px 0!important;
+  padding:0!important;
+}
+.sidebar-status-card,
+.sidebar-week-card{
+  width:100%!important;
+  background:#f8fafc!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:10px!important;
+  padding:12px 14px!important;
+  margin:0!important;
+  color:#6b7280!important;
+}
+.sidebar-status-name,
+.sidebar-week-label{
+  margin:0!important;
+  padding:0!important;
+  font-size:11px!important;
+  line-height:14px!important;
+  font-weight:800!important;
+  color:#64748b!important;
+  text-transform:uppercase!important;
+  letter-spacing:.025em!important;
+}
+.sidebar-status-value{
+  margin:4px 0 0 0!important;
+  padding:0!important;
+  font-size:13px!important;
+  line-height:16px!important;
+  font-weight:900!important;
+  text-transform:uppercase!important;
+}
+.sidebar-status-value.status-ok{color:#16a34a!important}
+.sidebar-status-value.status-warning{color:#f59e0b!important}
+.sidebar-status-value.status-error{color:#ef4444!important}
+.sidebar-status-meta{
+  margin:6px 0 0 0!important;
+  padding:0!important;
+  color:#6b7280!important;
+  font-size:11px!important;
+  line-height:15px!important;
+  text-transform:uppercase!important;
+}
+.sidebar-subdivider{
+  width:100%!important;
+  height:1px!important;
+  min-height:1px!important;
+  background:#d1d5db!important;
+  margin:12px 0!important;
+}
+.sidebar-week-value{
+  margin:5px 0 0 0!important;
+  padding:0!important;
+  color:#111827!important;
+  font-size:13px!important;
+  line-height:16px!important;
+  font-weight:900!important;
+  text-transform:uppercase!important;
+}
+
 [data-testid="stTabs"] button{font-weight:800!important;text-transform:uppercase!important;letter-spacing:.015em!important}
 div[data-testid="stMarkdownContainer"] h1,
 div[data-testid="stMarkdownContainer"] h2,
@@ -115,116 +299,133 @@ _sidebar_end = _source.find('\ndef _mrp_source_card_html(', _sidebar_start)
 if _sidebar_start < 0 or _sidebar_end < 0:
     raise RuntimeError("Menu lateral atual do MRP não encontrado para padronização.")
 
-_new_sidebar = r"""with st.sidebar:
-    st.markdown(
-        '<div class="sidebar-brand">'
-        '<div class="sidebar-brand-title">MRP</div>'
-        '<div class="sidebar-brand-sub">Planejamento de Materiais SETTA</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="sidebar-section-label">NAVEGAÇÃO</div>',
-        unsafe_allow_html=True,
-    )
+_new_sidebar = r"""_mrp_role=st.session_state.get("auth_role")
+_mrp_pages=["MRP ATUAL", "CONFIGURAÇÕES"] if _mrp_role=="ADMIN" else ["MRP ATUAL"]
 
-    _mrp_role=st.session_state.get("auth_role")
-    _mrp_pages=["MRP ATUAL", "CONFIGURAÇÕES"] if _mrp_role=="ADMIN" else ["MRP ATUAL"]
+_mrp_nav_param=str(st.query_params.get("nav") or "").strip().lower()
+_mrp_nav_map={"mrp-atual":"MRP ATUAL","configuracoes":"CONFIGURAÇÕES"}
+if _mrp_nav_param in _mrp_nav_map and _mrp_nav_map[_mrp_nav_param] in _mrp_pages:
+    st.session_state["_mrp_sidebar_page"]=_mrp_nav_map[_mrp_nav_param]
 
-    def _set_mrp_page(_page):
-        if _page in _mrp_pages:
-            st.session_state["_mrp_sidebar_page"]=_page
+_mrp_page=str(st.session_state.get("_mrp_sidebar_page") or "MRP ATUAL")
+if _mrp_page not in _mrp_pages:
+    _mrp_page="MRP ATUAL"
+    st.session_state["_mrp_sidebar_page"]=_mrp_page
 
-    _mrp_page=str(st.session_state.get("_mrp_sidebar_page") or "MRP ATUAL")
-    if _mrp_page not in _mrp_pages:
-        _mrp_page="MRP ATUAL"
-        st.session_state["_mrp_sidebar_page"]=_mrp_page
+_mrp_use_manual=False
+_central_bundle={}
+usuario_mrp=st.session_state.get("auth_nome", "")
 
-    for _page in _mrp_pages:
-        st.button(
-            _page,
-            key="mrp_sidebar_nav_"+_page.lower().replace(" ","_").replace("ç","c").replace("õ","o"),
-            type="primary" if _page==_mrp_page else "secondary",
-            use_container_width=True,
-            on_click=_set_mrp_page,
-            args=(_page,),
-        )
-
-    _mrp_use_manual=False
+# A Central é a mesma fonte de dados para ADMIN e CONSULTA.
+# A diferença de perfil afeta apenas ações administrativas.
+try:
+    _central_bundle=_central_mrp.load_mrp_bundle()
+    st.session_state.pop("_mrp_central_error",None)
+except Exception as _central_err:
+    st.session_state["_mrp_central_error"]=str(_central_err)
     _central_bundle={}
-    usuario_mrp=st.session_state.get("auth_nome", "")
 
-    # A Central é a mesma fonte de dados para ADMIN e CONSULTA.
-    # A diferença de perfil afeta apenas ações administrativas.
+_manual_store=st.session_state.get("_mrp_manual_files") or {}
+_manual_active=bool(st.session_state.get("_mrp_manual_active"))
+_manual_keys=("cadastros","estoque","geral","compras","tctp")
+
+if (
+    _mrp_role=="ADMIN"
+    and _manual_active
+    and all(k in _manual_store for k in _manual_keys)
+):
+    cadastro_file=BytesIO(_manual_store["cadastros"])
+    estoque_file=BytesIO(_manual_store["estoque"])
+    geral_file=BytesIO(_manual_store["geral"])
+    compras_file=BytesIO(_manual_store["compras"])
+    mt_file=BytesIO(_manual_store["tctp"])
+    _mrp_use_manual=True
+elif _central_bundle.get("ready"):
+    cadastro_file,estoque_file,geral_file,compras_file,mt_file=_central_mrp.make_refs(_central_bundle)
+else:
+    cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
+
+_initial_output_meta=(
+    st.session_state.get("_mrp_output_meta")
+    or (_central_bundle.get("output_meta") if _central_bundle else {})
+    or {}
+)
+_mrp_available=bool(_initial_output_meta.get("available"))
+_mrp_output_stale=bool((_central_bundle or {}).get("output_stale"))
+_mrp_stale_inputs=bool((_central_bundle or {}).get("stale_inputs"))
+_mrp_central_error=bool(st.session_state.get("_mrp_central_error"))
+
+if _mrp_central_error:
+    _mrp_status="ERRO"
+    _mrp_status_class="status-error"
+elif _mrp_output_stale or _mrp_stale_inputs:
+    _mrp_status="ATENÇÃO"
+    _mrp_status_class="status-warning"
+elif _mrp_available:
+    _mrp_status="ATUALIZADO"
+    _mrp_status_class="status-ok"
+else:
+    _mrp_status="ATENÇÃO"
+    _mrp_status_class="status-warning"
+
+_mrp_when=_central_mrp.format_dt(_initial_output_meta.get("processed_at"))
+_mrp_rows=_initial_output_meta.get("rows_count")
+_mrp_rows_text=""
+if _mrp_rows not in (None,""):
     try:
-        _central_bundle=_central_mrp.load_mrp_bundle()
-        st.session_state.pop("_mrp_central_error",None)
-    except Exception as _central_err:
-        st.session_state["_mrp_central_error"]=str(_central_err)
-        _central_bundle={}
+        _mrp_rows_text=f'{int(_mrp_rows):,}'.replace(",", ".")+" REGISTROS"
+    except Exception:
+        _mrp_rows_text=""
+_mrp_meta_parts=[x for x in (_mrp_when,_mrp_rows_text) if x and x!="—"]
+_mrp_meta_text=" · ".join(_mrp_meta_parts) if _mrp_meta_parts else "SEM ATUALIZAÇÃO REGISTRADA"
 
-    _manual_store=st.session_state.get("_mrp_manual_files") or {}
-    _manual_active=bool(st.session_state.get("_mrp_manual_active"))
-    _manual_keys=("cadastros","estoque","geral","compras","tctp")
+_mrp_sidebar_week="—"
+try:
+    _mrp_week_frame=(_central_bundle or {}).get("relatorio_geral_tratado")
+    if _mrp_week_frame is not None and not _mrp_week_frame.empty and "SEMANA DE NECESSIDADE" in _mrp_week_frame.columns:
+        _mrp_week_values=_mrp_week_frame["SEMANA DE NECESSIDADE"].map(semana_id)
+        _mrp_week_values=pd.to_numeric(_mrp_week_values,errors="coerce").dropna()
+        _mrp_week_values=_mrp_week_values[
+            (_mrp_week_values>=200001)&(_mrp_week_values<=999953)
+        ]
+        if len(_mrp_week_values):
+            _mrp_sidebar_week=formatar_semana(int(_mrp_week_values.min()))
+except Exception:
+    pass
 
-    if (
-        _mrp_role=="ADMIN"
-        and _manual_active
-        and all(k in _manual_store for k in _manual_keys)
-    ):
-        cadastro_file=BytesIO(_manual_store["cadastros"])
-        estoque_file=BytesIO(_manual_store["estoque"])
-        geral_file=BytesIO(_manual_store["geral"])
-        compras_file=BytesIO(_manual_store["compras"])
-        mt_file=BytesIO(_manual_store["tctp"])
-        _mrp_use_manual=True
-    elif _central_bundle.get("ready"):
-        cadastro_file,estoque_file,geral_file,compras_file,mt_file=_central_mrp.make_refs(_central_bundle)
-    else:
-        cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
-
-    st.divider()
-    st.markdown(
-        '<div class="sidebar-status-spacer"></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="sidebar-section-label">STATUS GERAL</div>',
-        unsafe_allow_html=True,
+_mrp_nav_links=[]
+for _page in _mrp_pages:
+    _slug="mrp-atual" if _page=="MRP ATUAL" else "configuracoes"
+    _active=" active" if _page==_mrp_page else ""
+    _mrp_nav_links.append(
+        f'<a class="sidebar-nav-link{_active}" href="?nav={_slug}" target="_self">{_page}</a>'
     )
 
-    def _mrp_sidebar_status_html(_meta):
-        _meta=_meta or {}
-        _available=bool(_meta.get("available"))
-        _status="ATUALIZADO" if _available else "AGUARDANDO"
-        _when=_central_mrp.format_dt(_meta.get("processed_at"))
-        _rows=_meta.get("rows_count")
-        _rows_text=""
-        if _rows not in (None,""):
-            try:
-                _rows_text=f'{int(_rows):,}'.replace(",", ".")+" REGISTROS"
-            except Exception:
-                _rows_text=""
-        _parts=[x for x in (_when,_rows_text) if x and x!="—"]
-        _meta_text=" · ".join(_parts) if _parts else "SEM ATUALIZAÇÃO REGISTRADA"
-        return (
-            '<div class="sidebar-status-card">'
-            '<div class="sidebar-status-name">RELATÓRIO MRP</div>'
-            f'<div class="sidebar-status-value">{_status}</div>'
-            f'<div class="sidebar-status-meta">{_meta_text}</div>'
-            '</div>'
-        )
+_mrp_sidebar_html=(
+    '<div class="setta-sidebar">'
+    '<div class="sidebar-brand">'
+    '<div class="sidebar-brand-title">MRP</div>'
+    '<div class="sidebar-brand-sub">Planejamento de Materiais SETTA</div>'
+    '</div>'
+    '<div class="sidebar-section-label">NAVEGAÇÃO</div>'
+    '<div class="sidebar-nav">'+"".join(_mrp_nav_links)+'</div>'
+    '<div class="sidebar-divider"></div>'
+    '<div class="sidebar-section-label">STATUS GERAL</div>'
+    '<div class="sidebar-status-card">'
+    '<div class="sidebar-status-name">RELATÓRIO MRP</div>'
+    f'<div class="sidebar-status-value {_mrp_status_class}">{_mrp_status}</div>'
+    f'<div class="sidebar-status-meta">{_mrp_meta_text}</div>'
+    '</div>'
+    '<div class="sidebar-subdivider"></div>'
+    '<div class="sidebar-week-card">'
+    '<div class="sidebar-week-label">SEMANA ATUAL</div>'
+    f'<div class="sidebar-week-value">{_mrp_sidebar_week}</div>'
+    '</div>'
+    '</div>'
+)
 
-    _mrp_status_placeholder=st.empty()
-    _initial_output_meta=(
-        st.session_state.get("_mrp_output_meta")
-        or (_central_bundle.get("output_meta") if _central_bundle else {})
-        or {}
-    )
-    _mrp_status_placeholder.markdown(
-        _mrp_sidebar_status_html(_initial_output_meta),
-        unsafe_allow_html=True,
-    )
+with st.sidebar:
+    st.markdown(_mrp_sidebar_html, unsafe_allow_html=True)
 """
 _source = _source[:_sidebar_start] + _new_sidebar + "\n" + _source[_sidebar_end:]
 
@@ -250,14 +451,7 @@ if _output_marker_index >= 0:
     if _output_start < 0 or _output_end < 0:
         raise RuntimeError("Card de status geral do MRP não pôde ser movido para a lateral.")
     _output_end += len(_output_close)
-    _output_replacement = """        st.session_state["_mrp_output_meta"]=_mrp_output_meta
-        try:
-            _mrp_status_placeholder.markdown(
-                _mrp_sidebar_status_html(_mrp_output_meta),
-                unsafe_allow_html=True,
-            )
-        except Exception:
-            pass"""
+    _output_replacement = """        st.session_state["_mrp_output_meta"]=_mrp_output_meta"""
     _source = _source[:_output_start] + _output_replacement + _source[_output_end:]
 
 # ---------------------------------------------------------
@@ -593,15 +787,7 @@ _source = _source.replace(
 # ---------------------------------------------------------
 _old_week_sidebar_number = 'with st.sidebar:\n    st.divider(); st.markdown("**Semana atual identificada nas bases**"); st.number_input("Semana atual",min_value=1,max_value=53,value=semana_atual,disabled=True); st.caption(f"Fonte: {fonte_semana}")'
 _old_week_sidebar_text = 'with st.sidebar:\n    st.divider(); st.markdown("**Semana atual identificada nas bases**"); st.text_input("Semana atual",value=formatar_semana(semana_atual),disabled=True); st.caption(f"Fonte: {fonte_semana}")'
-_new_week_sidebar = """with st.sidebar:
-    st.divider()
-    st.markdown(
-        '<div class="sidebar-week-card">'
-        '<div class="sidebar-week-label">SEMANA ATUAL</div>'
-        f'<div class="sidebar-week-value">{formatar_semana(semana_atual)}</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )"""
+_new_week_sidebar = ""
 if _old_week_sidebar_text in _source:
     _source = _source.replace(_old_week_sidebar_text, _new_week_sidebar, 1)
 elif _old_week_sidebar_number in _source:

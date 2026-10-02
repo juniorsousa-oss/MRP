@@ -201,10 +201,34 @@ _central_sidebar = r"""with st.sidebar:
 
     if _mrp_role=="ADMIN":
         try:
-            _central_bundle=_central_mrp.load_mrp_bundle()
+            _mrp_first_central_check = not bool(
+                st.session_state.get("_mrp_central_bootstrap_checked")
+            )
+            _central_bundle=_central_mrp.load_mrp_bundle(
+                force_check=_mrp_first_central_check
+            )
+            st.session_state["_mrp_central_bootstrap_checked"]=True
         except Exception as _central_err:
             st.error(f"Central indisponível: {_central_err}")
             _central_bundle={}
+
+        _stale_inputs=_central_bundle.get("stale_inputs") or {}
+        if _stale_inputs:
+            _stale_labels={
+                "relatorio_geral_tratado":"RELATÓRIO GERAL TRATADO",
+                "estoque_tratado":"ESTOQUE TRATADO",
+                "compras_tratado":"COMPRAS TRATADO",
+                "tctp_tratado":"TCTP TRATADO",
+            }
+            _stale_names=[
+                _stale_labels.get(_key,_key)
+                for _key in _stale_inputs
+            ]
+            st.warning(
+                "ATUALIZAÇÃO DETECTADA NA CENTRAL · "
+                + " • ".join(_stale_names)
+                + ". O MRP aguardará as bases tratadas atuais antes de recalcular."
+            )
 
         if _central_bundle.get("ready"):
             cadastro_file,estoque_file,geral_file,compras_file,mt_file=_central_mrp.make_refs(_central_bundle)

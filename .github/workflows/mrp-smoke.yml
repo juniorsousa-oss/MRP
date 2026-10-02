@@ -59,7 +59,7 @@ jobs:
           assert "Demandas Não Aptas" in env["_source"]
           assert '"Status de Atendimento"' in env["_source"]
           assert 'd.insert(_sinal_pos,"Status de Atendimento"' in env["_source"]
-          assert 'dem["Status de Atendimento"]=dem.apply' in env["_source"]
+          assert 'dem["Status de Atendimento"]=_mrp_status_atendimento_series(dem)' in env["_source"]
           assert "d_dem = d_dem[~_mrp_demanda_nao_apta_mask(d_dem)]" in env["_source"]
           assert "d=d[~_mrp_demanda_nao_apta_mask(d)].reset_index(drop=True)" in env["_source"]
           assert "GERENCIAR CARGA — TRATATIVA DE PROJETOS" in env["_source"]

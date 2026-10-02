@@ -160,6 +160,26 @@ _dashboard_css = """<style>
 st.markdown(_dashboard_css,unsafe_allow_html=True)
 
 # ---------------------------------------------------------
+# 1.2) NAVEGAÇÃO DOS KPIs — abre Demanda por Projeto.
+# ---------------------------------------------------------
+_admin_tabs_options = [
+    'tab1,tab2,tab3,tab4=st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"], "TRATATIVA DE PROJETOS", "COMPARATIVO MRP"])',
+    'tab1,tab2,tab3=st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"], "TRATATIVA DE PROJETOS"])',
+    'tab1,tab2=st.tabs([UI_CONFIG["title_demanda_geral"], UI_CONFIG["title_demanda_projeto"]])',
+]
+_admin_tabs_found=[_x for _x in _admin_tabs_options if _x in _source]
+if len(_admin_tabs_found)!=1:
+    raise RuntimeError("Adequação final não localizada: atalho do dashboard para Demanda por Projeto.")
+_admin_tabs_old=_admin_tabs_found[0]
+_admin_tabs_default=st.session_state.get("_mrp_dashboard_tab_default")
+_admin_tabs_new=(
+    '_mrp_dashboard_tab_default=st.session_state.pop("_mrp_dashboard_tab_default",None)\n'
+    +_admin_tabs_old[:-1]
+    +', default=_mrp_dashboard_tab_default)'
+)
+_source=_source.replace(_admin_tabs_old,_admin_tabs_new,1)
+
+# ---------------------------------------------------------
 # 2) KPIs — ponto para milhar e vírgula para decimal.
 # ---------------------------------------------------------
 _metric_old = """m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.",f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.",f"{macro['S.C.'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro['DIV']<0,'DIV']).sum():,.0f}")"""
@@ -354,12 +374,14 @@ _admin_proj_form_new = """    with st.form("admin_demanda_projeto_filtros", bord
         with c3: descricao_proj_admin=st.text_input("DESCRIÇÃO", key="admin_proj_descricao", placeholder="DIGITE PARTE DA DESCRIÇÃO")
         _semana_admin_opts=["TODAS"]+sorted(demanda_projeto["Semana de Necessidade"].dropna().unique().tolist()) if len(demanda_projeto) else ["TODAS"]
         with c4: semana_filtro=st.selectbox("SEMANA",_semana_admin_opts, key="admin_semana_projeto", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
+        _status_opts=["TODOS","🟢 DENTRO DO PRAZO","🟡 ATENÇÃO AO PRAZO","🔴 ATENDIMENTO CRÍTICO","⚪ DEMANDAS NÃO APTAS"]
+        status_atendimento_admin=st.selectbox("STATUS DE ATENDIMENTO",_status_opts,key="admin_status_atendimento")
         mostrar_residuos_admin=st.checkbox("MOSTRAR DEMANDAS NÃO APTAS", value=False, key="admin_mostrar_residuos", help="Inclui resíduos, demandas suspensas e canceladas.")
         _bpesq, _blimpa = st.columns([8,1])
         with _bpesq:
             st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
         with _blimpa:
-            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_projeto_busca","admin_produto_busca","admin_proj_descricao","admin_semana_projeto","admin_mostrar_residuos"))"""
+            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_projeto_busca","admin_produto_busca","admin_proj_descricao","admin_semana_projeto","admin_status_atendimento","admin_mostrar_residuos"))"""
 _final_replace(_admin_proj_form_old, _admin_proj_form_new, "filtros separados da Demanda por Projeto ADMIN")
 
 _admin_proj_logic_old = """    d=demanda_projeto.copy()
@@ -367,8 +389,12 @@ _admin_proj_logic_old = """    d=demanda_projeto.copy()
         b2=busca2.strip(); d=d[d["Produto"].astype(str).str.contains(b2,na=False)|d["Projeto"].str.contains(b2,case=False,na=False)]
     if semana_filtro != "TODAS": d=d[d["Semana de Necessidade"] == semana_filtro]"""
 _admin_proj_logic_new = """    d=demanda_projeto.copy()
-    if not mostrar_residuos_admin:
+    _status_alvo={"🟢 DENTRO DO PRAZO":"🟢","🟡 ATENÇÃO AO PRAZO":"🟡","🔴 ATENDIMENTO CRÍTICO":"🔴","⚪ DEMANDAS NÃO APTAS":"⚪"}.get(status_atendimento_admin)
+    if not mostrar_residuos_admin and _status_alvo!="⚪":
         d=d[~_mrp_demanda_nao_apta_mask(d)]
+    if _status_alvo:
+        _status_linhas=_mrp_status_atendimento_series(d)
+        d=d[_status_linhas==_status_alvo]
     if projeto_admin:
         _pa=projeto_admin.strip()
         d=d[d["Projeto"].fillna("").astype(str).str.contains(_pa,case=False,na=False,regex=False)]

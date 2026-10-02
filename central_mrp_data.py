@@ -201,6 +201,65 @@ def _download_source_cached(
     return response.content
 
 
+@st.cache_data(show_spinner=False, ttl=3600, max_entries=8)
+def _download_cadastros_frame_cached(
+    version: int,
+    updated_at: str,
+) -> pd.DataFrame:
+    """Consome CADASTROS normalizado; Excel fica apenas como contingência legada."""
+    del version, updated_at
+    try:
+        meta = api_call(
+            "source_normalized_download",
+            {"source_key": "cadastros"},
+            timeout=30,
+        ).get("data") or {}
+        signed_url = str(meta.get("signed_url") or "")
+        if not signed_url:
+            raise RuntimeError("CADASTROS normalizado sem URL.")
+        response = SESSION.get(signed_url, timeout=120)
+        response.raise_for_status()
+        pack = json.loads(
+            gzip.decompress(response.content).decode("utf-8")
+        )
+        if str(pack.get("format") or "") != "SETTA_SOURCE_V1":
+            raise RuntimeError("Formato normalizado do CADASTROS inválido.")
+        sheets = [
+            item for item in (pack.get("sheets") or [])
+            if isinstance(item, dict)
+        ]
+        if not sheets:
+            raise RuntimeError("CADASTROS normalizado sem planilha.")
+        raw = pd.DataFrame(sheets[0].get("rows") or [])
+        if len(raw) < 2:
+            return pd.DataFrame()
+        headers = []
+        used: dict[str, int] = {}
+        for idx, value in enumerate(raw.iloc[1].tolist()):
+            base = (
+                f"Unnamed: {idx}"
+                if value is None or str(value).strip() == ""
+                else str(value)
+            )
+            count = used.get(base, 0)
+            used[base] = count + 1
+            headers.append(base if count == 0 else f"{base}.{count}")
+        frame = raw.iloc[2:].reset_index(drop=True).copy()
+        frame.columns = headers
+        return frame
+    except Exception:
+        raw = _download_source_cached(
+            "cadastros",
+            0,
+            "",
+        )
+        return pd.read_excel(
+            io.BytesIO(raw),
+            sheet_name=0,
+            header=1,
+        )
+
+
 @st.cache_data(show_spinner=False, ttl=3600, max_entries=16)
 def _download_derived_cached(
     base_key: str,
@@ -373,8 +432,7 @@ def load_mrp_bundle(force_check: bool = False) -> dict:
     with ThreadPoolExecutor(max_workers=5) as executor:
         tasks[
             executor.submit(
-                _download_source_cached,
-                "cadastros",
+                _download_cadastros_frame_cached,
                 int(cadastro_meta.get("version") or 0),
                 str(cadastro_meta.get("last_update_at") or ""),
             )
@@ -395,7 +453,7 @@ def load_mrp_bundle(force_check: bool = False) -> dict:
             kind, key = tasks[future]
             value = future.result()
             if kind == "source":
-                bundle["cadastros_bytes"] = value
+                bundle["cadastros_frame"] = value
             else:
                 bundle[key] = value
 

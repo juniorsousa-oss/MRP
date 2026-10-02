@@ -29,17 +29,16 @@ section[data-testid="stSidebar"] .block-container{width:260px!important;min-widt
 .sidebar-section-label{margin:.25rem 0 .45rem 0;color:#374151;font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.055em}
 .sidebar-info-card{background:#f8fafc;border:1px solid #e5e8ee;border-radius:10px;padding:.75rem .85rem;color:#6b7280;font-size:.76rem;line-height:1.55}
 
-section[data-testid="stSidebar"] div[role="radiogroup"]{display:flex;flex-direction:column;gap:.55rem!important}
-section[data-testid="stSidebar"] div[role="radiogroup"] input[type="radio"],
-section[data-testid="stSidebar"] div[role="radiogroup"] [data-testid="stMarkdownContainer"] + div{position:absolute!important;opacity:0!important;pointer-events:none!important}
-section[data-testid="stSidebar"] div[role="radiogroup"] label{position:relative;width:100%;min-height:42px;display:flex!important;align-items:center!important;padding:.56rem .72rem .56rem .88rem!important;margin:0!important;border:1px solid transparent!important;border-radius:10px!important;background:transparent!important;cursor:pointer;transition:background .14s ease,border-color .14s ease,box-shadow .14s ease,transform .14s ease;box-sizing:border-box}
-section[data-testid="stSidebar"] div[role="radiogroup"] > label{margin:0!important}
-section[data-testid="stSidebar"] div[role="radiogroup"] label>div:first-child{position:absolute!important;opacity:0!important;width:0!important;height:0!important;overflow:hidden!important}
-section[data-testid="stSidebar"] div[role="radiogroup"] label p{margin:0!important;font-size:.83rem!important;font-weight:600!important;color:#374151!important;line-height:1.2!important}
-section[data-testid="stSidebar"] div[role="radiogroup"] label:hover{background:#f8fafc!important;border-color:#e5e7eb!important;transform:translateX(1px)}
-section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked){background:#111827!important;border-color:#111827!important;box-shadow:0 5px 14px rgba(17,24,39,.14)!important}
-section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked)::before{content:"";position:absolute;left:.42rem;top:50%;width:4px;height:20px;border-radius:999px;background:#ef4444;transform:translateY(-50%)}
-section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p{color:#fff!important;font-weight:700!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"]{margin:0!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"] button{position:relative!important;min-height:42px!important;justify-content:flex-start!important;text-align:left!important;padding:.56rem .72rem .56rem calc(.88rem + 10px)!important;border-radius:10px!important;font-size:.83rem!important;font-weight:600!important;line-height:1.2!important;width:100%!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"] button > div{width:100%!important;text-align:left!important;justify-content:flex-start!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"] button p{width:100%!important;margin:0!important;text-align:left!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"] button[data-testid="stBaseButton-secondary"]{background:transparent!important;border:1px solid transparent!important;color:#374151!important;box-shadow:none!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"] button[data-testid="stBaseButton-secondary"]:hover{background:#f8fafc!important;border-color:#e5e7eb!important;color:#111827!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"] button[data-testid="stBaseButton-primary"]{background:#111827!important;border:1px solid #111827!important;color:#fff!important;box-shadow:0 5px 14px rgba(17,24,39,.14)!important;font-weight:700!important}
+section[data-testid="stSidebar"] div[data-testid="stButton"] button[data-testid="stBaseButton-primary"]::before{content:"";position:absolute;left:.42rem;top:50%;width:4px;height:20px;border-radius:999px;background:#ef4444;transform:translateY(-50%)}
+section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]){margin-bottom:-.45rem!important}
+.sidebar-status-spacer{height:.6rem!important;min-height:.6rem!important}
 
 [data-testid="stAppViewContainer"] > .main,
 [data-testid="stAppViewContainer"] .main,
@@ -131,12 +130,25 @@ _new_sidebar = r"""with st.sidebar:
 
     _mrp_role=st.session_state.get("auth_role")
     _mrp_pages=["MRP ATUAL", "CONFIGURAÇÕES"] if _mrp_role=="ADMIN" else ["MRP ATUAL"]
-    _mrp_page=st.radio(
-        "Página",
-        _mrp_pages,
-        label_visibility="collapsed",
-        key="mrp_sidebar_navigation",
-    )
+
+    def _set_mrp_page(_page):
+        if _page in _mrp_pages:
+            st.session_state["_mrp_sidebar_page"]=_page
+
+    _mrp_page=str(st.session_state.get("_mrp_sidebar_page") or "MRP ATUAL")
+    if _mrp_page not in _mrp_pages:
+        _mrp_page="MRP ATUAL"
+        st.session_state["_mrp_sidebar_page"]=_mrp_page
+
+    for _page in _mrp_pages:
+        st.button(
+            _page,
+            key="mrp_sidebar_nav_"+_page.lower().replace(" ","_").replace("ç","c").replace("õ","o"),
+            type="primary" if _page==_mrp_page else "secondary",
+            use_container_width=True,
+            on_click=_set_mrp_page,
+            args=(_page,),
+        )
 
     _mrp_use_manual=False
     _central_bundle={}
@@ -173,15 +185,9 @@ _new_sidebar = r"""with st.sidebar:
 
     st.divider()
     st.markdown(
-        '<div class="sidebar-info-card">'
-        f'<b>{str(st.session_state.get("auth_nome") or "USUÁRIO").upper()}</b><br>'
-        f'{str(_mrp_role or "").upper()}'
-        + ('<br>MODO CONTINGÊNCIA' if _mrp_use_manual else '<br>ALIMENTAÇÃO AUTOMÁTICA')
-        + '</div>',
+        '<div class="sidebar-status-spacer"></div>',
         unsafe_allow_html=True,
     )
-
-    st.divider()
     st.markdown(
         '<div class="sidebar-section-label">STATUS GERAL</div>',
         unsafe_allow_html=True,

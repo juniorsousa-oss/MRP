@@ -540,19 +540,13 @@ if _consulta_start < 0 or _consulta_end < 0:
 _source = _source[:_consulta_start] + _source[_consulta_end + 1:]
 
 # Histórico/comparativo é informação de consulta e deve aparecer para os dois perfis.
-_hist_fallback_old = '''            render_consulta_view()
-            if st.session_state.get("auth_role") == "ADMIN":
-                render_mrp_history()'''
-_hist_fallback_new = '''            render_consulta_view()
-            render_mrp_history()'''
+_hist_fallback_old = '            render_consulta_view()\n            if st.session_state.get("auth_role") == "ADMIN":\n                render_mrp_history()'
+_hist_fallback_new = '            render_consulta_view()\n            render_mrp_history()'
 if _hist_fallback_old in _source:
     _source = _source.replace(_hist_fallback_old, _hist_fallback_new, 1)
 
-_hist_bottom_old = '''st.divider()
-if st.session_state.get("auth_role") == "ADMIN":
-    render_mrp_history()'''
-_hist_bottom_new = '''st.divider()
-render_mrp_history()'''
+_hist_bottom_old = 'st.divider()\nif st.session_state.get("auth_role") == "ADMIN":\n    render_mrp_history()'
+_hist_bottom_new = 'st.divider()\nrender_mrp_history()'
 if _hist_bottom_old in _source:
     _source = _source.replace(_hist_bottom_old, _hist_bottom_new, 1)
 

@@ -14,7 +14,7 @@ def _mrp_load_sources_from_central(_bundle, signature):
 
     # CADASTROS: leitura por cabeçalho para aceitar o relatório antigo
     # e o novo, sem depender do nome da aba.
-    _cad_raw=pd.read_excel(BytesIO(bundle["cadastros_bytes"]),sheet_name=0,header=1)
+    _cad_raw=bundle["cadastros_frame"].copy()
     _cad_cols={str(x).strip().upper():x for x in _cad_raw.columns}
     _cad_code=_cad_cols.get("CODIGO") or _cad_cols.get("CÓDIGO")
     _cad_desc=_cad_cols.get("DESCRICAO") or _cad_cols.get("DESCRIÇÃO")

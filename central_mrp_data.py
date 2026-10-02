@@ -207,7 +207,6 @@ def _download_cadastros_frame_cached(
     updated_at: str,
 ) -> pd.DataFrame:
     """Consome CADASTROS normalizado; Excel fica apenas como contingência legada."""
-    del version, updated_at
     try:
         meta = api_call(
             "source_normalized_download",
@@ -250,8 +249,8 @@ def _download_cadastros_frame_cached(
     except Exception:
         raw = _download_source_cached(
             "cadastros",
-            0,
-            "",
+            version,
+            updated_at,
         )
         return pd.read_excel(
             io.BytesIO(raw),

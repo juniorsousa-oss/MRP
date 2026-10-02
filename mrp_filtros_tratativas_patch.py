@@ -45,6 +45,27 @@ def _mrp_demanda_nao_apta_mask(df):
 def _mrp_residuo_mask(df):
     return _mrp_demanda_nao_apta_mask(df)
 
+def _mrp_sinaleiro_semana(semana_necessidade, semana_atendimento):
+    # 🟢 atendimento <= necessidade; 🟡 atraso de 1 ou 2 semanas; 🔴 >2 semanas ou sem previsão.
+    atendimento_txt=str(semana_atendimento if semana_atendimento is not None else "").strip().upper()
+    if atendimento_txt in {"N/A","NA"}:
+        return "⚪"
+    if atendimento_txt in {"","NN","A DEFINIR","NAN","NONE"}:
+        return "🔴"
+    try:
+        inicio_necessidade=_inicio_semana(semana_necessidade)
+        inicio_atendimento=_inicio_semana(semana_atendimento)
+        if inicio_necessidade is None or inicio_atendimento is None:
+            return "🔴"
+        diferenca_semanas=int((inicio_atendimento-inicio_necessidade).days//7)
+    except Exception:
+        return "🔴"
+    if diferenca_semanas<=0:
+        return "🟢"
+    if diferenca_semanas<=2:
+        return "🟡"
+    return "🔴"
+
 def _mrp_codigo_mask(serie, valor):
     alvo=str(valor or "").strip()
     if not alvo:
@@ -175,6 +196,9 @@ _consulta_proj_logic_new = """        f = dem.copy()
         if semana != "TODAS": f = f[f["Semana de Necessidade"].astype(str) == str(semana)]
         f=f.reset_index(drop=True)"""
 _final_replace(_consulta_proj_logic_old, _consulta_proj_logic_new, "lógica da Demanda por Projeto em consulta")
+_consulta_table_old = '        st.dataframe(f, use_container_width=True, hide_index=True, column_order=DEM_COLS)'
+_consulta_table_new = '        st.caption("SINALEIRO: 🟢 ATENDIMENTO NO PRAZO OU ANTES · 🟡 ATÉ 2 SEMANAS DE ATRASO · 🔴 ACIMA DE 2 SEMANAS OU SEM PREVISÃO")\n        st.dataframe(f, use_container_width=True, hide_index=True, column_order=DEM_COLS)'
+_final_replace(_consulta_table_old, _consulta_table_new, "legenda do Sinaleiro na consulta")
 
 # ---------------------------------------------------------
 # 5) ADMIN — DEMANDA GERAL: filtros separados.
@@ -273,6 +297,9 @@ _admin_proj_logic_new = """    d=demanda_projeto.copy()
     if semana_filtro != "TODAS": d=d[d["Semana de Necessidade"] == semana_filtro]
     d=d.reset_index(drop=True)"""
 _final_replace(_admin_proj_logic_old, _admin_proj_logic_new, "lógica da Demanda por Projeto ADMIN")
+_admin_table_old = '    st.dataframe(d,use_container_width=True,height=600,hide_index=True)'
+_admin_table_new = '    st.caption("SINALEIRO: 🟢 ATENDIMENTO NO PRAZO OU ANTES · 🟡 ATÉ 2 SEMANAS DE ATRASO · 🔴 ACIMA DE 2 SEMANAS OU SEM PREVISÃO")\n    st.dataframe(d,use_container_width=True,height=600,hide_index=True)'
+_final_replace(_admin_table_old, _admin_table_new, "legenda do Sinaleiro no ADMIN")
 
 # ---------------------------------------------------------
 # 6.1) DETALHAMENTO DA DEMANDA GERAL — somente demandas aptas.
@@ -284,6 +311,33 @@ _final_replace(_consulta_detail_old, _consulta_detail_new, "detalhe da Demanda G
 _admin_detail_old = '        d=demanda_projeto[demanda_projeto["Produto"]==code]'
 _admin_detail_new = '        d=demanda_projeto[demanda_projeto["Produto"]==code].copy()\n        d=d[~_mrp_demanda_nao_apta_mask(d)].reset_index(drop=True)'
 _final_replace(_admin_detail_old, _admin_detail_new, "detalhe da Demanda Geral ADMIN sem demandas não aptas")
+
+# ---------------------------------------------------------
+# 6.2) SINALEIRO — comparação Necessidade x Atendimento.
+# ---------------------------------------------------------
+_final_replace(
+    'cols=["Projeto","Produto","Descrição","Última Solicitação","Data CM","Semana de Necessidade","Semana de Atendimento","Necessidade","Estoque","Pré Nota","P.C.","Fabricação","S.C.","Ação","Resumo"]',
+    'cols=["Projeto","Produto","Descrição","Última Solicitação","Data CM","Semana de Necessidade","Semana de Atendimento","Sinaleiro","Necessidade","Estoque","Pré Nota","P.C.","Fabricação","S.C.","Ação","Resumo"]',
+    "coluna Sinaleiro na Demanda por Projeto"
+)
+
+_final_replace(
+    '                "Semana de Atendimento":semana_atendimento,\n                "Necessidade":necessidade,',
+    '                "Semana de Atendimento":semana_atendimento,\n                "Sinaleiro":_mrp_sinaleiro_semana(r["Semana de Necessidade"],semana_atendimento),\n                "Necessidade":necessidade,',
+    "cálculo do Sinaleiro na Demanda por Projeto"
+)
+
+_final_replace(
+    'DEM_COLS = ["Projeto", "Produto", "Descrição", "Última Solicitação", "Data CM", "Semana de Necessidade", "Semana de Atendimento", "Necessidade", "Estoque", "Pré Nota", "P.C.", "Fabricação", "S.C.", "Ação", "Resumo"]',
+    'DEM_COLS = ["Projeto", "Produto", "Descrição", "Última Solicitação", "Data CM", "Semana de Necessidade", "Semana de Atendimento", "Sinaleiro", "Necessidade", "Estoque", "Pré Nota", "P.C.", "Fabricação", "S.C.", "Ação", "Resumo"]',
+    "Sinaleiro na ordem oficial da consulta"
+)
+
+_final_replace(
+    '    dem = fix_columns(dem, DEM_COLS)',
+    '    dem = fix_columns(dem, DEM_COLS)\n    dem["Sinaleiro"]=dem.apply(lambda _r:_mrp_sinaleiro_semana(_r.get("Semana de Necessidade"),_r.get("Semana de Atendimento")),axis=1)',
+    "recalcula Sinaleiro em snapshots antigos e atuais"
+)
 
 # ---------------------------------------------------------
 # 7) TRATATIVA DE PROJETOS — gestão de carga recolhida e só ADMIN.

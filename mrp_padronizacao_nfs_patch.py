@@ -142,28 +142,32 @@ _new_sidebar = r"""with st.sidebar:
     _central_bundle={}
     usuario_mrp=st.session_state.get("auth_nome", "")
 
-    if _mrp_role=="ADMIN":
-        try:
-            _central_bundle=_central_mrp.load_mrp_bundle()
-        except Exception as _central_err:
-            st.session_state["_mrp_central_error"]=str(_central_err)
-            _central_bundle={}
+    # A Central é a mesma fonte de dados para ADMIN e CONSULTA.
+    # A diferença de perfil afeta apenas ações administrativas.
+    try:
+        _central_bundle=_central_mrp.load_mrp_bundle()
+        st.session_state.pop("_mrp_central_error",None)
+    except Exception as _central_err:
+        st.session_state["_mrp_central_error"]=str(_central_err)
+        _central_bundle={}
 
-        _manual_store=st.session_state.get("_mrp_manual_files") or {}
-        _manual_active=bool(st.session_state.get("_mrp_manual_active"))
-        _manual_keys=("cadastros","estoque","geral","compras","tctp")
+    _manual_store=st.session_state.get("_mrp_manual_files") or {}
+    _manual_active=bool(st.session_state.get("_mrp_manual_active"))
+    _manual_keys=("cadastros","estoque","geral","compras","tctp")
 
-        if _manual_active and all(k in _manual_store for k in _manual_keys):
-            cadastro_file=BytesIO(_manual_store["cadastros"])
-            estoque_file=BytesIO(_manual_store["estoque"])
-            geral_file=BytesIO(_manual_store["geral"])
-            compras_file=BytesIO(_manual_store["compras"])
-            mt_file=BytesIO(_manual_store["tctp"])
-            _mrp_use_manual=True
-        elif _central_bundle.get("ready"):
-            cadastro_file,estoque_file,geral_file,compras_file,mt_file=_central_mrp.make_refs(_central_bundle)
-        else:
-            cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
+    if (
+        _mrp_role=="ADMIN"
+        and _manual_active
+        and all(k in _manual_store for k in _manual_keys)
+    ):
+        cadastro_file=BytesIO(_manual_store["cadastros"])
+        estoque_file=BytesIO(_manual_store["estoque"])
+        geral_file=BytesIO(_manual_store["geral"])
+        compras_file=BytesIO(_manual_store["compras"])
+        mt_file=BytesIO(_manual_store["tctp"])
+        _mrp_use_manual=True
+    elif _central_bundle.get("ready"):
+        cadastro_file,estoque_file,geral_file,compras_file,mt_file=_central_mrp.make_refs(_central_bundle)
     else:
         cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
 
@@ -526,6 +530,31 @@ _source = _source.replace(
     _config_page + "\n" + _config_anchor,
     1,
 )
+
+# PERFIS — ADMIN e CONSULTA compartilham a mesma visualização operacional.
+# CONSULTA não entra em CONFIGURAÇÕES e os uploads de tratativas continuam protegidos por ADMIN.
+_consulta_start = _source.find('if st.session_state.get("auth_role") == "CONSULTA":')
+_consulta_end = _source.find('\nif not all([cadastro_file,estoque_file,geral_file,compras_file,mt_file]):', _consulta_start)
+if _consulta_start < 0 or _consulta_end < 0:
+    raise RuntimeError("Bloco legado de visualização CONSULTA não encontrado para unificação.")
+_source = _source[:_consulta_start] + _source[_consulta_end + 1:]
+
+# Histórico/comparativo é informação de consulta e deve aparecer para os dois perfis.
+_hist_fallback_old = '''            render_consulta_view()
+            if st.session_state.get("auth_role") == "ADMIN":
+                render_mrp_history()'''
+_hist_fallback_new = '''            render_consulta_view()
+            render_mrp_history()'''
+if _hist_fallback_old in _source:
+    _source = _source.replace(_hist_fallback_old, _hist_fallback_new, 1)
+
+_hist_bottom_old = '''st.divider()
+if st.session_state.get("auth_role") == "ADMIN":
+    render_mrp_history()'''
+_hist_bottom_new = '''st.divider()
+render_mrp_history()'''
+if _hist_bottom_old in _source:
+    _source = _source.replace(_hist_bottom_old, _hist_bottom_new, 1)
 
 
 # ---------------------------------------------------------

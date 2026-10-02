@@ -122,44 +122,6 @@ def _mrp_dashboard_card(col,titulo,valor,cor,subtitulo,key,status_key,mostrar_na
 _final_replace(_helper_anchor, _helper_impl + _helper_anchor, "helpers de filtros e números")
 
 # ---------------------------------------------------------
-# 1.1) DASHBOARD — cards clicáveis com identidade por status.
-# ---------------------------------------------------------
-_dashboard_css = """<style>
-[class*="st-key-mrp_kpi_"]{position:relative}
-[class*="st-key-mrp_kpi_"] .mrp-dashboard-card{
- position:relative;min-height:104px;padding:12px 14px;border:1px solid #dfe5ec;
- border-left:5px solid var(--mrp-kpi-color);border-radius:12px;background:#fff;
- box-shadow:0 2px 10px rgba(15,23,42,.04);display:flex;flex-direction:column;
- transition:transform .16s ease,box-shadow .16s ease;
-}
-[class*="st-key-mrp_kpi_"]:hover .mrp-dashboard-card{
- transform:translateY(-2px);box-shadow:0 7px 20px rgba(15,23,42,.10)
-}
-.mrp-dashboard-card-title{
- display:flex;align-items:center;gap:7px;color:#475569;font-size:11px;font-weight:800;
- letter-spacing:.025em;text-transform:uppercase;line-height:1.2
-}
-.mrp-dashboard-card-dot{
- width:9px;height:9px;border-radius:999px;background:var(--mrp-kpi-color);
- box-shadow:0 0 0 4px rgba(148,163,184,.14);flex:0 0 auto
-}
-.mrp-dashboard-card-value{
- margin-top:8px;color:#0f172a;font-size:24px;font-weight:850;line-height:1;letter-spacing:-.035em
-}
-.mrp-dashboard-card-subtitle{
- margin-top:auto;padding-top:9px;color:#718096;font-size:9px;font-weight:750;
- letter-spacing:.03em;text-transform:uppercase
-}
-[class*="st-key-mrp_kpi_"] [data-testid="stButton"]{
- position:absolute!important;inset:0!important;z-index:10!important;margin:0!important
-}
-[class*="st-key-mrp_kpi_"] [data-testid="stButton"] button{
- width:100%!important;height:100%!important;min-height:104px!important;opacity:0!important;cursor:pointer!important
-}
-</style>"""
-st.markdown(_dashboard_css,unsafe_allow_html=True)
-
-# ---------------------------------------------------------
 # 1.2) NAVEGAÇÃO DOS KPIs — abre Demanda por Projeto.
 # ---------------------------------------------------------
 _admin_tabs_options = [
@@ -171,7 +133,6 @@ _admin_tabs_found=[_x for _x in _admin_tabs_options if _x in _source]
 if len(_admin_tabs_found)!=1:
     raise RuntimeError("Adequação final não localizada: atalho do dashboard para Demanda por Projeto.")
 _admin_tabs_old=_admin_tabs_found[0]
-_admin_tabs_default=st.session_state.get("_mrp_dashboard_tab_default")
 _admin_tabs_new=(
     '_mrp_dashboard_tab_default=st.session_state.pop("_mrp_dashboard_tab_default",None)\n'
     +_admin_tabs_old[:-1]
@@ -183,7 +144,8 @@ _source=_source.replace(_admin_tabs_old,_admin_tabs_new,1)
 # 2) KPIs — ponto para milhar e vírgula para decimal.
 # ---------------------------------------------------------
 _metric_old = """m=st.columns(5); m[0].metric("Materiais no MRP",f"{len(macro):,}"); m[1].metric("Demanda total",f"{macro['Demanda'].sum():,.0f}"); m[2].metric("P.C.",f"{macro['P.C.'].sum():,.0f}"); m[3].metric("S.C.",f"{macro['S.C.'].sum():,.0f}"); m[4].metric("Criar S.C.",f"{(-macro.loc[macro['DIV']<0,'DIV']).sum():,.0f}")"""
-_metric_new = """_status_dashboard=_mrp_status_atendimento_series(demanda_projeto)
+_metric_new = """st.markdown("<style>[class*=st-key-mrp_kpi_]{position:relative}[class*=st-key-mrp_kpi_] .mrp-dashboard-card{position:relative;min-height:104px;padding:12px 14px;border:1px solid #dfe5ec;border-left:5px solid var(--mrp-kpi-color);border-radius:12px;background:#fff;box-shadow:0 2px 10px rgba(15,23,42,.04);display:flex;flex-direction:column;transition:transform .16s ease,box-shadow .16s ease}[class*=st-key-mrp_kpi_]:hover .mrp-dashboard-card{transform:translateY(-2px);box-shadow:0 7px 20px rgba(15,23,42,.10)}.mrp-dashboard-card-title{display:flex;align-items:center;gap:7px;color:#475569;font-size:11px;font-weight:800;letter-spacing:.025em;text-transform:uppercase;line-height:1.2}.mrp-dashboard-card-dot{width:9px;height:9px;border-radius:999px;background:var(--mrp-kpi-color);box-shadow:0 0 0 4px rgba(148,163,184,.14);flex:0 0 auto}.mrp-dashboard-card-value{margin-top:8px;color:#0f172a;font-size:24px;font-weight:850;line-height:1;letter-spacing:-.035em}.mrp-dashboard-card-subtitle{margin-top:auto;padding-top:9px;color:#718096;font-size:9px;font-weight:750;letter-spacing:.03em;text-transform:uppercase}[class*=st-key-mrp_kpi_] [data-testid=stButton]{position:absolute!important;inset:0!important;z-index:10!important;margin:0!important}[class*=st-key-mrp_kpi_] [data-testid=stButton] button{width:100%!important;height:100%!important;min-height:104px!important;opacity:0!important;cursor:pointer!important}</style>",unsafe_allow_html=True)
+_status_dashboard=_mrp_status_atendimento_series(demanda_projeto)
 m=st.columns(5)
 _mrp_dashboard_card(m[0],"Demandas no MRP",_mrp_numero_br(len(demanda_projeto)),"#2563eb","TOTAL DA DEMANDA POR PROJETO","total","TODOS",True)
 _mrp_dashboard_card(m[1],"Dentro do Prazo",_mrp_numero_br((_status_dashboard=="🟢").sum()),"#16a34a","ATENDIMENTO NO PRAZO OU ANTES","verde","🟢 DENTRO DO PRAZO",False)

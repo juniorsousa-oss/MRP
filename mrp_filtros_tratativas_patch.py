@@ -292,7 +292,11 @@ _admin_proj_logic_new = """    d=demanda_projeto.copy()
         _dpa=descricao_proj_admin.strip()
         d=d[d["Descrição"].fillna("").astype(str).str.contains(_dpa,case=False,na=False,regex=False)]
     if semana_filtro != "TODAS": d=d[d["Semana de Necessidade"] == semana_filtro]
-    d=d.reset_index(drop=True)"""
+    d=d.reset_index(drop=True)
+    if "Sinaleiro" in d.columns:
+        d=d.drop(columns=["Sinaleiro"])
+    _sinal_pos=list(d.columns).index("Semana de Atendimento")+1 if "Semana de Atendimento" in d.columns else len(d.columns)
+    d.insert(_sinal_pos,"Sinaleiro",d.apply(lambda _r:_mrp_sinaleiro_semana(_r.get("Semana de Necessidade"),_r.get("Semana de Atendimento")),axis=1))"""
 _final_replace(_admin_proj_logic_old, _admin_proj_logic_new, "lógica da Demanda por Projeto ADMIN")
 
 # ---------------------------------------------------------
@@ -309,18 +313,6 @@ _final_replace(_admin_detail_old, _admin_detail_new, "detalhe da Demanda Geral A
 # ---------------------------------------------------------
 # 6.2) SINALEIRO — comparação Necessidade x Atendimento.
 # ---------------------------------------------------------
-_final_replace(
-    'cols=["Projeto","Produto","Descrição","Última Solicitação","Data CM","Semana de Necessidade","Semana de Atendimento","Necessidade","Estoque","Pré Nota","P.C.","Fabricação","S.C.","Ação","Resumo"]',
-    'cols=["Projeto","Produto","Descrição","Última Solicitação","Data CM","Semana de Necessidade","Semana de Atendimento","Sinaleiro","Necessidade","Estoque","Pré Nota","P.C.","Fabricação","S.C.","Ação","Resumo"]',
-    "coluna Sinaleiro na Demanda por Projeto"
-)
-
-_final_replace(
-    '                "Semana de Atendimento":semana_atendimento,\n                "Necessidade":necessidade,',
-    '                "Semana de Atendimento":semana_atendimento,\n                "Sinaleiro":_mrp_sinaleiro_semana(r["Semana de Necessidade"],semana_atendimento),\n                "Necessidade":necessidade,',
-    "cálculo do Sinaleiro na Demanda por Projeto"
-)
-
 _final_replace(
     'DEM_COLS = ["Projeto", "Produto", "Descrição", "Última Solicitação", "Data CM", "Semana de Necessidade", "Semana de Atendimento", "Necessidade", "Estoque", "Pré Nota", "P.C.", "Fabricação", "S.C.", "Ação", "Resumo"]',
     'DEM_COLS = ["Projeto", "Produto", "Descrição", "Última Solicitação", "Data CM", "Semana de Necessidade", "Semana de Atendimento", "Sinaleiro", "Necessidade", "Estoque", "Pré Nota", "P.C.", "Fabricação", "S.C.", "Ação", "Resumo"]',

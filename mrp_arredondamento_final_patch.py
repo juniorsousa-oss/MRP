@@ -7,6 +7,41 @@ ARREDONDAMENTO_FINAL_PATCH = r'''
 
 _round_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
 _round_css = """<style>
+/* Uniformiza o fundo final para que nenhum canto de wrapper fique aparente. */
+html, body,
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] > .main,
+[data-testid="stMain"],
+.stMain,
+.block-container {
+    background: #F4F7FB !important;
+    background-image: none !important;
+}
+
+/* Remove fundo/borda de TODOS os wrappers de layout que contenham dataframe. */
+div[data-testid="stElementContainer"]:has([data-testid="stDataFrame"]),
+div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stDataFrame"]),
+div[data-testid="stVerticalBlock"]:has([data-testid="stDataFrame"]),
+div[data-testid="stHorizontalBlock"]:has([data-testid="stDataFrame"]),
+div[data-testid="column"]:has([data-testid="stDataFrame"]),
+div.stColumn:has([data-testid="stDataFrame"]) {
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    outline: 0 !important;
+}
+
+/* Qualquer pseudo-elemento de wrapper também deve desaparecer. */
+div[data-testid="stElementContainer"]:has([data-testid="stDataFrame"])::before,
+div[data-testid="stElementContainer"]:has([data-testid="stDataFrame"])::after,
+div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stDataFrame"])::before,
+div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stDataFrame"])::after {
+    display: none !important;
+    content: none !important;
+}
+
 /* Remove qualquer caixa externa quadrada que envolva o dataframe. */
 div[data-testid="stElementContainer"]:has([data-testid="stDataFrame"]),
 div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stDataFrame"]),

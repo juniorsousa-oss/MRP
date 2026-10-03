@@ -153,7 +153,7 @@ header[data-testid="stHeader"]{
 }
 
 /* ======================================================
-   SETTA UI — Sidebar Operacional V1
+   SETTA UI — Integração da Sidebar com o App Shell
    ====================================================== */
 section[data-testid="stSidebar"]{
   align-self:stretch!important;

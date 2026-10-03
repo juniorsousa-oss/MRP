@@ -19,12 +19,8 @@ _new_nav_fn = 'def _mrp_set_sidebar_page(page):\n    st.session_state["_mrp_side
 if _old_nav_fn in _source:
     _source = _source.replace(_old_nav_fn, _new_nav_fn, 1)
 
-# 3) O controle superior precisa vir ANTES do cabeçalho no DOM,
-# exatamente como no Conversor MRP.
-_header_start = '_mrp_logo_src = str(UI_CONFIG.get("logo_data") or "")\n'
-if _header_start not in _source:
-    raise RuntimeError("Cabeçalho final do MRP não encontrado para SETTA UI.")
-
+# 3) Drawer SETTA. A injeção no runtime acontece junto com o CSS,
+# antes da sidebar e do cabeçalho, para eliminar layout shift.
 _drawer_runtime = """def _setta_sidebar_is_open() -> bool:
     return bool(st.session_state.get("_setta_sidebar_open", False))
 
@@ -65,14 +61,9 @@ with st.container(key="setta_top_controls"):
     )
 
 """
-_source = _source.replace(_header_start, _drawer_runtime + _header_start, 1)
 
-# 4) CSS final: moldura + menu superior + menu lateral copiados do CONVERSOR MRP atual.
-# É inserido depois do CSS legado e não redefine a estrutura interna de cada módulo.
-_title_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
-if _title_anchor not in _source:
-    raise RuntimeError("Título principal não encontrado para SETTA UI.")
-
+# 4) CSS canônico do shell SETTA.
+# Esta é a única camada responsável por moldura, cabeçalho, menu superior e lateral.
 _setta_css = """<style>
 :root{
   color-scheme:light!important;
@@ -203,6 +194,7 @@ header[data-testid="stHeader"]{
   padding:0!important;
 }
 .st-key-setta_drawer_toggle button{
+  position:relative!important;
   width:82px!important;
   min-height:42px!important;
   height:42px!important;
@@ -211,6 +203,24 @@ header[data-testid="stHeader"]{
   background:rgba(255,255,255,.96)!important;
   color:#111827!important;
   box-shadow:0 2px 8px rgba(15,23,42,.06)!important;
+}
+.st-key-setta_drawer_toggle button p{
+  font-size:0!important;
+  line-height:0!important;
+  margin:0!important;
+  padding:0!important;
+}
+.st-key-setta_drawer_toggle button::after{
+  content:""!important;
+  position:absolute!important;
+  left:50%!important;
+  top:50%!important;
+  width:14px!important;
+  height:1.5px!important;
+  border-radius:999px!important;
+  background:#111827!important;
+  box-shadow:0 -5px 0 #111827,0 5px 0 #111827!important;
+  transform:translate(-50%,-50%)!important;
 }
 
 /* SETTA UI — Integração da Sidebar com o App Shell */
@@ -250,12 +260,191 @@ section[data-testid="stSidebar"] .block-container{
   padding-left:16px!important;
   padding-right:16px!important;
 }
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{
+  gap:0!important;
+  row-gap:0!important;
+}
+.sidebar-brand{
+  width:100%!important;
+  background:#f8fafc!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:12px!important;
+  padding:14px 16px!important;
+  margin:0 0 20px 0!important;
+}
+.sidebar-brand-title{
+  margin:0!important;
+  padding:0!important;
+  font-size:15px!important;
+  font-weight:800!important;
+  line-height:18px!important;
+  color:#111827!important;
+  letter-spacing:-.01em!important;
+}
+.sidebar-brand-sub{
+  margin:3px 0 0 0!important;
+  padding:0!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  line-height:16px!important;
+  color:#6b7280!important;
+}
+.sidebar-section-label{
+  display:block!important;
+  margin:0 0 8px 0!important;
+  padding:0!important;
+  color:#374151!important;
+  font-size:12px!important;
+  line-height:15px!important;
+  font-weight:800!important;
+  text-transform:uppercase!important;
+  letter-spacing:.055em!important;
+}
+section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(.sidebar-section-label){
+  margin:0!important;
+  padding:0!important;
+}
+section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]){
+  margin-bottom:0!important;
+  padding:0!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"]{
+  margin:0 0 2px 0!important;
+  padding:0!important;
+}
+section[data-testid="stSidebar"] .st-key-mrp_nav_btn_0{
+  margin-top:8px!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button{
+  position:relative!important;
+  width:100%!important;
+  min-height:42px!important;
+  height:42px!important;
+  max-height:42px!important;
+  margin:0!important;
+  padding:0 12px 0 24px!important;
+  border-radius:10px!important;
+  justify-content:flex-start!important;
+  text-align:left!important;
+  box-shadow:none!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button > div{
+  width:100%!important;
+  justify-content:flex-start!important;
+  text-align:left!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button p{
+  width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  text-align:left!important;
+  font-size:13px!important;
+  line-height:16px!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]{
+  background:transparent!important;
+  border:1px solid transparent!important;
+  color:#374151!important;
+  font-weight:500!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]:hover{
+  background:#f8fafc!important;
+  border-color:#e5e7eb!important;
+  color:#111827!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]{
+  background:#111827!important;
+  border:1px solid #111827!important;
+  color:#fff!important;
+  font-weight:700!important;
+  box-shadow:0 5px 14px rgba(17,24,39,.14)!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]::before{
+  content:""!important;
+  position:absolute!important;
+  left:7px!important;
+  top:50%!important;
+  width:4px!important;
+  height:20px!important;
+  border-radius:999px!important;
+  background:#ef4444!important;
+  transform:translateY(-50%)!important;
+}
+.sidebar-divider{
+  display:block!important;
+  width:100%!important;
+  height:1px!important;
+  min-height:1px!important;
+  background:#d1d5db!important;
+  margin:18px 0 20px 0!important;
+  padding:0!important;
+}
+.sidebar-status-card,
+.sidebar-week-card{
+  width:100%!important;
+  background:#f8fafc!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:10px!important;
+  padding:12px 14px!important;
+  margin:0!important;
+  color:#6b7280!important;
+}
+.sidebar-status-name,
+.sidebar-week-label{
+  margin:0!important;
+  padding:0!important;
+  font-size:11px!important;
+  line-height:14px!important;
+  font-weight:800!important;
+  color:#64748b!important;
+  text-transform:uppercase!important;
+  letter-spacing:.025em!important;
+}
+.sidebar-status-value{
+  margin:4px 0 0 0!important;
+  padding:0!important;
+  font-size:13px!important;
+  line-height:16px!important;
+  font-weight:900!important;
+  text-transform:uppercase!important;
+}
+.sidebar-status-value.status-ok{color:#16a34a!important}
+.sidebar-status-value.status-warning{color:#f59e0b!important}
+.sidebar-status-value.status-error{color:#ef4444!important}
+.sidebar-status-meta{
+  margin:6px 0 0 0!important;
+  padding:0!important;
+  color:#6b7280!important;
+  font-size:11px!important;
+  line-height:15px!important;
+  text-transform:uppercase!important;
+}
+.sidebar-subdivider{
+  width:100%!important;
+  height:1px!important;
+  min-height:1px!important;
+  background:#d1d5db!important;
+  margin:12px 0!important;
+}
+.sidebar-week-value{
+  margin:5px 0 0 0!important;
+  padding:0!important;
+  color:#111827!important;
+  font-size:13px!important;
+  line-height:16px!important;
+  font-weight:900!important;
+  text-transform:uppercase!important;
+}
+/* SETTA UI — Sidebar Operacional V1 */
 
 /* SETTA UI — Header Superior V1: medidas exatas do Conversor MRP */
 .setta-logo-card,
 .setta-brand{
   width:100%!important;
   min-height:150px!important;
+  height:150px!important;
+  max-height:150px!important;
+  flex:0 0 150px!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
@@ -278,75 +467,6 @@ section[data-testid="stSidebar"] .block-container{
   object-fit:contain!important;
   margin:0!important;
 }
-.app-title{
-  margin:0!important;
-  padding:0!important;
-  font-size:2.55rem!important;
-  line-height:1.08!important;
-  font-weight:800!important;
-  letter-spacing:-.04em!important;
-  color:#050505!important;
-}
-.app-subtitle,.app-sub,.setta-main-description{
-  margin-top:.72rem!important;
-  margin-bottom:1.65rem!important;
-  color:#4f5661!important;
-  font-size:.94rem!important;
-  line-height:1.35!important;
-}
-.section-title{
-  margin:0 0 1rem!important;
-  color:#0f172a!important;
-  font-size:1.28rem!important;
-  font-weight:900!important;
-  letter-spacing:-.02em!important;
-  text-transform:uppercase!important;
-}
-.section-band{
-  margin:0 0 .95rem!important;
-  padding:.82rem 1rem!important;
-  background:#fff!important;
-  border:1px solid #e5e8ee!important;
-  border-left:5px solid #111827!important;
-  border-radius:12px!important;
-  box-shadow:0 3px 12px rgba(15,23,42,.035)!important;
-}
-.section-band-kicker{
-  font-size:.66rem!important;
-  font-weight:900!important;
-  letter-spacing:.085em!important;
-  text-transform:uppercase!important;
-  color:#ef4444!important;
-  margin-bottom:.18rem!important;
-}
-.section-band-title{
-  font-size:1.08rem!important;
-  font-weight:900!important;
-  color:#111827!important;
-  letter-spacing:-.015em!important;
-  line-height:1.2!important;
-  text-transform:uppercase!important;
-}
-
-/* SETTA UI — Light Lock V1 */
-input,textarea,
-[data-baseweb="input"] input,
-[data-baseweb="textarea"] textarea,
-[data-baseweb="select"] > div,
-[data-baseweb="base-input"],
-[data-testid="stTextInput"] input,
-[data-testid="stNumberInput"] input{
-  background:#fff!important;
-  color:#111827!important;
-  -webkit-text-fill-color:#111827!important;
-}
-[data-baseweb="popover"],
-[data-baseweb="menu"],
-[role="listbox"]{
-  background:#fff!important;
-  color:#111827!important;
-}
-
 /* Mobile idêntico ao princípio do Conversor: shell ocupa a tela. */
 @media(max-width:900px){
   html,body,#root{
@@ -396,13 +516,34 @@ input,textarea,
     top:14px!important;
     left:16px!important;
   }
-  .app-title{font-size:2rem!important}
+  .setta-logo-card,
+  .setta-brand{
+    min-height:105px!important;
+    height:105px!important;
+    max-height:105px!important;
+    flex:0 0 105px!important;
+    margin-bottom:1.8rem!important;
+    padding:.9rem 1rem!important;
+  }
+  .setta-logo-card img,
+  .setta-brand-logo img{
+    max-width:170px!important;
+    max-height:72px!important;
+  }
 }
 </style>"""
 
+_shell_anchor = '_mrp_role=st.session_state.get("auth_role")\n'
+if _shell_anchor not in _source:
+    raise RuntimeError("Ponto de montagem da sidebar não encontrado para SETTA UI.")
+
+_shell_bootstrap = (
+    'st.markdown(' + repr(_setta_css) + ', unsafe_allow_html=True)\n'
+    + _drawer_runtime
+)
 _source = _source.replace(
-    _title_anchor,
-    'st.markdown(' + repr(_setta_css) + ', unsafe_allow_html=True)\n' + _title_anchor,
+    _shell_anchor,
+    _shell_bootstrap + _shell_anchor,
     1,
 )
 '''

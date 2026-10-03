@@ -205,8 +205,14 @@ def _download_source_cached(
 def _download_cadastros_frame_cached(
     version: int,
     updated_at: str,
+    allow_legacy_excel: bool = False,
 ) -> pd.DataFrame:
-    """Consome CADASTROS normalizado; Excel fica apenas como contingência legada."""
+    """Consome CADASTROS normalizado no fluxo operacional.
+
+    O Excel bruto não é reaberto silenciosamente. A contingência legada
+    existe apenas quando explicitamente autorizada e quando a camada
+    normalizada realmente não estiver disponível.
+    """
     try:
         meta = api_call(
             "source_normalized_download",
@@ -215,7 +221,7 @@ def _download_cadastros_frame_cached(
         ).get("data") or {}
         signed_url = str(meta.get("signed_url") or "")
         if not signed_url:
-            raise RuntimeError("CADASTROS normalizado sem URL.")
+            raise RuntimeError("NORMALIZED_SOURCE_NOT_AVAILABLE")
         response = SESSION.get(signed_url, timeout=120)
         response.raise_for_status()
         pack = json.loads(
@@ -246,17 +252,28 @@ def _download_cadastros_frame_cached(
         frame = raw.iloc[2:].reset_index(drop=True).copy()
         frame.columns = headers
         return frame
-    except Exception:
-        raw = _download_source_cached(
-            "cadastros",
-            version,
-            updated_at,
-        )
-        return pd.read_excel(
-            io.BytesIO(raw),
-            sheet_name=0,
-            header=1,
-        )
+    except RuntimeError as exc:
+        error = str(exc).strip().upper()
+        if allow_legacy_excel and error == "NORMALIZED_SOURCE_NOT_AVAILABLE":
+            raw = _download_source_cached(
+                "cadastros",
+                version,
+                updated_at,
+            )
+            return pd.read_excel(
+                io.BytesIO(raw),
+                sheet_name=0,
+                header=1,
+            )
+        if error in {
+            "NORMALIZED_SOURCE_NOT_AVAILABLE",
+            "NORMALIZED_SOURCE_STALE",
+        }:
+            raise RuntimeError(
+                "CADASTROS aguardando normalização na Central de Dados. "
+                "O MRP não reabrirá o Excel automaticamente."
+            ) from exc
+        raise
 
 
 @st.cache_data(show_spinner=False, ttl=3600, max_entries=16)

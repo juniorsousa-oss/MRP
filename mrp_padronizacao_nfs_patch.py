@@ -302,10 +302,8 @@ if _sidebar_start < 0 or _sidebar_end < 0:
 _new_sidebar = r"""_mrp_role=st.session_state.get("auth_role")
 _mrp_pages=["MRP ATUAL", "CONFIGURAÇÕES"] if _mrp_role=="ADMIN" else ["MRP ATUAL"]
 
-_mrp_nav_param=str(st.query_params.get("nav") or "").strip().lower()
-_mrp_nav_map={"mrp-atual":"MRP ATUAL","configuracoes":"CONFIGURAÇÕES"}
-if _mrp_nav_param in _mrp_nav_map and _mrp_nav_map[_mrp_nav_param] in _mrp_pages:
-    st.session_state["_mrp_sidebar_page"]=_mrp_nav_map[_mrp_nav_param]
+def _mrp_set_sidebar_page(page):
+    st.session_state["_mrp_sidebar_page"]=page
 
 _mrp_page=str(st.session_state.get("_mrp_sidebar_page") or "MRP ATUAL")
 if _mrp_page not in _mrp_pages:
@@ -319,11 +317,24 @@ usuario_mrp=st.session_state.get("auth_nome", "")
 # A Central é a mesma fonte de dados para ADMIN e CONSULTA.
 # A diferença de perfil afeta apenas ações administrativas.
 try:
-    _central_bundle=_central_mrp.load_mrp_bundle()
+    import time as _mrp_time
+    _mrp_now=_mrp_time.time()
+    _mrp_cached_bundle=st.session_state.get("_mrp_central_bundle")
+    _mrp_cached_at=float(st.session_state.get("_mrp_central_bundle_at") or 0.0)
+    _mrp_refresh_due=(
+        not isinstance(_mrp_cached_bundle,dict)
+        or (_mrp_now-_mrp_cached_at)>=60.0
+    )
+    if _mrp_refresh_due:
+        _central_bundle=_central_mrp.load_mrp_bundle()
+        st.session_state["_mrp_central_bundle"]=_central_bundle
+        st.session_state["_mrp_central_bundle_at"]=_mrp_now
+    else:
+        _central_bundle=_mrp_cached_bundle
     st.session_state.pop("_mrp_central_error",None)
 except Exception as _central_err:
     st.session_state["_mrp_central_error"]=str(_central_err)
-    _central_bundle={}
+    _central_bundle=st.session_state.get("_mrp_central_bundle") or {}
 
 _manual_store=st.session_state.get("_mrp_manual_files") or {}
 _manual_active=bool(st.session_state.get("_mrp_manual_active"))
@@ -379,6 +390,24 @@ if _mrp_rows not in (None,""):
 _mrp_meta_parts=[x for x in (_mrp_when,_mrp_rows_text) if x and x!="—"]
 _mrp_meta_text=" · ".join(_mrp_meta_parts) if _mrp_meta_parts else "SEM ATUALIZAÇÃO REGISTRADA"
 
+_mrp_base_total=5
+_mrp_base_ok=0
+_mrp_cad_meta=(_central_bundle.get("cadastro_meta") or {}) if _central_bundle else {}
+_mrp_der_meta=(_central_bundle.get("derived_meta") or {}) if _central_bundle else {}
+_mrp_stale_keys=set((_central_bundle.get("stale_inputs") or {}).keys()) if _central_bundle else set()
+if _mrp_cad_meta.get("available"):
+    _mrp_base_ok+=1
+for _mrp_base_key in (
+    "relatorio_geral_tratado",
+    "estoque_tratado",
+    "compras_tratado",
+    "tctp_tratado",
+):
+    _mrp_base_meta=_mrp_der_meta.get(_mrp_base_key) or {}
+    if _mrp_base_meta.get("available") and _mrp_base_key not in _mrp_stale_keys:
+        _mrp_base_ok+=1
+_mrp_meta_text += f"<br>QNT DE BASES: {_mrp_base_ok}/{_mrp_base_total}"
+
 _mrp_sidebar_week="—"
 try:
     _mrp_week_frame=(_central_bundle or {}).get("relatorio_geral_tratado")
@@ -393,39 +422,39 @@ try:
 except Exception:
     pass
 
-_mrp_nav_links=[]
-for _page in _mrp_pages:
-    _slug="mrp-atual" if _page=="MRP ATUAL" else "configuracoes"
-    _active=" active" if _page==_mrp_page else ""
-    _mrp_nav_links.append(
-        f'<a class="sidebar-nav-link{_active}" href="?nav={_slug}" target="_self">{_page}</a>'
-    )
-
-_mrp_sidebar_html=(
-    '<div class="setta-sidebar">'
-    '<div class="sidebar-brand">'
-    '<div class="sidebar-brand-title">MRP</div>'
-    '<div class="sidebar-brand-sub">Planejamento de Materiais SETTA</div>'
-    '</div>'
-    '<div class="sidebar-section-label">NAVEGAÇÃO</div>'
-    '<div class="sidebar-nav">'+"".join(_mrp_nav_links)+'</div>'
-    '<div class="sidebar-divider"></div>'
-    '<div class="sidebar-section-label">STATUS GERAL</div>'
-    '<div class="sidebar-status-card">'
-    '<div class="sidebar-status-name">RELATÓRIO MRP</div>'
-    f'<div class="sidebar-status-value {_mrp_status_class}">{_mrp_status}</div>'
-    f'<div class="sidebar-status-meta">{_mrp_meta_text}</div>'
-    '</div>'
-    '<div class="sidebar-subdivider"></div>'
-    '<div class="sidebar-week-card">'
-    '<div class="sidebar-week-label">SEMANA ATUAL</div>'
-    f'<div class="sidebar-week-value">{_mrp_sidebar_week}</div>'
-    '</div>'
-    '</div>'
-)
-
 with st.sidebar:
-    st.markdown(_mrp_sidebar_html, unsafe_allow_html=True)
+    st.markdown(
+        '<div class="sidebar-brand">'
+        '<div class="sidebar-brand-title">MRP</div>'
+        '<div class="sidebar-brand-sub">Planejamento de Materiais SETTA</div>'
+        '</div>'
+        '<div class="sidebar-section-label">NAVEGAÇÃO</div>',
+        unsafe_allow_html=True,
+    )
+    for _nav_index,_page in enumerate(_mrp_pages):
+        st.button(
+            _page,
+            key=f"mrp_nav_btn_{_nav_index}",
+            type="primary" if _page==_mrp_page else "secondary",
+            use_container_width=True,
+            on_click=_mrp_set_sidebar_page,
+            args=(_page,),
+        )
+    st.markdown(
+        '<div class="sidebar-divider"></div>'
+        '<div class="sidebar-section-label">STATUS GERAL</div>'
+        '<div class="sidebar-status-card">'
+        '<div class="sidebar-status-name">RELATÓRIO MRP</div>'
+        f'<div class="sidebar-status-value {_mrp_status_class}">{_mrp_status}</div>'
+        f'<div class="sidebar-status-meta">{_mrp_meta_text}</div>'
+        '</div>'
+        '<div class="sidebar-subdivider"></div>'
+        '<div class="sidebar-week-card">'
+        '<div class="sidebar-week-label">SEMANA ATUAL</div>'
+        f'<div class="sidebar-week-value">{_mrp_sidebar_week}</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 """
 _source = _source[:_sidebar_start] + _new_sidebar + "\n" + _source[_sidebar_end:]
 

@@ -136,10 +136,9 @@ _old_notice = '''if UI_CONFIG.get("main_notice"):
 if _old_notice in _source:
     _source = _source.replace(_old_notice, '', 1)
 
-# CSS final: botão Limpar secundário + upload compacto no menu lateral.
+# CSS interno: apenas o botão LIMPAR. A sidebar é propriedade do shell SETTA.
 _ui_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
 _ui_css_html = '''<style>
-/* Botão LIMPAR: pequeno, claro e discreto. */
 div[data-testid="stFormSubmitButton"] button[kind="secondary"] {
     background:#ffffff !important;
     border:1px solid #cfd4dc !important;
@@ -150,53 +149,6 @@ div[data-testid="stFormSubmitButton"] button[kind="secondary"]:hover {
     background:#f4f5f7 !important;
     border-color:#aeb5bf !important;
     color:#111111 !important;
-}
-
-/* Menu lateral — bases do MRP mais compactas. */
-section[data-testid="stSidebar"] div[data-testid="stFileUploader"] {
-    margin:0 0 .72rem 0 !important;
-    padding:.58rem .62rem .62rem !important;
-    border:1px solid #e2e5ea !important;
-    border-radius:10px !important;
-    background:#fafbfc !important;
-}
-section[data-testid="stSidebar"] div[data-testid="stFileUploader"] > label {
-    font-weight:700 !important;
-    font-size:.78rem !important;
-    color:#16191d !important;
-    margin-bottom:.32rem !important;
-}
-section[data-testid="stSidebar"] div[data-testid="stFileUploaderDropzone"] {
-    min-height:40px !important;
-    padding:.25rem !important;
-    border:0 !important;
-    background:transparent !important;
-}
-section[data-testid="stSidebar"] div[data-testid="stFileUploaderDropzoneInstructions"] {
-    display:none !important;
-}
-section[data-testid="stSidebar"] div[data-testid="stFileUploader"] small {
-    display:none !important;
-}
-section[data-testid="stSidebar"] div[data-testid="stFileUploader"] button {
-    width:100% !important;
-    min-height:34px !important;
-    margin:0 !important;
-    border-radius:8px !important;
-    background:#0a0a0a !important;
-    border:1px solid #0a0a0a !important;
-    color:#ffffff !important;
-    font-weight:650 !important;
-    box-shadow:none !important;
-}
-section[data-testid="stSidebar"] div[data-testid="stFileUploader"] button:hover {
-    background:#202020 !important;
-    border-color:#202020 !important;
-}
-section[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] {
-    background:#ffffff !important;
-    border-radius:7px !important;
-    padding:.35rem .45rem !important;
 }
 </style>'''
 _ui_css = 'st.markdown(' + repr(_ui_css_html) + ', unsafe_allow_html=True)\n'

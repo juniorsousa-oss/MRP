@@ -46,7 +46,7 @@ jobs:
               for idx in range(start, end):
                   print(f"{idx+1:04d}: {source_lines[idx]}")
               raise
-          print("=== DIAGNOSTICO LINHAS 2218-2240 ===")\n          for _i, _line in enumerate(env["_source"].splitlines()[2217:2240], start=2218):\n              print(f"{_i:04d}: {_line}")\n          print("=== DIAGNOSTICO LINHAS 2218-2240 ===")
+          print("=== DIAGNOSTICO LINHAS 2218-2240 ===")
           for _i, _line in enumerate(env["_source"].splitlines()[2217:2240], start=2218):
               print(f"{_i:04d}: {_line}")
           assert "compressed_payload" in env["_source"]

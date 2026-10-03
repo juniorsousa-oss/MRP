@@ -71,16 +71,18 @@ jobs:
           assert "padding-top:26px" in env["_source"]
           assert "height:42px" in env["_source"]
           assert "margin:0 0 2px 0!important" in env["_source"]
-          assert "neutraliza espaçamentos negativos" in env["_source"]
           assert 'div[data-testid="stElementContainer"]:has(div[data-testid="stButton"])' in env["_source"]
+          assert "margin-bottom:-.45rem" not in env["_source"]
+          assert env["_source"].count("SETTA UI — Sidebar Operacional V1") == 1
           assert "background:#ef4444!important" in env["_source"]
           assert "sidebar-divider" in env["_source"]
           assert "sidebar-status-card" in env["_source"]
           assert "sidebar-week-card" in env["_source"]
           assert 'QNT DE BASES: {_mrp_base_ok}/{_mrp_base_total}' in env["_source"]
           assert "_mrp_force_central_refresh" in env["_source"]
-          assert "_central_mrp.inspect_mrp_state()" in env["_source"]
+          assert "_central_mrp.inspect_mrp_state()" not in env["_source"]
           assert "(_mrp_now-_mrp_cached_at)" not in env["_source"]
+          assert '_central_bundle=_mrp_cached_bundle' in env["_source"]
           assert "ATUALIZAR DADOS DA CENTRAL" in env["_source"]
           assert 'st.radio(\n        "Página"' not in env["_source"]
           assert 'if st.session_state.get("auth_role") == "CONSULTA":' not in env["_source"]
@@ -157,5 +159,16 @@ jobs:
           scope["_mrp_uncompressed_get"] = lambda params=None: [dict(id=1, compressed_payload=packed["compressed_payload"])]
           assert all(scope["_sb_get"]()[0][field] == example[field] for field in (
               "mrp_geral", "projecao_semanal", "demanda_projeto", "compra_mrp", "compras", "fabricacao"))
+          # Higiene do repositório: workflows/scripts temporários não podem voltar.
+          forbidden = [
+              ".github/workflows/fix-login-positions-2.yml",
+              ".github/workflows/refinar-posicao-login.yml",
+              ".github/workflows/z-final-login-css.yml",
+              ".github/scripts/adjust_brand_card.py",
+              ".github/mrp_login_fix.trigger",
+              "mrp_header_padrao_patch.py",
+              "ChatGPT Image 9 de set. de 2026, 23_56_56.png",
+          ]
+          assert all(not Path(item).exists() for item in forbidden), forbidden
           print("Sintaxe, montagem e leitura do histórico compactado: OK")
           PY

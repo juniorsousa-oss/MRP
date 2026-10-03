@@ -109,7 +109,7 @@ jobs:
           assert "Bloco visual principal não encontrado para padronização de largura." not in runtime
           assert "SETTA UI — App Shell Rounded V1" in env["_source"]
           assert 'height:150px!important' in env["_source"]
-          assert '.st-key-setta_drawer_toggle button::after' in env["_source"]
+          assert 'st.button(\n        "☰",' in env["_source"]
           # Round trip do formato compactado, sem conexão nem escrita no banco.
           import ast, json, re, gzip, base64
           parsed = ast.parse(env["_source"])

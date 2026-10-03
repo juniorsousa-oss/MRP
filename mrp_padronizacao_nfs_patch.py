@@ -263,6 +263,208 @@ section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(.sett
   text-transform:uppercase!important;
 }
 
+/* ======================================================
+   SETTA UI — Sidebar Operacional V1
+   Referência: MRP-CONVERSOR validado
+   260 / 26 / 20 / 8 / 42 / 2 px
+   ====================================================== */
+section[data-testid="stSidebar"]{
+  background:#fff!important;
+  border-right:1px solid #e8ebf0!important;
+  width:260px!important;
+  min-width:260px!important;
+  max-width:260px!important;
+  flex:0 0 260px!important;
+  flex-basis:260px!important;
+  overflow:hidden!important;
+}
+section[data-testid="stSidebar"]>div{
+  width:260px!important;
+  min-width:260px!important;
+  max-width:260px!important;
+  box-sizing:border-box!important;
+}
+section[data-testid="stSidebar"] .block-container{
+  width:260px!important;
+  min-width:260px!important;
+  max-width:260px!important;
+  box-sizing:border-box!important;
+  padding-top:26px!important;
+  padding-left:16px!important;
+  padding-right:16px!important;
+}
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{
+  gap:0!important;
+  row-gap:0!important;
+}
+.sidebar-brand{
+  width:100%!important;
+  background:#f8fafc!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:12px!important;
+  padding:14px 16px!important;
+  margin:0 0 20px 0!important;
+}
+.sidebar-brand-title{
+  margin:0!important;
+  padding:0!important;
+  font-size:15px!important;
+  font-weight:800!important;
+  line-height:18px!important;
+  color:#111827!important;
+  letter-spacing:-.01em!important;
+}
+.sidebar-brand-sub{
+  margin:3px 0 0 0!important;
+  padding:0!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  line-height:16px!important;
+  color:#6b7280!important;
+}
+.sidebar-section-label{
+  display:block!important;
+  margin:0 0 8px 0!important;
+  padding:0!important;
+  color:#374151!important;
+  font-size:12px!important;
+  line-height:15px!important;
+  font-weight:800!important;
+  text-transform:uppercase!important;
+  letter-spacing:.055em!important;
+}
+section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(.sidebar-section-label){
+  margin:0!important;
+  padding:0!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"]{
+  margin:0 0 2px 0!important;
+  padding:0!important;
+}
+section[data-testid="stSidebar"] .st-key-mrp_nav_btn_0{
+  margin-top:8px!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button{
+  position:relative!important;
+  width:100%!important;
+  min-height:42px!important;
+  height:42px!important;
+  max-height:42px!important;
+  margin:0!important;
+  padding:0 12px 0 24px!important;
+  border-radius:10px!important;
+  justify-content:flex-start!important;
+  text-align:left!important;
+  box-shadow:none!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button > div{
+  width:100%!important;
+  justify-content:flex-start!important;
+  text-align:left!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button p{
+  width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  text-align:left!important;
+  font-size:13px!important;
+  line-height:16px!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]{
+  background:transparent!important;
+  border:1px solid transparent!important;
+  color:#374151!important;
+  font-weight:500!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]:hover{
+  background:#f8fafc!important;
+  border-color:#e5e7eb!important;
+  color:#111827!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]{
+  background:#111827!important;
+  border:1px solid #111827!important;
+  color:#fff!important;
+  font-weight:700!important;
+  box-shadow:0 5px 14px rgba(17,24,39,.14)!important;
+}
+section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]::before{
+  content:""!important;
+  position:absolute!important;
+  left:7px!important;
+  top:50%!important;
+  width:4px!important;
+  height:20px!important;
+  border-radius:999px!important;
+  background:#ef4444!important;
+  transform:translateY(-50%)!important;
+}
+.sidebar-divider{
+  display:block!important;
+  width:100%!important;
+  height:1px!important;
+  min-height:1px!important;
+  background:#d1d5db!important;
+  margin:18px 0 20px 0!important;
+  padding:0!important;
+}
+.sidebar-status-card,
+.sidebar-week-card{
+  width:100%!important;
+  background:#f8fafc!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:10px!important;
+  padding:12px 14px!important;
+  margin:0!important;
+  color:#6b7280!important;
+}
+.sidebar-status-name,
+.sidebar-week-label{
+  margin:0!important;
+  padding:0!important;
+  font-size:11px!important;
+  line-height:14px!important;
+  font-weight:800!important;
+  color:#64748b!important;
+  text-transform:uppercase!important;
+  letter-spacing:.025em!important;
+}
+.sidebar-status-value{
+  margin:4px 0 0 0!important;
+  padding:0!important;
+  font-size:13px!important;
+  line-height:16px!important;
+  font-weight:900!important;
+  text-transform:uppercase!important;
+}
+.sidebar-status-value.status-ok{color:#16a34a!important}
+.sidebar-status-value.status-warning{color:#f59e0b!important}
+.sidebar-status-value.status-error{color:#ef4444!important}
+.sidebar-status-meta{
+  margin:6px 0 0 0!important;
+  padding:0!important;
+  color:#6b7280!important;
+  font-size:11px!important;
+  line-height:15px!important;
+  text-transform:uppercase!important;
+}
+.sidebar-subdivider{
+  width:100%!important;
+  height:1px!important;
+  min-height:1px!important;
+  background:#d1d5db!important;
+  margin:12px 0!important;
+}
+.sidebar-week-value{
+  margin:5px 0 0 0!important;
+  padding:0!important;
+  color:#111827!important;
+  font-size:13px!important;
+  line-height:16px!important;
+  font-weight:900!important;
+  text-transform:uppercase!important;
+}
+
 [data-testid="stTabs"] button{font-weight:800!important;text-transform:uppercase!important;letter-spacing:.015em!important}
 div[data-testid="stMarkdownContainer"] h1,
 div[data-testid="stMarkdownContainer"] h2,
@@ -315,22 +517,50 @@ _central_bundle={}
 usuario_mrp=st.session_state.get("auth_nome", "")
 
 # A Central é a mesma fonte de dados para ADMIN e CONSULTA.
-# A diferença de perfil afeta apenas ações administrativas.
+# SETTA Runtime — Load Once V1:
+# - download completo somente na primeira abertura da sessão;
+# - navegação reutiliza o bundle já carregado;
+# - reruns fazem apenas checagem leve de metadados/versões;
+# - novo download ocorre somente por atualização explícita ou mudança real.
 try:
-    import time as _mrp_time
-    _mrp_now=_mrp_time.time()
     _mrp_cached_bundle=st.session_state.get("_mrp_central_bundle")
-    _mrp_cached_at=float(st.session_state.get("_mrp_central_bundle_at") or 0.0)
-    _mrp_refresh_due=(
-        not isinstance(_mrp_cached_bundle,dict)
-        or (_mrp_now-_mrp_cached_at)>=60.0
+    _mrp_force_refresh=bool(
+        st.session_state.pop("_mrp_force_central_refresh",False)
     )
-    if _mrp_refresh_due:
-        _central_bundle=_central_mrp.load_mrp_bundle()
+
+    if _mrp_force_refresh or not isinstance(_mrp_cached_bundle,dict):
+        with st.spinner("CARREGANDO BASES DO MRP..."):
+            _central_bundle=_central_mrp.load_mrp_bundle(force_check=True)
         st.session_state["_mrp_central_bundle"]=_central_bundle
-        st.session_state["_mrp_central_bundle_at"]=_mrp_now
+        st.session_state["_mrp_central_bootstrap_checked"]=True
+        st.session_state["_mrp_output_meta"]=(
+            _central_bundle.get("output_meta") or {}
+        )
     else:
-        _central_bundle=_mrp_cached_bundle
+        _mrp_light_state=_central_mrp.inspect_mrp_state()
+        _mrp_cached_signature=str(_mrp_cached_bundle.get("signature") or "")
+        _mrp_current_signature=str(_mrp_light_state.get("signature") or "")
+
+        if (
+            _mrp_light_state.get("ready")
+            and _mrp_current_signature
+            and _mrp_current_signature!=_mrp_cached_signature
+        ):
+            with st.spinner("NOVAS VERSÕES DETECTADAS · ATUALIZANDO MRP..."):
+                _central_bundle=_central_mrp.load_mrp_bundle(force_check=True)
+            st.session_state["_mrp_central_bundle"]=_central_bundle
+            st.session_state["_mrp_output_meta"]=(
+                _central_bundle.get("output_meta") or {}
+            )
+        else:
+            # Atualiza somente metadados/status e preserva os DataFrames
+            # já carregados na sessão.
+            _central_bundle={
+                **_mrp_cached_bundle,
+                **_mrp_light_state,
+            }
+            st.session_state["_mrp_central_bundle"]=_central_bundle
+
     st.session_state.pop("_mrp_central_error",None)
 except Exception as _central_err:
     st.session_state["_mrp_central_error"]=str(_central_err)
@@ -509,6 +739,15 @@ if st.session_state.get("auth_role")=="ADMIN" and _mrp_page=="CONFIGURAÇÕES":
                 "CENTRAL INDISPONÍVEL · "
                 + str(st.session_state.get("_mrp_central_error"))
             )
+
+        if st.button(
+            "ATUALIZAR DADOS DA CENTRAL",
+            use_container_width=True,
+            key="mrp_refresh_central_config",
+        ):
+            st.session_state["_mrp_force_central_refresh"]=True
+            st.session_state.pop("_mrp_output_meta",None)
+            st.rerun()
 
         _cad_meta=(_central_bundle.get("cadastro_meta") or {}) if _central_bundle else {}
         _derived_meta=(_central_bundle.get("derived_meta") or {}) if _central_bundle else {}

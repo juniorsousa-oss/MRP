@@ -28,13 +28,8 @@ if _sidebar_helpers not in _source:
         1,
     )
 
-_old_nav_fn = '''def _mrp_set_sidebar_page(page):
-    st.session_state["_mrp_sidebar_page"]=page
-'''
-_new_nav_fn = '''def _mrp_set_sidebar_page(page):
-    st.session_state["_mrp_sidebar_page"]=page
-    _setta_close_sidebar()
-'''
+_old_nav_fn = 'def _mrp_set_sidebar_page(page):\n    st.session_state["_mrp_sidebar_page"]=page\n'
+_new_nav_fn = 'def _mrp_set_sidebar_page(page):\n    st.session_state["_mrp_sidebar_page"]=page\n    _setta_close_sidebar()\n'
 if _old_nav_fn in _source:
     _source = _source.replace(_old_nav_fn, _new_nav_fn, 1)
 
@@ -366,12 +361,10 @@ input,textarea,
 }
 </style>"""
 
-_setta_runtime_ui = '''_setta_sidebar_open = _setta_sidebar_is_open()
+_setta_runtime_ui = """_setta_sidebar_open = _setta_sidebar_is_open()
 if not _setta_sidebar_open:
     st.markdown(
-        """<style>
-        section[data-testid="stSidebar"]{display:none!important}
-        </style>""",
+        '<style>section[data-testid="stSidebar"]{display:none!important}</style>',
         unsafe_allow_html=True,
     )
 
@@ -384,7 +377,7 @@ with st.container(key="setta_top_controls"):
     )
 
 st.markdown(_setta_shell_css, unsafe_allow_html=True)
-'''
+"""
 
 _source = _source.replace(
     _title_anchor,

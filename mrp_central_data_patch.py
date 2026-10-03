@@ -201,13 +201,26 @@ _central_sidebar = r"""with st.sidebar:
 
     if _mrp_role=="ADMIN":
         try:
-            _mrp_first_central_check = not bool(
-                st.session_state.get("_mrp_central_bootstrap_checked")
+            import time as _mrp_time
+            _mrp_now = _mrp_time.time()
+            _mrp_cached_bundle = st.session_state.get("_mrp_central_bundle")
+            _mrp_cached_at = float(st.session_state.get("_mrp_central_bundle_at") or 0.0)
+            _mrp_refresh_due = (
+                not isinstance(_mrp_cached_bundle, dict)
+                or (_mrp_now - _mrp_cached_at) >= 30.0
             )
-            _central_bundle=_central_mrp.load_mrp_bundle(
-                force_check=_mrp_first_central_check
-            )
-            st.session_state["_mrp_central_bootstrap_checked"]=True
+            if _mrp_refresh_due:
+                _mrp_first_central_check = not bool(
+                    st.session_state.get("_mrp_central_bootstrap_checked")
+                )
+                _central_bundle = _central_mrp.load_mrp_bundle(
+                    force_check=_mrp_first_central_check
+                )
+                st.session_state["_mrp_central_bundle"] = _central_bundle
+                st.session_state["_mrp_central_bundle_at"] = _mrp_now
+                st.session_state["_mrp_central_bootstrap_checked"] = True
+            else:
+                _central_bundle = _mrp_cached_bundle
         except Exception as _central_err:
             st.error(f"Central indisponível: {_central_err}")
             _central_bundle={}
@@ -452,6 +465,7 @@ if st.session_state.get("auth_role") == "ADMIN" and not _mrp_use_manual and _cen
             '<div class="mrp-output-status">ATUALIZADO</div></div>'
             f'<div class="mrp-output-meta">{_mrp_output_when}'
             + (f' · {int(_mrp_output_rows):,} REGISTROS'.replace(",", ".") if _mrp_output_rows not in (None,"") else '')
+            + '<br>QNT DE BASES: 5/5'
             + '</div></div>',
             unsafe_allow_html=True,
         )

@@ -431,7 +431,7 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   border-radius:18px!important;
   box-shadow:0 4px 14px rgba(24,39,75,.08)!important;
   box-sizing:border-box!important;
-  margin:77px 0 24px 0!important;
+  margin:61px 0 24px 0!important;
   padding:18px 24px!important;
 }
 .setta-logo-card img,

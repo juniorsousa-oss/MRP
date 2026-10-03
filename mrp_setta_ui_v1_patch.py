@@ -355,22 +355,18 @@ def _setta_render_sidebar_control():
     _setta_sidebar_open = _setta_sidebar_is_open()
     if not _setta_sidebar_open:
         st.markdown(
-            """<style>
-            section[data-testid="stSidebar"]{display:none!important}
-            [data-testid="stSidebarCollapseButton"],
-            [data-testid="stSidebarCollapsedControl"],
-            button[data-testid="stSidebarCollapseButton"]{display:none!important}
-            </style>""",
+            '<style>section[data-testid="stSidebar"]{display:none!important}'
+            '[data-testid="stSidebarCollapseButton"],'
+            '[data-testid="stSidebarCollapsedControl"],'
+            'button[data-testid="stSidebarCollapseButton"]{display:none!important}</style>',
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            """<style>
-            section[data-testid="stSidebar"]{display:flex!important}
-            [data-testid="stSidebarCollapseButton"],
-            [data-testid="stSidebarCollapsedControl"],
-            button[data-testid="stSidebarCollapseButton"]{display:none!important}
-            </style>""",
+            '<style>section[data-testid="stSidebar"]{display:flex!important}'
+            '[data-testid="stSidebarCollapseButton"],'
+            '[data-testid="stSidebarCollapsedControl"],'
+            'button[data-testid="stSidebarCollapseButton"]{display:none!important}</style>',
             unsafe_allow_html=True,
         )
 

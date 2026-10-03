@@ -361,7 +361,16 @@ input,textarea,
 }
 </style>"""
 
-_setta_runtime_ui = """_setta_sidebar_open = _setta_sidebar_is_open()
+_setta_runtime_ui = """def _setta_sidebar_is_open():
+    return bool(st.session_state.get("_setta_sidebar_open", False))
+
+def _setta_toggle_sidebar():
+    st.session_state["_setta_sidebar_open"] = not _setta_sidebar_is_open()
+
+def _setta_close_sidebar():
+    st.session_state["_setta_sidebar_open"] = False
+
+_setta_sidebar_open = _setta_sidebar_is_open()
 if not _setta_sidebar_open:
     st.markdown(
         '<style>section[data-testid="stSidebar"]{display:none!important}</style>',

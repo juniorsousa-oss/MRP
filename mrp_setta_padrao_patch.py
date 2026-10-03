@@ -1,6 +1,6 @@
 SETTA_PADRAO_PATCH = r'''
 # =========================================================
-# PADRÃO VISUAL SETTA — BASE MONITOR DE APIs
+# TEMA INTERNO DO MRP — SHELL SETTA EXCLUSIVO EM mrp_setta_ui_v1_patch.py
 # =========================================================
 
 _page_old = 'st.set_page_config(page_title="MRP | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide")'
@@ -96,21 +96,7 @@ _setta_css = """
   --setta-red:#ef4444;
   --setta-green:#22c55e;
 }
-.stApp{background:var(--setta-bg)!important;color:var(--setta-text)!important}
-[data-testid="stHeader"]{background:rgba(255,255,255,.96)!important}
-
-.block-container{
-  max-width:1780px!important;
-  width:100%!important;
-  padding-top:3.2rem!important;
-  padding-left:2.7rem!important;
-  padding-right:2.7rem!important;
-  padding-bottom:3rem!important;
-}
-
-/* Sidebar intentionally omitted here.
-   The final sidebar is owned exclusively by mrp_padronizacao_nfs_patch.py
-   to prevent CSS specificity conflicts. */
+/* Moldura, cabeçalho e sidebar não são definidos neste arquivo. */
 
 [data-testid="stElementContainer"]:has(style):not(:has(.setta-logo-card)){
   display:none!important;
@@ -118,35 +104,6 @@ _setta_css = """
   padding:0!important;
   height:0!important;
   min-height:0!important;
-}
-.setta-brand{
-  width:100%!important;
-  min-height:128px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  background:#fff!important;
-  border:1px solid #e5e8ee!important;
-  border-radius:16px!important;
-  box-shadow:0 4px 14px rgba(24,39,75,.08)!important;
-  box-sizing:border-box!important;
-  margin:0 0 1.85rem!important;
-  padding:1.1rem 2rem!important;
-}
-.setta-brand-logo{
-  width:100%!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-}
-.setta-brand-logo img{
-  display:block!important;
-  width:auto!important;
-  height:auto!important;
-  max-width:205px!important;
-  max-height:86px!important;
-  object-fit:contain!important;
-  margin:0!important;
 }
 div[data-testid="stElementContainer"]:has(.app-title){
   margin-top:0!important;
@@ -379,14 +336,6 @@ hr{
 }
 @media(max-width:900px){
   div[data-testid="stElementContainer"]:has(.app-title){margin-top:0!important}
-  .block-container{
-    padding-top:2rem!important;
-    padding-left:1rem!important;
-    padding-right:1rem!important;
-    padding-bottom:2rem!important;
-  }
-  .setta-brand{min-height:105px;margin-bottom:1.8rem!important;padding:.9rem 1rem!important}
-  .setta-brand-logo img{max-width:170px!important;max-height:72px!important}
   .app-title{font-size:2rem!important}
   .mrp-source-grid{grid-template-columns:1fr!important}
   .mrp-output-card{align-items:flex-start;flex-direction:column}

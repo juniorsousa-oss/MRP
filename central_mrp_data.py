@@ -371,9 +371,13 @@ def dependency_signature(versions: dict[str, str]) -> str:
     )
 
 
-def load_mrp_bundle(force_check: bool = False) -> dict:
-    # Na primeira abertura da sessão, ignora qualquer estado em cache e consulta
-    # a Central imediatamente, reproduzindo a checagem de versões do Conversor.
+def inspect_mrp_state(force_check: bool = False) -> dict:
+    """Consulta somente metadados/versões do MRP, sem baixar DataFrames.
+
+    Esta função é a verificação leve do SETTA Runtime — Load Once V1.
+    Ela pode ser executada em reruns da interface porque não transfere as
+    cinco bases operacionais.
+    """
     if force_check:
         clear_state_cache()
 
@@ -410,7 +414,25 @@ def load_mrp_bundle(force_check: bool = False) -> dict:
         != _normalized_versions(versions)
     )
 
-    bundle = {
+    # Token de estado inclui também as fontes brutas. Assim a interface
+    # percebe imediatamente quando o Conversor ainda está reprocessando uma
+    # dependência, sem baixar nenhuma base pesada.
+    state_token = dependency_signature(
+        {
+            "cadastros": f"v{int(cadastro_meta.get('version') or 0)}",
+            **{
+                f"raw:{key}": f"v{int((sources.get(key) or {}).get('version') or 0)}"
+                for key in RAW_INPUTS
+            },
+            **{
+                f"derived:{key}": str((input_meta.get(key) or {}).get("processed_at") or "")
+                for key in DERIVED_INPUTS
+            },
+            "output:relatorio_mrp": str(output_meta.get("processed_at") or ""),
+        }
+    )
+
+    return {
         "ready": ready,
         "cadastro_meta": cadastro_meta,
         "source_meta": {
@@ -423,9 +445,22 @@ def load_mrp_bundle(force_check: bool = False) -> dict:
         "output_stale": output_stale,
         "dependency_versions": versions,
         "signature": signature,
+        "state_token": state_token,
     }
-    if not ready:
+
+
+def load_mrp_bundle(force_check: bool = False) -> dict:
+    """Carrega as cinco bases somente quando o runtime realmente precisa.
+
+    Navegação e outros reruns devem reutilizar o bundle guardado em
+    st.session_state e usar inspect_mrp_state() para checagens leves.
+    """
+    bundle = inspect_mrp_state(force_check=force_check)
+    if not bundle.get("ready"):
         return bundle
+
+    cadastro_meta = bundle.get("cadastro_meta") or {}
+    input_meta = bundle.get("derived_meta") or {}
 
     tasks: dict[Any, tuple[str, str]] = {}
     with ThreadPoolExecutor(max_workers=5) as executor:

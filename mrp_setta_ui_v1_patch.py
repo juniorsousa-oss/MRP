@@ -203,18 +203,18 @@ button[data-testid="stSidebarCollapseButton"]{
   top:18px!important;
   left:44px!important;
   z-index:120!important;
-  width:82px!important;
+  width:48px!important;
   margin:0!important;
   padding:0!important;
 }
 .st-key-setta_top_controls [data-testid="stVerticalBlock"]{gap:0!important}
 .st-key-setta_drawer_toggle{
-  width:82px!important;
+  width:48px!important;
   margin:0!important;
   padding:0!important;
 }
 .st-key-setta_drawer_toggle button{
-  width:82px!important;
+  width:48px!important;
   min-height:42px!important;
   height:42px!important;
   border-radius:10px!important;
@@ -379,7 +379,7 @@ if not _setta_sidebar_open:
 
 with st.container(key="setta_top_controls"):
     st.button(
-        "☰ MENU",
+        "<<",
         key="setta_drawer_toggle",
         use_container_width=True,
         on_click=_setta_toggle_sidebar,

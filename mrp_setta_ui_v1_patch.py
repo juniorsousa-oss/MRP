@@ -194,33 +194,13 @@ header[data-testid="stHeader"]{
   padding:0!important;
 }
 .st-key-setta_drawer_toggle button{
-  position:relative!important;
   width:82px!important;
   min-height:42px!important;
   height:42px!important;
   border-radius:10px!important;
   padding:0!important;
   background:rgba(255,255,255,.96)!important;
-  color:#111827!important;
   box-shadow:0 2px 8px rgba(15,23,42,.06)!important;
-}
-.st-key-setta_drawer_toggle button p{
-  font-size:0!important;
-  line-height:0!important;
-  margin:0!important;
-  padding:0!important;
-}
-.st-key-setta_drawer_toggle button::after{
-  content:""!important;
-  position:absolute!important;
-  left:50%!important;
-  top:50%!important;
-  width:14px!important;
-  height:1.5px!important;
-  border-radius:999px!important;
-  background:#111827!important;
-  box-shadow:0 -5px 0 #111827,0 5px 0 #111827!important;
-  transform:translate(-50%,-50%)!important;
 }
 
 /* SETTA UI — Integração da Sidebar com o App Shell */
@@ -442,9 +422,6 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
 .setta-brand{
   width:100%!important;
   min-height:150px!important;
-  height:150px!important;
-  max-height:150px!important;
-  flex:0 0 150px!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
@@ -519,9 +496,6 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   .setta-logo-card,
   .setta-brand{
     min-height:105px!important;
-    height:105px!important;
-    max-height:105px!important;
-    flex:0 0 105px!important;
     margin-bottom:1.8rem!important;
     padding:.9rem 1rem!important;
   }

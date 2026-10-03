@@ -71,6 +71,8 @@ jobs:
           assert "padding-top:26px" in env["_source"]
           assert "height:42px" in env["_source"]
           assert "margin:0 0 2px 0!important" in env["_source"]
+          assert "neutraliza espaçamentos negativos" in env["_source"]
+          assert 'div[data-testid="stElementContainer"]:has(div[data-testid="stButton"])' in env["_source"]
           assert "background:#ef4444!important" in env["_source"]
           assert "sidebar-divider" in env["_source"]
           assert "sidebar-status-card" in env["_source"]

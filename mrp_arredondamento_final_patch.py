@@ -34,7 +34,6 @@ div.stColumn:has([data-testid="stDataFrame"]) {
 }
 
 /* Qualquer pseudo-elemento de wrapper também deve desaparecer. */
-div[data-testid="stElementContainer"]:has([data-testid="stDataFrame"])::before,
 div[data-testid="stElementContainer"]:has([data-testid="stDataFrame"])::after,
 div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stDataFrame"])::before,
 div[data-testid="stVerticalBlockBorderWrapper"]:has([data-testid="stDataFrame"])::after {
@@ -49,6 +48,47 @@ div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] [
     background: transparent !important;
     border: 0 !important;
     box-shadow: none !important;
+}
+
+/* O Streamlit/Glide mantém uma camada retangular atrás do grid.
+   A máscara no element-container elimina especificamente esse resíduo. */
+div[data-testid="stElementContainer"]:has(> div [data-testid="stDataFrame"]) {
+    position: relative !important;
+    overflow: visible !important;
+}
+
+/* Faz o fundo imediatamente atrás do grid ser exatamente o fundo da página. */
+div[data-testid="stElementContainer"]:has([data-testid="stDataFrame"]) > div,
+div[data-testid="stElementContainer"]:has([data-testid="stDataFrame"]) > div > div {
+    background: transparent !important;
+    background-image: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Máscara física nos cantos esquerdos: cobre qualquer pixel quadrado
+   renderizado pelo viewport/canvas que escape do border-radius. */
+[data-testid="stDataFrame"] {
+    -webkit-mask-image:
+      radial-gradient(circle at 16px 16px, #000 15.5px, transparent 16px),
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: source-over;
+    mask-image: none;
+}
+
+/* Sobreposição final, da cor do fundo, somente fora da curva. */
+div[data-testid="stElementContainer"]:has([data-testid="stDataFrame"])::before {
+    content:"" !important;
+    display:block !important;
+    position:absolute !important;
+    left:0 !important;
+    bottom:0 !important;
+    width:18px !important;
+    height:18px !important;
+    pointer-events:none !important;
+    z-index:10000 !important;
+    background:
+      radial-gradient(circle at 18px 0, transparent 17px, #F4F7FB 17.5px) !important;
 }
 
 /* Recorte definitivo do componente e de todas as camadas imediatas. */

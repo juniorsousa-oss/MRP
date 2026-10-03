@@ -25,6 +25,14 @@ jobs:
           python - <<'PY'
           import central_mrp_data as central
 
+          state = central.inspect_mrp_state(force_check=True)
+          assert "signature" in state, state
+          assert "state_token" in state, state
+          assert "cadastros_frame" not in state, "A checagem leve não pode baixar DataFrames."
+          assert all(key not in state for key in central.DERIVED_INPUTS), (
+              "A checagem leve não pode materializar bases derivadas."
+          )
+
           bundle = central.load_mrp_bundle()
           assert bundle.get("ready") is True, bundle
           cadastro = bundle.get("cadastros_frame")

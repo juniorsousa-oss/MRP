@@ -39,7 +39,7 @@ from mrp_padrao_final_patch import MRP_PADRAO_FINAL_PATCH
 from mrp_desempenho_final_patch import DESEMPENHO_FINAL_PATCH
 from mrp_central_data_patch import CENTRAL_DATA_PATCH
 from mrp_padronizacao_nfs_patch import PADRONIZACAO_NFS_PATCH
-from mrp_arredondamento_final_patch import ARREDONDAMENTO_FINAL_PATCH
+from mrp_setta_ui_v1_patch import SETTA_UI_V1_PATCH
 
 # Mantém toda a lógica funcional validada no runtime estável e aplica somente
 # smoke-layout-performance-20260930

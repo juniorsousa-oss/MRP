@@ -1,86 +1,9 @@
 LAYOUT_PATCH = r"""
 # =========================================================
-# PADRÃO VISUAL — DIMENSÕES EFETIVAS DA GESTÃO DE ENTREGAS
-# Replica também o override final de largura do app-base.
-# Não altera lógica, cálculos ou persistência do MRP.
+# MRP — AJUSTE DOS CARDS DE MÉTRICAS
+# Moldura, cabeçalho e menus pertencem exclusivamente ao SETTA_UI_V1_PATCH.
 # =========================================================
 
-_layout_old = '''.block-container {
-    max-width: 1780px !important;
-    padding-top: 3.2rem !important;
-    padding-left: 2.7rem !important;
-    padding-right: 2.7rem !important;
-    padding-bottom: 3rem !important;
-}
-.setta-brand {'''
-
-_layout_new = '''.block-container {
-    max-width: 1780px !important;
-    padding-top: 3.2rem !important;
-    padding-left: 2.7rem !important;
-    padding-right: 2.7rem !important;
-    padding-bottom: 3rem !important;
-    width: 100% !important;
-}
-
-[data-testid="stAppViewContainer"] > .main,
-[data-testid="stAppViewContainer"] .main,
-[data-testid="stMain"],
-.stMain {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
-
-[data-testid="stAppViewContainer"] .main .block-container,
-[data-testid="stMain"] .block-container,
-.stMain .block-container {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
-
-.setta-brand {'''
-
-if _layout_old not in _source:
-    raise RuntimeError("Bloco visual principal não encontrado para padronização de largura.")
-_source = _source.replace(_layout_old, _layout_new, 1)
-
-# Cabeçalho/logo — mesmos valores do app-base.
-_source = _source.replace(
-    '''    min-height: 128px !important;
-    display: flex !important;''',
-    '''    min-height: 128px !important;
-    display: flex !important;''',
-    1,
-)
-_source = _source.replace(
-    '''    margin: 0 0 2.55rem 0 !important;
-    padding: 1.1rem 2rem !important;''',
-    '''    margin: 0 0 2.55rem 0 !important;
-    padding: 1.1rem 2rem !important;''',
-    1,
-)
-_source = _source.replace(
-    '''    max-width: 205px !important;
-    max-height: 86px !important;''',
-    '''    max-width: 205px !important;
-    max-height: 86px !important;''',
-    1,
-)
-
-# Título/subtítulo — mesmos valores do app-base.
-_source = _source.replace(
-    '''    font-size: 2.55rem !important;
-    line-height: 1.08 !important;''',
-    '''    font-size: 2.55rem !important;
-    line-height: 1.08 !important;''',
-    1,
-)
-
-# Métricas/balões — mesmas dimensões quando houver st.metric.
 _metric_old = '''div[data-testid="stMetric"] {
     background: #ffffff !important;
     border: 1px solid #e7eaf0 !important;

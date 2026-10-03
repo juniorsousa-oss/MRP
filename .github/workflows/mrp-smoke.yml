@@ -73,7 +73,7 @@ jobs:
           assert "margin:0 0 2px 0!important" in env["_source"]
           assert 'div[data-testid="stElementContainer"]:has(div[data-testid="stButton"])' in env["_source"]
           assert "margin-bottom:-.45rem" not in env["_source"]
-          assert env["_source"].count("SETTA UI — Sidebar Operacional V1") == 1
+          assert env["_source"].count("SETTA UI — Sidebar Operacional V1") == 1, env["_source"].count("SETTA UI — Sidebar Operacional V1")
           assert "background:#ef4444!important" in env["_source"]
           assert "sidebar-divider" in env["_source"]
           assert "sidebar-status-card" in env["_source"]

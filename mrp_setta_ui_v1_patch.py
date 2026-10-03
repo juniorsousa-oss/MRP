@@ -67,8 +67,8 @@ with st.container(key="setta_top_controls"):
 """
 _source = _source.replace(_header_start, _drawer_runtime + _header_start, 1)
 
-# 4) CSS final: valores copiados do CONVERSOR MRP.
-# É inserido depois do CSS legado para ser a autoridade visual final.
+# 4) CSS final: moldura + menu superior + menu lateral copiados do CONVERSOR MRP atual.
+# É inserido depois do CSS legado e não redefine a estrutura interna de cada módulo.
 _title_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
 if _title_anchor not in _source:
     raise RuntimeError("Título principal não encontrado para SETTA UI.")
@@ -209,7 +209,6 @@ header[data-testid="stHeader"]{
   border-radius:10px!important;
   padding:0!important;
   background:rgba(255,255,255,.96)!important;
-  border:1px solid #E5E8EE!important;
   color:#111827!important;
   box-shadow:0 2px 8px rgba(15,23,42,.06)!important;
 }
@@ -256,26 +255,26 @@ section[data-testid="stSidebar"] .block-container{
 .setta-logo-card,
 .setta-brand{
   width:100%!important;
-  min-height:128px!important;
+  min-height:150px!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
   background:#fff!important;
   background-image:none!important;
   border:1px solid #e5e8ee!important;
-  border-radius:16px!important;
+  border-radius:18px!important;
   box-shadow:0 4px 14px rgba(24,39,75,.08)!important;
   box-sizing:border-box!important;
-  margin:0 0 2.55rem 0!important;
-  padding:1.1rem 2rem!important;
+  margin:0 0 24px 0!important;
+  padding:18px 24px!important;
 }
 .setta-logo-card img,
 .setta-brand-logo img{
   display:block!important;
   width:auto!important;
   height:auto!important;
-  max-width:205px!important;
-  max-height:86px!important;
+  max-width:220px!important;
+  max-height:90px!important;
   object-fit:contain!important;
   margin:0!important;
 }
@@ -396,17 +395,6 @@ input,textarea,
   .st-key-setta_top_controls{
     top:14px!important;
     left:16px!important;
-  }
-  .setta-logo-card,
-  .setta-brand{
-    min-height:105px!important;
-    margin-bottom:1.8rem!important;
-    padding:.9rem 1rem!important;
-  }
-  .setta-logo-card img,
-  .setta-brand-logo img{
-    max-width:170px!important;
-    max-height:72px!important;
   }
   .app-title{font-size:2rem!important}
 }

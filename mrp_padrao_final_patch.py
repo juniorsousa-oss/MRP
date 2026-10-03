@@ -23,6 +23,24 @@ html, body,
   background:#F4F7FB!important;
   background-image:none!important;
 }
+/* DataFrames/tabelas: força o recorte das camadas internas para eliminar a quina reta. */
+[data-testid="stDataFrame"],
+[data-testid="stDataFrame"] > div,
+[data-testid="stDataFrame"] > div > div,
+[data-testid="stDataFrame"] [data-testid="stDataFrameResizable"]{
+  border-radius:12px!important;
+  overflow:hidden!important;
+}
+[data-testid="stDataFrame"]{
+  clip-path:inset(0 round 12px)!important;
+  isolation:isolate!important;
+  background:#fff!important;
+}
+[data-testid="stDataFrame"] canvas,
+[data-testid="stDataFrame"] iframe{
+  border-radius:12px!important;
+}
+
 .block-container{
   max-width:1780px!important;
   padding-top:3.2rem!important;

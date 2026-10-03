@@ -376,8 +376,7 @@ with st.container(key="setta_top_controls"):
         on_click=_setta_toggle_sidebar,
     )
 
-st.markdown(_setta_shell_css, unsafe_allow_html=True)
-"""
+""" + 'st.markdown(' + repr(_setta_shell_css) + ', unsafe_allow_html=True)\n'
 
 _source = _source.replace(
     _title_anchor,

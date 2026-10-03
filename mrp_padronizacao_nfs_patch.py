@@ -19,7 +19,7 @@ _nfs_css = """
 [data-testid="stHeader"]{background:rgba(255,255,255,.96)!important}
 .block-container{max-width:1780px!important;padding-top:3.2rem!important;padding-left:2.7rem!important;padding-right:2.7rem!important;padding-bottom:3rem!important;width:100%!important}
 
-/* Sidebar: estilos definidos exclusivamente no bloco SETTA UI — Sidebar Operacional V1 abaixo. */
+/* Sidebar: estilos definidos exclusivamente no bloco canônico abaixo. */
 [data-testid="stAppViewContainer"] > .main,
 [data-testid="stAppViewContainer"] .main,
 [data-testid="stMain"],

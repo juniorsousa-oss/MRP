@@ -337,6 +337,12 @@ section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(.side
   margin:0!important;
   padding:0!important;
 }
+/* Reset obrigatório para apps migrados: neutraliza espaçamentos negativos
+   de CSS legado antes de aplicar a geometria oficial do SETTA UI V1. */
+section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]){
+  margin:0!important;
+  padding:0!important;
+}
 section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"]{
   margin:0 0 2px 0!important;
   padding:0!important;

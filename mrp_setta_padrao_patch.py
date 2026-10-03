@@ -109,8 +109,8 @@ _setta_css = """
 }
 
 /* Sidebar intentionally omitted here.
-   SETTA UI — Sidebar Operacional V1 is owned exclusively by
-   mrp_padronizacao_nfs_patch.py to prevent CSS specificity conflicts. */
+   The final sidebar is owned exclusively by mrp_padronizacao_nfs_patch.py
+   to prevent CSS specificity conflicts. */
 
 [data-testid="stElementContainer"]:has(style):not(:has(.setta-logo-card)){
   display:none!important;

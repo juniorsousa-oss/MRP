@@ -19,27 +19,7 @@ _nfs_css = """
 [data-testid="stHeader"]{background:rgba(255,255,255,.96)!important}
 .block-container{max-width:1780px!important;padding-top:3.2rem!important;padding-left:2.7rem!important;padding-right:2.7rem!important;padding-bottom:3rem!important;width:100%!important}
 
-section[data-testid="stSidebar"]{background:#fff!important;border-right:1px solid #e8ebf0!important;width:260px!important;min-width:260px!important;max-width:260px!important;flex:0 0 260px!important;flex-basis:260px!important;overflow:hidden!important}
-section[data-testid="stSidebar"]>div{width:260px!important;min-width:260px!important;max-width:260px!important;box-sizing:border-box!important}
-section[data-testid="stSidebar"] .block-container{width:260px!important;min-width:260px!important;max-width:260px!important;box-sizing:border-box!important;padding-top:1.6rem!important;padding-left:1rem!important;padding-right:1rem!important}
-
-.sidebar-brand{background:#f8fafc;border:1px solid #e5e8ee;border-radius:12px;padding:.9rem 1rem;margin:0 0 1.05rem 0}
-.sidebar-brand-title{font-size:.92rem;font-weight:800;color:#111827;letter-spacing:-.01em}
-.sidebar-brand-sub{margin-top:.18rem;font-size:.75rem;color:#6b7280}
-.sidebar-section-label{margin:.25rem 0 .45rem 0;color:#374151;font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.055em}
-.sidebar-info-card{background:#f8fafc;border:1px solid #e5e8ee;border-radius:10px;padding:.75rem .85rem;color:#6b7280;font-size:.76rem;line-height:1.55}
-
-section[data-testid="stSidebar"] div[data-testid="stButton"]{margin:0!important}
-section[data-testid="stSidebar"] div[data-testid="stButton"] button{position:relative!important;min-height:42px!important;justify-content:flex-start!important;text-align:left!important;padding:.56rem .72rem .56rem calc(.88rem + 10px)!important;border-radius:10px!important;font-size:.83rem!important;font-weight:600!important;line-height:1.2!important;width:100%!important}
-section[data-testid="stSidebar"] div[data-testid="stButton"] button > div{width:100%!important;text-align:left!important;justify-content:flex-start!important}
-section[data-testid="stSidebar"] div[data-testid="stButton"] button p{width:100%!important;margin:0!important;text-align:left!important}
-section[data-testid="stSidebar"] div[data-testid="stButton"] button[data-testid="stBaseButton-secondary"]{background:transparent!important;border:1px solid transparent!important;color:#374151!important;box-shadow:none!important}
-section[data-testid="stSidebar"] div[data-testid="stButton"] button[data-testid="stBaseButton-secondary"]:hover{background:#f8fafc!important;border-color:#e5e7eb!important;color:#111827!important}
-section[data-testid="stSidebar"] div[data-testid="stButton"] button[data-testid="stBaseButton-primary"]{background:#111827!important;border:1px solid #111827!important;color:#fff!important;box-shadow:0 5px 14px rgba(17,24,39,.14)!important;font-weight:700!important}
-section[data-testid="stSidebar"] div[data-testid="stButton"] button[data-testid="stBaseButton-primary"]::before{content:"";position:absolute;left:.42rem;top:50%;width:4px;height:20px;border-radius:999px;background:#ef4444;transform:translateY(-50%)}
-section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]){margin-bottom:-.45rem!important}
-.sidebar-status-spacer{height:.6rem!important;min-height:.6rem!important}
-
+/* Sidebar: estilos definidos exclusivamente no bloco SETTA UI — Sidebar Operacional V1 abaixo. */
 [data-testid="stAppViewContainer"] > .main,
 [data-testid="stAppViewContainer"] .main,
 [data-testid="stMain"],
@@ -69,199 +49,6 @@ section[data-testid="stSidebar"][aria-expanded="false"]>div{width:0!important;mi
 .mrp-source-name{font-size:.69rem;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.035em}
 .mrp-source-status{margin-top:.26rem;font-size:.88rem;font-weight:900;color:#111827;text-transform:uppercase}
 .mrp-source-meta{margin-top:.28rem;font-size:.64rem;color:#94a3b8;text-transform:uppercase}
-
-.sidebar-status-card{background:#f8fafc;border:1px solid #e5e8ee;border-radius:10px;padding:.75rem .85rem;color:#6b7280;font-size:.72rem;line-height:1.5}
-.sidebar-status-name{font-size:.68rem;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.025em}
-.sidebar-status-value{margin-top:.16rem;font-size:.8rem;font-weight:900;color:#111827;text-transform:uppercase}
-.sidebar-status-meta{margin-top:.24rem;color:#6b7280;font-size:.66rem;line-height:1.45;text-transform:uppercase}
-section[data-testid="stSidebar"] hr{margin:.85rem 0!important}
-.sidebar-week-card{background:#f8fafc;border:1px solid #e5e8ee;border-radius:10px;padding:.72rem .85rem;color:#6b7280;font-size:.72rem;line-height:1.45}
-.sidebar-week-label{font-size:.66rem;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.035em}
-.sidebar-week-value{margin-top:.16rem;font-size:.82rem;font-weight:900;color:#111827;text-transform:uppercase}
-
-/* ======================================================
-   SIDEBAR SETTA V1 — PADRÃO VALIDADO NO CONVERSOR MRP
-   26 / 20 / 8 / 42 / 2 / 20 / 20 / 8 px
-   ====================================================== */
-section[data-testid="stSidebar"] .block-container{
-  width:260px!important;
-  min-width:260px!important;
-  max-width:260px!important;
-  box-sizing:border-box!important;
-  padding-top:26px!important;
-  padding-left:16px!important;
-  padding-right:16px!important;
-}
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{
-  gap:0!important;
-  row-gap:0!important;
-}
-section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(.setta-sidebar){
-  margin:0!important;
-  padding:0!important;
-}
-.setta-sidebar{
-  width:100%!important;
-  margin:0!important;
-  padding:0!important;
-  box-sizing:border-box!important;
-  font-family:inherit!important;
-}
-.setta-sidebar *{box-sizing:border-box!important}
-.sidebar-brand{
-  width:100%!important;
-  background:#f8fafc!important;
-  border:1px solid #e5e8ee!important;
-  border-radius:12px!important;
-  padding:14px 16px!important;
-  margin:0 0 20px 0!important;
-}
-.sidebar-brand-title{
-  margin:0!important;
-  padding:0!important;
-  font-size:15px!important;
-  font-weight:800!important;
-  line-height:18px!important;
-  color:#111827!important;
-  letter-spacing:-.01em!important;
-}
-.sidebar-brand-sub{
-  margin:3px 0 0 0!important;
-  padding:0!important;
-  font-size:12px!important;
-  font-weight:400!important;
-  line-height:16px!important;
-  color:#6b7280!important;
-}
-.sidebar-section-label{
-  display:block!important;
-  margin:0 0 8px 0!important;
-  padding:0!important;
-  color:#374151!important;
-  font-size:12px!important;
-  line-height:15px!important;
-  font-weight:800!important;
-  text-transform:uppercase!important;
-  letter-spacing:.055em!important;
-}
-.sidebar-nav{
-  display:flex!important;
-  flex-direction:column!important;
-  width:100%!important;
-  gap:2px!important;
-  margin:0!important;
-  padding:0!important;
-}
-.sidebar-nav-link{
-  position:relative!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:flex-start!important;
-  width:100%!important;
-  height:42px!important;
-  min-height:42px!important;
-  max-height:42px!important;
-  margin:0!important;
-  padding:0 12px 0 24px!important;
-  border:1px solid transparent!important;
-  border-radius:10px!important;
-  background:transparent!important;
-  color:#374151!important;
-  text-decoration:none!important;
-  font-size:13px!important;
-  line-height:16px!important;
-  font-weight:500!important;
-  text-align:left!important;
-}
-.sidebar-nav-link:hover{
-  background:#f8fafc!important;
-  border-color:#e5e7eb!important;
-  color:#111827!important;
-  text-decoration:none!important;
-}
-.sidebar-nav-link.active{
-  background:#111827!important;
-  border-color:#111827!important;
-  color:#fff!important;
-  font-weight:700!important;
-  box-shadow:0 5px 14px rgba(17,24,39,.14)!important;
-}
-.sidebar-nav-link.active::before{
-  content:""!important;
-  position:absolute!important;
-  left:7px!important;
-  top:50%!important;
-  width:4px!important;
-  height:20px!important;
-  border-radius:999px!important;
-  background:#ef4444!important;
-  transform:translateY(-50%)!important;
-}
-.sidebar-divider{
-  display:block!important;
-  width:100%!important;
-  height:1px!important;
-  min-height:1px!important;
-  background:#d1d5db!important;
-  margin:20px 0!important;
-  padding:0!important;
-}
-.sidebar-status-card,
-.sidebar-week-card{
-  width:100%!important;
-  background:#f8fafc!important;
-  border:1px solid #e5e8ee!important;
-  border-radius:10px!important;
-  padding:12px 14px!important;
-  margin:0!important;
-  color:#6b7280!important;
-}
-.sidebar-status-name,
-.sidebar-week-label{
-  margin:0!important;
-  padding:0!important;
-  font-size:11px!important;
-  line-height:14px!important;
-  font-weight:800!important;
-  color:#64748b!important;
-  text-transform:uppercase!important;
-  letter-spacing:.025em!important;
-}
-.sidebar-status-value{
-  margin:4px 0 0 0!important;
-  padding:0!important;
-  font-size:13px!important;
-  line-height:16px!important;
-  font-weight:900!important;
-  text-transform:uppercase!important;
-}
-.sidebar-status-value.status-ok{color:#16a34a!important}
-.sidebar-status-value.status-warning{color:#f59e0b!important}
-.sidebar-status-value.status-error{color:#ef4444!important}
-.sidebar-status-meta{
-  margin:6px 0 0 0!important;
-  padding:0!important;
-  color:#6b7280!important;
-  font-size:11px!important;
-  line-height:15px!important;
-  text-transform:uppercase!important;
-}
-.sidebar-subdivider{
-  width:100%!important;
-  height:1px!important;
-  min-height:1px!important;
-  background:#d1d5db!important;
-  margin:12px 0!important;
-}
-.sidebar-week-value{
-  margin:5px 0 0 0!important;
-  padding:0!important;
-  color:#111827!important;
-  font-size:13px!important;
-  line-height:16px!important;
-  font-weight:900!important;
-  text-transform:uppercase!important;
-}
 
 /* ======================================================
    SETTA UI — Sidebar Operacional V1
@@ -337,10 +124,10 @@ section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(.side
   margin:0!important;
   padding:0!important;
 }
-/* Reset obrigatório para apps migrados: neutraliza espaçamentos negativos
-   de CSS legado antes de aplicar a geometria oficial do SETTA UI V1. */
+/* Reset defensivo: neutraliza apenas a margem inferior herdada.
+   A margem superior do primeiro item pertence ao próprio item de navegação. */
 section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]){
-  margin:0!important;
+  margin-bottom:0!important;
   padding:0!important;
 }
 section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"]{
@@ -524,10 +311,10 @@ usuario_mrp=st.session_state.get("auth_nome", "")
 
 # A Central é a mesma fonte de dados para ADMIN e CONSULTA.
 # SETTA Runtime — Load Once V1:
-# - download completo somente na primeira abertura da sessão;
-# - navegação reutiliza o bundle já carregado;
-# - reruns fazem apenas checagem leve de metadados/versões;
-# - novo download ocorre somente por atualização explícita ou mudança real.
+# - carga completa uma única vez por sessão;
+# - navegação e reruns reutilizam exatamente o bundle em memória;
+# - nenhuma consulta à Central é consequência da troca de página;
+# - nova carga somente por atualização explícita ou nova sessão.
 try:
     _mrp_cached_bundle=st.session_state.get("_mrp_central_bundle")
     _mrp_force_refresh=bool(
@@ -543,29 +330,7 @@ try:
             _central_bundle.get("output_meta") or {}
         )
     else:
-        _mrp_light_state=_central_mrp.inspect_mrp_state()
-        _mrp_cached_signature=str(_mrp_cached_bundle.get("signature") or "")
-        _mrp_current_signature=str(_mrp_light_state.get("signature") or "")
-
-        if (
-            _mrp_light_state.get("ready")
-            and _mrp_current_signature
-            and _mrp_current_signature!=_mrp_cached_signature
-        ):
-            with st.spinner("NOVAS VERSÕES DETECTADAS · ATUALIZANDO MRP..."):
-                _central_bundle=_central_mrp.load_mrp_bundle(force_check=True)
-            st.session_state["_mrp_central_bundle"]=_central_bundle
-            st.session_state["_mrp_output_meta"]=(
-                _central_bundle.get("output_meta") or {}
-            )
-        else:
-            # Atualiza somente metadados/status e preserva os DataFrames
-            # já carregados na sessão.
-            _central_bundle={
-                **_mrp_cached_bundle,
-                **_mrp_light_state,
-            }
-            st.session_state["_mrp_central_bundle"]=_central_bundle
+        _central_bundle=_mrp_cached_bundle
 
     st.session_state.pop("_mrp_central_error",None)
 except Exception as _central_err:

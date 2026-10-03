@@ -4,24 +4,76 @@ SETTA_UI_V1_PATCH = r'''
 # App Shell Rounded V1 + Sidebar Operacional V1
 # + Header Superior V1 + Light Lock V1
 # =========================================================
+# Esta camada é somente estrutural/visual. Não altera cálculos,
+# filtros, persistência, banco, integrações ou regras de negócio.
 
-# O Runtime Load Once V1 já é proprietário do bundle da Central no patch
-# funcional anterior. Esta camada não altera carga, cálculos ou persistência.
+# 1) Mantém o DOM da sidebar disponível, como no Conversor MRP.
+_page_cfg_old = 'st.set_page_config(page_title="MRP | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide")'
+_page_cfg_new = 'st.set_page_config(page_title="MRP | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide", initial_sidebar_state="expanded")'
+if _page_cfg_old in _source:
+    _source = _source.replace(_page_cfg_old, _page_cfg_new, 1)
 
+# 2) Navegação fecha o drawer depois da escolha.
 _old_nav_fn = 'def _mrp_set_sidebar_page(page):\n    st.session_state["_mrp_sidebar_page"]=page\n'
 _new_nav_fn = 'def _mrp_set_sidebar_page(page):\n    st.session_state["_mrp_sidebar_page"]=page\n    _setta_close_sidebar()\n'
 if _old_nav_fn in _source:
     _source = _source.replace(_old_nav_fn, _new_nav_fn, 1)
 
+# 3) O controle superior precisa vir ANTES do cabeçalho no DOM,
+# exatamente como no Conversor MRP.
+_header_start = '_mrp_logo_src = str(UI_CONFIG.get("logo_data") or "")\n'
+if _header_start not in _source:
+    raise RuntimeError("Cabeçalho final do MRP não encontrado para SETTA UI.")
+
+_drawer_runtime = """def _setta_sidebar_is_open() -> bool:
+    return bool(st.session_state.get("_setta_sidebar_open", False))
+
+def _setta_toggle_sidebar() -> None:
+    st.session_state["_setta_sidebar_open"] = not _setta_sidebar_is_open()
+
+def _setta_close_sidebar() -> None:
+    st.session_state["_setta_sidebar_open"] = False
+
+_setta_sidebar_open = _setta_sidebar_is_open()
+if not _setta_sidebar_open:
+    st.markdown(
+        '<style>'
+        'section[data-testid="stSidebar"]{display:none!important;}'
+        '[data-testid="stSidebarCollapseButton"],'
+        '[data-testid="stSidebarCollapsedControl"],'
+        'button[data-testid="stSidebarCollapseButton"]{display:none!important;}'
+        '</style>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        '<style>'
+        '[data-testid="stSidebarCollapseButton"],'
+        '[data-testid="stSidebarCollapsedControl"],'
+        'button[data-testid="stSidebarCollapseButton"]{display:none!important;}'
+        '</style>',
+        unsafe_allow_html=True,
+    )
+
+with st.container(key="setta_top_controls"):
+    st.button(
+        "☰",
+        key="setta_drawer_toggle",
+        help="Abrir/fechar menu",
+        use_container_width=True,
+        on_click=_setta_toggle_sidebar,
+    )
+
+"""
+_source = _source.replace(_header_start, _drawer_runtime + _header_start, 1)
+
+# 4) CSS final: valores copiados do CONVERSOR MRP.
+# É inserido depois do CSS legado para ser a autoridade visual final.
 _title_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
 if _title_anchor not in _source:
-    raise RuntimeError("Título principal não encontrado para SETTA UI V1.")
+    raise RuntimeError("Título principal não encontrado para SETTA UI.")
 
-_setta_shell_css = """<style>
-/* ======================================================
-   SETTA UI — App Shell Rounded V1
-   Referência oficial: MRP-CONVERSOR
-   ====================================================== */
+_setta_css = """<style>
 :root{
   color-scheme:light!important;
   --setta-outer:#EEF3F8;
@@ -32,20 +84,23 @@ _setta_shell_css = """<style>
   --setta-border:#E5E8EE;
   --setta-red:#EF4444;
 }
+
+/* SETTA UI — App Shell Rounded V1 */
 html,body,#root{
   height:100%!important;
   min-height:100%!important;
   max-height:100%!important;
   overflow:hidden!important;
+}
+html,body{
   background:#EEF3F8!important;
-  color-scheme:light!important;
+  background-image:none!important;
 }
 body{
   box-sizing:border-box!important;
   padding:18px!important;
   margin:0!important;
   overflow:hidden!important;
-  background:#EEF3F8!important;
 }
 .stApp,
 [data-testid="stApp"]{
@@ -129,12 +184,37 @@ header[data-testid="stHeader"]{
   padding-left:2.7rem!important;
   padding-right:2.7rem!important;
   padding-bottom:32px!important;
-  background:transparent!important;
 }
 
-/* ======================================================
-   SETTA UI — Integração da Sidebar com o App Shell
-   ====================================================== */
+/* SETTA UI — Top Controls V1: medidas idênticas ao Conversor MRP */
+.st-key-setta_top_controls{
+  position:absolute!important;
+  top:18px!important;
+  left:44px!important;
+  z-index:120!important;
+  width:82px!important;
+  margin:0!important;
+  padding:0!important;
+}
+.st-key-setta_top_controls [data-testid="stVerticalBlock"]{gap:0!important}
+.st-key-setta_drawer_toggle{
+  width:82px!important;
+  margin:0!important;
+  padding:0!important;
+}
+.st-key-setta_drawer_toggle button{
+  width:82px!important;
+  min-height:42px!important;
+  height:42px!important;
+  border-radius:10px!important;
+  padding:0!important;
+  background:rgba(255,255,255,.96)!important;
+  border:1px solid #E5E8EE!important;
+  color:#111827!important;
+  box-shadow:0 2px 8px rgba(15,23,42,.06)!important;
+}
+
+/* SETTA UI — Sidebar Operacional V1 */
 section[data-testid="stSidebar"]{
   align-self:stretch!important;
   height:100%!important;
@@ -171,82 +251,85 @@ section[data-testid="stSidebar"] .block-container{
   padding-left:16px!important;
   padding-right:16px!important;
 }
-[data-testid="stSidebarCollapseButton"],
-[data-testid="stSidebarCollapsedControl"],
-button[data-testid="stSidebarCollapseButton"]{
-  display:none!important;
-}
 
-/* Controle superior proprietário SETTA */
-.st-key-setta_top_controls{
-  position:absolute!important;
-  top:18px!important;
-  left:44px!important;
-  z-index:120!important;
-  width:48px!important;
-  margin:0!important;
-  padding:0!important;
-}
-.st-key-setta_top_controls [data-testid="stVerticalBlock"]{gap:0!important}
-.st-key-setta_drawer_toggle{
-  width:48px!important;
-  margin:0!important;
-  padding:0!important;
-}
-.st-key-setta_drawer_toggle button{
-  width:48px!important;
-  min-height:42px!important;
-  height:42px!important;
-  border-radius:10px!important;
-  padding:0!important;
-  background:rgba(255,255,255,.96)!important;
-  border:1px solid #E5E8EE!important;
-  color:#111827!important;
-  box-shadow:0 2px 8px rgba(15,23,42,.06)!important;
-  font-weight:800!important;
-  font-size:12px!important;
-}
-
-/* ======================================================
-   SETTA UI — Header Superior V1
-   ====================================================== */
+/* SETTA UI — Header Superior V1: medidas exatas do Conversor MRP */
 .setta-logo-card,
 .setta-brand{
   width:100%!important;
-  min-height:150px!important;
+  min-height:128px!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
-  background:#FFFFFF!important;
+  background:#fff!important;
   background-image:none!important;
-  border:1px solid #E5E8EE!important;
-  border-radius:18px!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:16px!important;
   box-shadow:0 4px 14px rgba(24,39,75,.08)!important;
   box-sizing:border-box!important;
-  margin:0 0 24px 0!important;
-  padding:18px 24px!important;
+  margin:0 0 2.55rem 0!important;
+  padding:1.1rem 2rem!important;
 }
 .setta-logo-card img,
 .setta-brand-logo img{
   display:block!important;
   width:auto!important;
   height:auto!important;
-  max-width:220px!important;
-  max-height:90px!important;
+  max-width:205px!important;
+  max-height:86px!important;
   object-fit:contain!important;
   margin:0!important;
 }
-
-/* ======================================================
-   SETTA UI — Light Lock V1
-   ====================================================== */
-.stApp,
-[data-testid="stAppViewContainer"],
-[data-testid="stMain"],
-.stMain,
-.block-container{
-  color:#111827!important;
+.app-title{
+  margin:0!important;
+  padding:0!important;
+  font-size:2.55rem!important;
+  line-height:1.08!important;
+  font-weight:800!important;
+  letter-spacing:-.04em!important;
+  color:#050505!important;
 }
+.app-subtitle,.app-sub,.setta-main-description{
+  margin-top:.72rem!important;
+  margin-bottom:1.65rem!important;
+  color:#4f5661!important;
+  font-size:.94rem!important;
+  line-height:1.35!important;
+}
+.section-title{
+  margin:0 0 1rem!important;
+  color:#0f172a!important;
+  font-size:1.28rem!important;
+  font-weight:900!important;
+  letter-spacing:-.02em!important;
+  text-transform:uppercase!important;
+}
+.section-band{
+  margin:0 0 .95rem!important;
+  padding:.82rem 1rem!important;
+  background:#fff!important;
+  border:1px solid #e5e8ee!important;
+  border-left:5px solid #111827!important;
+  border-radius:12px!important;
+  box-shadow:0 3px 12px rgba(15,23,42,.035)!important;
+}
+.section-band-kicker{
+  font-size:.66rem!important;
+  font-weight:900!important;
+  letter-spacing:.085em!important;
+  text-transform:uppercase!important;
+  color:#ef4444!important;
+  margin-bottom:.18rem!important;
+}
+.section-band-title{
+  font-size:1.08rem!important;
+  font-weight:900!important;
+  color:#111827!important;
+  letter-spacing:-.015em!important;
+  line-height:1.2!important;
+  text-transform:uppercase!important;
+}
+
+/* SETTA UI — Light Lock V1 */
 input,textarea,
 [data-baseweb="input"] input,
 [data-baseweb="textarea"] textarea,
@@ -254,29 +337,18 @@ input,textarea,
 [data-baseweb="base-input"],
 [data-testid="stTextInput"] input,
 [data-testid="stNumberInput"] input{
-  background:#FFFFFF!important;
+  background:#fff!important;
   color:#111827!important;
   -webkit-text-fill-color:#111827!important;
 }
 [data-baseweb="popover"],
 [data-baseweb="menu"],
 [role="listbox"]{
-  background:#FFFFFF!important;
-  color:#111827!important;
-}
-[data-testid="stDataFrame"]{
-  background:#FFFFFF!important;
-  border:1px solid #E5E8EE!important;
-  border-radius:12px!important;
-  overflow:hidden!important;
-}
-[data-testid="stMetric"],
-[data-testid="stAlert"],
-[data-testid="stFileUploader"] section{
+  background:#fff!important;
   color:#111827!important;
 }
 
-/* Mobile: shell ocupa a tela inteira, como no Conversor MRP. */
+/* Mobile idêntico ao princípio do Conversor: shell ocupa a tela. */
 @media(max-width:900px){
   html,body,#root{
     height:auto!important;
@@ -320,9 +392,7 @@ input,textarea,
     padding-right:1rem!important;
     padding-bottom:2rem!important;
   }
-  section[data-testid="stSidebar"]{
-    border-radius:0!important;
-  }
+  section[data-testid="stSidebar"]{border-radius:0!important}
   .st-key-setta_top_controls{
     top:14px!important;
     left:16px!important;
@@ -338,55 +408,13 @@ input,textarea,
     max-width:170px!important;
     max-height:72px!important;
   }
+  .app-title{font-size:2rem!important}
 }
 </style>"""
 
-_setta_runtime_ui = """def _setta_sidebar_is_open():
-    return bool(st.session_state.get("_setta_sidebar_open", False))
-
-def _setta_toggle_sidebar():
-    st.session_state["_setta_sidebar_open"] = not _setta_sidebar_is_open()
-
-def _setta_close_sidebar():
-    st.session_state["_setta_sidebar_open"] = False
-
-@st.fragment
-def _setta_render_sidebar_control():
-    _setta_sidebar_open = _setta_sidebar_is_open()
-    if not _setta_sidebar_open:
-        st.markdown(
-            '<style>section[data-testid="stSidebar"]{display:none!important}'
-            '[data-testid="stSidebarCollapseButton"],'
-            '[data-testid="stSidebarCollapsedControl"],'
-            'button[data-testid="stSidebarCollapseButton"]{display:none!important}</style>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            '<style>section[data-testid="stSidebar"]{display:flex!important}'
-            '[data-testid="stSidebarCollapseButton"],'
-            '[data-testid="stSidebarCollapsedControl"],'
-            'button[data-testid="stSidebarCollapseButton"]{display:none!important}</style>',
-            unsafe_allow_html=True,
-        )
-
-    with st.container(key="setta_top_controls"):
-        st.button(
-            "☰",
-            key="setta_drawer_toggle",
-            help="Abrir/fechar menu",
-            use_container_width=True,
-            on_click=_setta_toggle_sidebar,
-        )
-
-_setta_render_sidebar_control()
-
-
-""" + 'st.markdown(' + repr(_setta_shell_css) + ', unsafe_allow_html=True)\n'
-
 _source = _source.replace(
     _title_anchor,
-    _setta_runtime_ui + _title_anchor,
+    'st.markdown(' + repr(_setta_css) + ', unsafe_allow_html=True)\n' + _title_anchor,
     1,
 )
 '''

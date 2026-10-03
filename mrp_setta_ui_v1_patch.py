@@ -8,26 +8,6 @@ SETTA_UI_V1_PATCH = r'''
 # O Runtime Load Once V1 já é proprietário do bundle da Central no patch
 # funcional anterior. Esta camada não altera carga, cálculos ou persistência.
 
-_sidebar_role_anchor = '_mrp_role=st.session_state.get("auth_role")\n'
-_sidebar_helpers = """def _setta_sidebar_is_open():
-    return bool(st.session_state.get("_setta_sidebar_open", False))
-
-def _setta_toggle_sidebar():
-    st.session_state["_setta_sidebar_open"] = not _setta_sidebar_is_open()
-
-def _setta_close_sidebar():
-    st.session_state["_setta_sidebar_open"] = False
-
-"""
-if _sidebar_helpers not in _source:
-    if _sidebar_role_anchor not in _source:
-        raise RuntimeError("Ponto da Sidebar Operacional não encontrado.")
-    _source = _source.replace(
-        _sidebar_role_anchor,
-        _sidebar_helpers + _sidebar_role_anchor,
-        1,
-    )
-
 _old_nav_fn = 'def _mrp_set_sidebar_page(page):\n    st.session_state["_mrp_sidebar_page"]=page\n'
 _new_nav_fn = 'def _mrp_set_sidebar_page(page):\n    st.session_state["_mrp_sidebar_page"]=page\n    _setta_close_sidebar()\n'
 if _old_nav_fn in _source:
@@ -370,20 +350,41 @@ def _setta_toggle_sidebar():
 def _setta_close_sidebar():
     st.session_state["_setta_sidebar_open"] = False
 
-_setta_sidebar_open = _setta_sidebar_is_open()
-if not _setta_sidebar_open:
-    st.markdown(
-        '<style>section[data-testid="stSidebar"]{display:none!important}</style>',
-        unsafe_allow_html=True,
-    )
+@st.fragment
+def _setta_render_sidebar_control():
+    _setta_sidebar_open = _setta_sidebar_is_open()
+    if not _setta_sidebar_open:
+        st.markdown(
+            """<style>
+            section[data-testid="stSidebar"]{display:none!important}
+            [data-testid="stSidebarCollapseButton"],
+            [data-testid="stSidebarCollapsedControl"],
+            button[data-testid="stSidebarCollapseButton"]{display:none!important}
+            </style>""",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            """<style>
+            section[data-testid="stSidebar"]{display:flex!important}
+            [data-testid="stSidebarCollapseButton"],
+            [data-testid="stSidebarCollapsedControl"],
+            button[data-testid="stSidebarCollapseButton"]{display:none!important}
+            </style>""",
+            unsafe_allow_html=True,
+        )
 
-with st.container(key="setta_top_controls"):
-    st.button(
-        "<<",
-        key="setta_drawer_toggle",
-        use_container_width=True,
-        on_click=_setta_toggle_sidebar,
-    )
+    with st.container(key="setta_top_controls"):
+        st.button(
+            "☰",
+            key="setta_drawer_toggle",
+            help="Abrir/fechar menu",
+            use_container_width=True,
+            on_click=_setta_toggle_sidebar,
+        )
+
+_setta_render_sidebar_control()
+
 
 """ + 'st.markdown(' + repr(_setta_shell_css) + ', unsafe_allow_html=True)\n'
 

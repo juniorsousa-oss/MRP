@@ -13,6 +13,16 @@ _source = _source.replace(_old_brand_call, '', 1)
 _header_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
 _header_css = """
 <style>
+/* Fundo principal sólido: remove qualquer degradê herdado de temas/patches anteriores. */
+html, body,
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewContainer"] > .main,
+[data-testid="stMain"],
+.stMain{
+  background:#F4F7FB!important;
+  background-image:none!important;
+}
 .block-container{
   max-width:1780px!important;
   padding-top:3.2rem!important;

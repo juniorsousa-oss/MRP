@@ -46,7 +46,7 @@ jobs:
               for idx in range(start, end):
                   print(f"{idx+1:04d}: {source_lines[idx]}")
               raise
-          assert "compressed_payload" in env["_source"]
+          print("=== DIAGNOSTICO LINHAS 2218-2240 ===")\n          for _i, _line in enumerate(env["_source"].splitlines()[2217:2240], start=2218):\n              print(f"{_i:04d}: {_line}")\n          assert "compressed_payload" in env["_source"]
           assert "CONFIGURAÇÕES" in env["_source"]
           assert "MOSTRAR DEMANDAS NÃO APTAS" in env["_source"]
           assert "_mrp_demanda_nao_apta_mask" in env["_source"]

@@ -214,7 +214,7 @@ header[data-testid="stHeader"]{
   box-shadow:0 2px 8px rgba(15,23,42,.06)!important;
 }
 
-/* SETTA UI — Sidebar Operacional V1 */
+/* SETTA UI — Integração da Sidebar com o App Shell */
 section[data-testid="stSidebar"]{
   align-self:stretch!important;
   height:100%!important;

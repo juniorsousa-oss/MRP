@@ -24,6 +24,15 @@ jobs:
         run: |
           python - <<'PY'
           import central_mrp_data as central
+          from pathlib import Path
+
+          central_source = Path("central_mrp_data.py").read_text(encoding="utf-8")
+          assert "allow_legacy_excel: bool = False" in central_source
+          assert "O MRP não reabrirá o Excel automaticamente" in central_source
+          assert "except Exception:" not in central_source[
+              central_source.index("def _download_cadastros_frame_cached"):
+              central_source.index("def _download_derived_cached")
+          ]
 
           state = central.inspect_mrp_state(force_check=True)
           assert "signature" in state, state

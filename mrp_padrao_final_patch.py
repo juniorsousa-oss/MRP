@@ -1,10 +1,10 @@
 MRP_PADRAO_FINAL_PATCH = r'''
 # =========================================================
-# PADRÃO FINAL SETTA — CABEÇALHO + FILTROS
+# FILTROS E RENDERIZAÇÃO DO CABEÇALHO — CSS DO SHELL EM SETTA_UI_V1
 # Aplicado por último para não ser sobrescrito por patches antigos.
 # =========================================================
 
-# 1) Cabeçalho superior: usa EXATAMENTE o mesmo componente do Conversor MRP.
+# 1) Renderiza o componente de logo; medidas e aparência vêm do shell SETTA.
 _old_brand_call = '_render_brand_header(UI_CONFIG)\n'
 if _source.count(_old_brand_call) != 1:
     raise RuntimeError("Renderização antiga do cabeçalho do MRP não encontrada.")
@@ -13,17 +13,7 @@ _source = _source.replace(_old_brand_call, '', 1)
 _header_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
 _header_css = """
 <style>
-/* Fundo principal sólido: remove qualquer degradê herdado de temas/patches anteriores. */
-html, body,
-.stApp,
-[data-testid="stAppViewContainer"],
-[data-testid="stAppViewContainer"] > .main,
-[data-testid="stMain"],
-.stMain{
-  background:#F4F7FB!important;
-  background-image:none!important;
-}
-/* DataFrames/tabelas: força o recorte das camadas internas para eliminar a quina reta. */
+/* MRP — acabamento interno; cabeçalho e shell são controlados por SETTA_UI_V1_PATCH. */
 [data-testid="stDataFrame"],
 [data-testid="stDataFrame"] > div,
 [data-testid="stDataFrame"] > div > div,
@@ -40,93 +30,10 @@ html, body,
 [data-testid="stDataFrame"] iframe{
   border-radius:12px!important;
 }
-
-.block-container{
-  max-width:1780px!important;
-  padding-top:3.2rem!important;
-  padding-left:2.7rem!important;
-  padding-right:2.7rem!important;
-  padding-bottom:3rem!important;
-  width:100%!important;
-}
-[data-testid="stAppViewContainer"] > .main,
-[data-testid="stAppViewContainer"] .main,
-[data-testid="stMain"],
-.stMain{
-  width:100%!important;
-  max-width:100%!important;
-  margin-left:0!important;
-  margin-right:0!important;
-}
-[data-testid="stAppViewContainer"] .main .block-container,
-[data-testid="stMain"] .block-container,
-.stMain .block-container{
-  width:100%!important;
-  max-width:100%!important;
-  margin-left:0!important;
-  margin-right:0!important;
-}
-.setta-logo-card{
-  width:100%!important;
-  min-height:128px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  background:#fff!important;
-  border:1px solid #e5e8ee!important;
-  border-radius:16px!important;
-  box-shadow:0 4px 14px rgba(24,39,75,.08)!important;
-  box-sizing:border-box!important;
-  margin:0 0 2.55rem 0!important;
-  padding:1.1rem 2rem!important;
-}
-.setta-logo-card img{
-  display:block!important;
-  width:auto!important;
-  height:auto!important;
-  max-width:205px!important;
-  max-height:86px!important;
-  object-fit:contain!important;
-}
-.app-title{
-  margin:0!important;
-  padding:0!important;
-  font-size:2.55rem!important;
-  line-height:1.08!important;
-  font-weight:800!important;
-  letter-spacing:-.04em!important;
-  color:#050505!important;
-}
-.app-subtitle,.app-sub{
-  margin-top:.72rem!important;
-  margin-bottom:1.65rem!important;
-  color:#4f5661!important;
-  font-size:.94rem!important;
-  line-height:1.35!important;
-  text-transform:uppercase!important;
-}
 div[data-testid="stMetricLabel"] p,
 [data-testid="stMetricLabel"] p{
   text-transform:uppercase!important;
   font-weight:800!important;
-}
-@media(max-width:900px){
-  .block-container{
-    padding-top:2rem!important;
-    padding-left:1rem!important;
-    padding-right:1rem!important;
-    padding-bottom:2rem!important;
-  }
-  .setta-logo-card{
-    min-height:105px!important;
-    margin-bottom:1.8rem!important;
-    padding:.9rem 1rem!important;
-  }
-  .setta-logo-card img{
-    max-width:170px!important;
-    max-height:72px!important;
-  }
-  .app-title{font-size:2rem!important}
 }
 </style>
 """

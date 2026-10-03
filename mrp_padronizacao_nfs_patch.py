@@ -1,13 +1,13 @@
 PADRONIZACAO_NFS_PATCH = r'''
 # =========================================================
-# PADRONIZAÇÃO FINAL — MRP NO PADRÃO CONTROLE DE NFs | SETTA
+# NAVEGAÇÃO E CONFIGURAÇÕES DO MRP — SHELL VISUAL EM mrp_setta_ui_v1_patch.py
 # =========================================================
 # Este patch é aplicado por último. O objetivo é preservar toda a lógica
 # funcional do MRP e substituir apenas navegação, posicionamento dos status
 # e acabamento visual pelo padrão validado do Controle de Notas Fiscais.
 
 # ---------------------------------------------------------
-# 1) CSS final: mesmos espaçamentos, cabeçalho e menu do Controle de NFs.
+# 1) CSS somente do conteúdo interno do MRP.
 # ---------------------------------------------------------
 _title_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_title"]}</h1>\', unsafe_allow_html=True)\n'
 if _source.count(_title_anchor) != 1:
@@ -15,28 +15,7 @@ if _source.count(_title_anchor) != 1:
 
 _nfs_css = """
 <style>
-[data-testid="stAppViewContainer"]{background:#f4f7fb!important}
-[data-testid="stHeader"]{background:rgba(255,255,255,.96)!important}
-.block-container{max-width:1780px!important;padding-top:3.2rem!important;padding-left:2.7rem!important;padding-right:2.7rem!important;padding-bottom:3rem!important;width:100%!important}
-
-/* Sidebar: estilos definidos exclusivamente no bloco canônico abaixo. */
-[data-testid="stAppViewContainer"] > .main,
-[data-testid="stAppViewContainer"] .main,
-[data-testid="stMain"],
-.stMain{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}
-[data-testid="stAppViewContainer"] .main .block-container,
-[data-testid="stMain"] .block-container,
-.stMain .block-container{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important;padding-top:3.2rem!important;padding-left:2.7rem!important;padding-right:2.7rem!important;padding-bottom:3rem!important}
-div[data-testid="stElementContainer"]:has(.app-title){margin-top:0!important;padding-top:0!important}
-div[data-testid="stElementContainer"]:has(.setta-logo-card){margin-top:0!important;padding-top:15px!important}
-section[data-testid="stSidebar"][aria-expanded="false"]{width:0!important;min-width:0!important;max-width:0!important;flex:0 0 0!important;flex-basis:0!important}
-section[data-testid="stSidebar"][aria-expanded="false"]>div{width:0!important;min-width:0!important;max-width:0!important}
-
-.setta-logo-card{width:100%!important;min-height:128px!important;display:flex!important;align-items:center!important;justify-content:center!important;background:#fff!important;border:1px solid #e5e8ee!important;border-radius:16px!important;box-shadow:0 4px 14px rgba(24,39,75,.08)!important;box-sizing:border-box!important;margin:0 0 2.55rem 0!important;padding:1.1rem 2rem!important}
-.setta-logo-card img{display:block!important;width:auto!important;height:auto!important;max-width:205px!important;max-height:86px!important;object-fit:contain!important}
-.app-title{margin:0!important;padding:0!important;font-size:2.55rem!important;line-height:1.08!important;font-weight:800!important;letter-spacing:-.04em!important;color:#050505!important}
-.app-subtitle,.app-sub,.setta-main-description{margin-top:.72rem!important;margin-bottom:1.65rem!important;color:#4f5661!important;font-size:.94rem!important;line-height:1.35!important;text-transform:uppercase!important}
-
+/* MRP — acabamento interno. O shell SETTA vive exclusivamente em mrp_setta_ui_v1_patch.py. */
 .section-title{margin:0 0 1rem!important;color:#0f172a!important;font-size:1.28rem!important;font-weight:900!important;letter-spacing:-.02em;text-transform:uppercase}
 .section-band{margin:0 0 .95rem!important;padding:.82rem 1rem!important;background:#fff!important;border:1px solid #e5e8ee!important;border-left:5px solid #111827!important;border-radius:12px!important;box-shadow:0 3px 12px rgba(15,23,42,.035)!important}
 .section-band-kicker{font-size:.66rem!important;font-weight:900!important;letter-spacing:.085em!important;text-transform:uppercase!important;color:#ef4444!important;margin-bottom:.18rem!important}
@@ -50,214 +29,6 @@ section[data-testid="stSidebar"][aria-expanded="false"]>div{width:0!important;mi
 .mrp-source-status{margin-top:.26rem;font-size:.88rem;font-weight:900;color:#111827;text-transform:uppercase}
 .mrp-source-meta{margin-top:.28rem;font-size:.64rem;color:#94a3b8;text-transform:uppercase}
 
-/* ======================================================
-   SETTA UI — Sidebar Operacional V1
-   Referência: MRP-CONVERSOR validado
-   260 / 26 / 20 / 8 / 42 / 2 px
-   ====================================================== */
-section[data-testid="stSidebar"]{
-  background:#fff!important;
-  border-right:1px solid #e8ebf0!important;
-  width:260px!important;
-  min-width:260px!important;
-  max-width:260px!important;
-  flex:0 0 260px!important;
-  flex-basis:260px!important;
-  overflow:hidden!important;
-}
-section[data-testid="stSidebar"]>div{
-  width:260px!important;
-  min-width:260px!important;
-  max-width:260px!important;
-  box-sizing:border-box!important;
-}
-section[data-testid="stSidebar"] .block-container{
-  width:260px!important;
-  min-width:260px!important;
-  max-width:260px!important;
-  box-sizing:border-box!important;
-  padding-top:26px!important;
-  padding-left:16px!important;
-  padding-right:16px!important;
-}
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{
-  gap:0!important;
-  row-gap:0!important;
-}
-.sidebar-brand{
-  width:100%!important;
-  background:#f8fafc!important;
-  border:1px solid #e5e8ee!important;
-  border-radius:12px!important;
-  padding:14px 16px!important;
-  margin:0 0 20px 0!important;
-}
-.sidebar-brand-title{
-  margin:0!important;
-  padding:0!important;
-  font-size:15px!important;
-  font-weight:800!important;
-  line-height:18px!important;
-  color:#111827!important;
-  letter-spacing:-.01em!important;
-}
-.sidebar-brand-sub{
-  margin:3px 0 0 0!important;
-  padding:0!important;
-  font-size:12px!important;
-  font-weight:400!important;
-  line-height:16px!important;
-  color:#6b7280!important;
-}
-.sidebar-section-label{
-  display:block!important;
-  margin:0 0 8px 0!important;
-  padding:0!important;
-  color:#374151!important;
-  font-size:12px!important;
-  line-height:15px!important;
-  font-weight:800!important;
-  text-transform:uppercase!important;
-  letter-spacing:.055em!important;
-}
-section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(.sidebar-section-label){
-  margin:0!important;
-  padding:0!important;
-}
-/* Reset defensivo: neutraliza apenas a margem inferior herdada.
-   A margem superior do primeiro item pertence ao próprio item de navegação. */
-section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(div[data-testid="stButton"]){
-  margin-bottom:0!important;
-  padding:0!important;
-}
-section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"]{
-  margin:0 0 2px 0!important;
-  padding:0!important;
-}
-section[data-testid="stSidebar"] .st-key-mrp_nav_btn_0{
-  margin-top:8px!important;
-}
-section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button{
-  position:relative!important;
-  width:100%!important;
-  min-height:42px!important;
-  height:42px!important;
-  max-height:42px!important;
-  margin:0!important;
-  padding:0 12px 0 24px!important;
-  border-radius:10px!important;
-  justify-content:flex-start!important;
-  text-align:left!important;
-  box-shadow:none!important;
-}
-section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button > div{
-  width:100%!important;
-  justify-content:flex-start!important;
-  text-align:left!important;
-}
-section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button p{
-  width:100%!important;
-  margin:0!important;
-  padding:0!important;
-  text-align:left!important;
-  font-size:13px!important;
-  line-height:16px!important;
-}
-section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]{
-  background:transparent!important;
-  border:1px solid transparent!important;
-  color:#374151!important;
-  font-weight:500!important;
-}
-section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]:hover{
-  background:#f8fafc!important;
-  border-color:#e5e7eb!important;
-  color:#111827!important;
-}
-section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]{
-  background:#111827!important;
-  border:1px solid #111827!important;
-  color:#fff!important;
-  font-weight:700!important;
-  box-shadow:0 5px 14px rgba(17,24,39,.14)!important;
-}
-section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]::before{
-  content:""!important;
-  position:absolute!important;
-  left:7px!important;
-  top:50%!important;
-  width:4px!important;
-  height:20px!important;
-  border-radius:999px!important;
-  background:#ef4444!important;
-  transform:translateY(-50%)!important;
-}
-.sidebar-divider{
-  display:block!important;
-  width:100%!important;
-  height:1px!important;
-  min-height:1px!important;
-  background:#d1d5db!important;
-  margin:18px 0 20px 0!important;
-  padding:0!important;
-}
-.sidebar-status-card,
-.sidebar-week-card{
-  width:100%!important;
-  background:#f8fafc!important;
-  border:1px solid #e5e8ee!important;
-  border-radius:10px!important;
-  padding:12px 14px!important;
-  margin:0!important;
-  color:#6b7280!important;
-}
-.sidebar-status-name,
-.sidebar-week-label{
-  margin:0!important;
-  padding:0!important;
-  font-size:11px!important;
-  line-height:14px!important;
-  font-weight:800!important;
-  color:#64748b!important;
-  text-transform:uppercase!important;
-  letter-spacing:.025em!important;
-}
-.sidebar-status-value{
-  margin:4px 0 0 0!important;
-  padding:0!important;
-  font-size:13px!important;
-  line-height:16px!important;
-  font-weight:900!important;
-  text-transform:uppercase!important;
-}
-.sidebar-status-value.status-ok{color:#16a34a!important}
-.sidebar-status-value.status-warning{color:#f59e0b!important}
-.sidebar-status-value.status-error{color:#ef4444!important}
-.sidebar-status-meta{
-  margin:6px 0 0 0!important;
-  padding:0!important;
-  color:#6b7280!important;
-  font-size:11px!important;
-  line-height:15px!important;
-  text-transform:uppercase!important;
-}
-.sidebar-subdivider{
-  width:100%!important;
-  height:1px!important;
-  min-height:1px!important;
-  background:#d1d5db!important;
-  margin:12px 0!important;
-}
-.sidebar-week-value{
-  margin:5px 0 0 0!important;
-  padding:0!important;
-  color:#111827!important;
-  font-size:13px!important;
-  line-height:16px!important;
-  font-weight:900!important;
-  text-transform:uppercase!important;
-}
-
 [data-testid="stTabs"] button{font-weight:800!important;text-transform:uppercase!important;letter-spacing:.015em!important}
 div[data-testid="stMarkdownContainer"] h1,
 div[data-testid="stMarkdownContainer"] h2,
@@ -267,11 +38,6 @@ div[data-testid="stMarkdownContainer"] h4{text-transform:uppercase}
 
 @media(max-width:1250px){.mrp-source-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:900px){
-  .block-container{padding-top:2rem!important;padding-left:1rem!important;padding-right:1rem!important;padding-bottom:2rem!important}
-  .setta-logo-card{min-height:105px!important;margin-bottom:1.8rem!important;padding:.9rem 1rem!important}
-  .setta-logo-card img{max-width:170px!important;max-height:72px!important}
-  .app-title{font-size:2rem!important;line-height:1.12!important}
-  .app-subtitle,.app-sub,.setta-main-description{font-size:.86rem!important;margin-bottom:1.35rem!important}
   .section-title{font-size:1.14rem!important}
   .mrp-source-grid{grid-template-columns:1fr!important}
 }

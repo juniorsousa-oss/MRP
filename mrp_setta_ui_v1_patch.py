@@ -137,11 +137,18 @@ section.main{
 }
 [data-testid="stMainBlockContainer"],
 [data-testid="stAppViewBlockContainer"]{
+  width:100%!important;
+  max-width:none!important;
   height:auto!important;
   min-height:100vh!important;
   max-height:none!important;
+  margin:0!important;
   overflow:visible!important;
+  padding-top:3.2rem!important;
+  padding-left:2.7rem!important;
+  padding-right:2.7rem!important;
   padding-bottom:3rem!important;
+  box-sizing:border-box!important;
 }
 [data-testid="stHeader"],
 [data-testid="stToolbar"],
@@ -156,12 +163,14 @@ header[data-testid="stHeader"]{
   padding:0!important;
 }
 .block-container{
-  max-width:1780px!important;
+  max-width:none!important;
   width:100%!important;
+  margin:0!important;
   padding-top:3.2rem!important;
   padding-left:2.7rem!important;
   padding-right:2.7rem!important;
   padding-bottom:3rem!important;
+  box-sizing:border-box!important;
 }
 
 /* SETTA UI — Top Controls V1: medidas idênticas ao Conversor MRP */

@@ -80,7 +80,11 @@ jobs:
           assert "sidebar-week-card" in env["_source"]
           assert 'QNT DE BASES: {_mrp_base_ok}/{_mrp_base_total}' in env["_source"]
           assert "_mrp_force_central_refresh" in env["_source"]
-          assert "_central_mrp.inspect_mrp_state()" not in env["_source"]
+          # Load Once permanece para os dados pesados, mas o runtime
+          # consulta metadados leves e recarrega somente quando a Central muda.
+          assert "_mrp_live_state=_central_mrp.inspect_mrp_state()" in env["_source"]
+          assert "_mrp_live_token" in env["_source"]
+          assert "_mrp_cached_token" in env["_source"]
           assert "(_mrp_now-_mrp_cached_at)" not in env["_source"]
           assert '_central_bundle=_mrp_cached_bundle' in env["_source"]
           assert "ATUALIZAR DADOS DA CENTRAL" in env["_source"]

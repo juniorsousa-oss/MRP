@@ -118,6 +118,26 @@ def _mrp_dashboard_card(col,titulo,valor,cor,subtitulo,key,status_key,mostrar_na
                 help=f"Abrir Demanda por Projeto · {titulo}",
             )
 
+def _mrp_dashboard_card_static(col,titulo,valor,cor,subtitulo):
+    html=(
+        f'<div style="background:#ffffff;border:1px solid #dfe5ec;'
+        f'border-left:5px solid {cor};border-radius:12px;padding:12px 14px;'
+        'min-height:104px;box-shadow:0 2px 10px rgba(15,23,42,.04);'
+        'display:flex;flex-direction:column;">'
+        f'<div style="display:flex;align-items:center;gap:7px;color:#475569;'
+        'font-size:11px;font-weight:800;letter-spacing:.025em;'
+        'text-transform:uppercase;line-height:1.2;">'
+        f'<span style="width:9px;height:9px;border-radius:999px;'
+        f'background:{cor};display:inline-block;flex:0 0 auto;"></span>{titulo}</div>'
+        f'<div style="margin-top:8px;color:#0f172a;font-size:24px;'
+        f'font-weight:850;line-height:1;letter-spacing:-.035em;">{valor}</div>'
+        f'<div style="margin-top:auto;padding-top:9px;color:#718096;'
+        f'font-size:9px;font-weight:750;letter-spacing:.03em;'
+        f'text-transform:uppercase;">{subtitulo}</div>'
+        '</div>'
+    )
+    col.markdown(html,unsafe_allow_html=True)
+
 """
 _final_replace(_helper_anchor, _helper_impl + _helper_anchor, "helpers de filtros e números")
 
@@ -152,6 +172,25 @@ _mrp_dashboard_card(m[2],"Atenção ao Prazo",_mrp_numero_br((_status_dashboard=
 _mrp_dashboard_card(m[3],"Atendimento Crítico",_mrp_numero_br((_status_dashboard=="🔴").sum()),"#ef4444","ACIMA DE 2 SEMANAS OU SEM PREVISÃO","vermelho","🔴 ATENDIMENTO CRÍTICO",False)
 _mrp_dashboard_card(m[4],"Demandas Não Aptas",_mrp_numero_br((_status_dashboard=="⚪").sum()),"#94a3b8","RESÍDUOS, SUSPENSAS E CANCELADAS","cinza","⚪ DEMANDAS NÃO APTAS",True)"""
 _final_replace(_metric_old, _metric_new, "formatação brasileira dos indicadores")
+
+# ---------------------------------------------------------
+# 2.1) KPIs TAMBÉM NA CONSULTA DO ÚLTIMO SNAPSHOT.
+# ---------------------------------------------------------
+_consulta_kpi_old = '''    st.caption(f"Último MRP salvo — semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
+
+    tab_geral, tab_projeto'''
+_consulta_kpi_new = '''    st.caption(f"Último MRP salvo — semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
+
+    _status_dashboard_consulta=_mrp_status_atendimento_series(dem)
+    _mk=st.columns(5)
+    _mrp_dashboard_card_static(_mk[0],"Demandas no MRP",_mrp_numero_br(len(dem)),"#2563eb","TOTAL DA DEMANDA POR PROJETO")
+    _mrp_dashboard_card_static(_mk[1],"Dentro do Prazo",_mrp_numero_br((_status_dashboard_consulta=="🟢").sum()),"#16a34a","ATENDIMENTO NO PRAZO OU ANTES")
+    _mrp_dashboard_card_static(_mk[2],"Atenção ao Prazo",_mrp_numero_br((_status_dashboard_consulta=="🟡").sum()),"#f59e0b","ATÉ 2 SEMANAS APÓS A NECESSIDADE")
+    _mrp_dashboard_card_static(_mk[3],"Atendimento Crítico",_mrp_numero_br((_status_dashboard_consulta=="🔴").sum()),"#ef4444","ACIMA DE 2 SEMANAS OU SEM PREVISÃO")
+    _mrp_dashboard_card_static(_mk[4],"Demandas Não Aptas",_mrp_numero_br((_status_dashboard_consulta=="⚪").sum()),"#94a3b8","RESÍDUOS, SUSPENSAS E CANCELADAS")
+
+    tab_geral, tab_projeto'''
+_final_replace(_consulta_kpi_old, _consulta_kpi_new, "KPIs de atendimento na Consulta Geral")
 
 # ---------------------------------------------------------
 # 3) CONSULTA — DEMANDA GERAL: filtros separados.

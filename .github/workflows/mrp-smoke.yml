@@ -116,6 +116,9 @@ jobs:
           assert "height:calc(100vh - 36px)!important" not in env["_source"]
           assert "border-radius:24px!important" not in env["_source"]
           assert "box-shadow:0 24px 70px" not in env["_source"]
+          assert "max-width:1780px!important" not in env["_source"]
+          assert '[data-testid="stMainBlockContainer"]' in env["_source"]
+          assert "max-width:none!important" in env["_source"]
           assert 'height:150px!important' in env["_source"]
           assert 'st.button(\n        "☰",' in env["_source"]
           # Round trip do formato compactado, sem conexão nem escrita no banco.

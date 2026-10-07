@@ -176,12 +176,11 @@ _final_replace(_metric_old, _metric_new, "formatação brasileira dos indicadore
 # ---------------------------------------------------------
 # 2.1) KPIs TAMBÉM NA CONSULTA DO ÚLTIMO SNAPSHOT.
 # ---------------------------------------------------------
-_consulta_kpi_old = """    st.caption(f"Último MRP salvo — semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
-
-    tab_geral, tab_projeto"""
-_consulta_kpi_new = """    st.caption(f"Último MRP salvo — semana {snap.get('semana_mrp') or '-'} | {formatar_data_br(snap.get('created_at'))} | {snap.get('usuario') or '-'}")
-
-    _status_dashboard_consulta=_mrp_status_atendimento_series(dem)
+_consulta_func_pos=_source.find("def render_consulta_view():")
+_consulta_tabs_pos=_source.find("    tab_geral",_consulta_func_pos)
+if _consulta_func_pos<0 or _consulta_tabs_pos<0:
+    raise RuntimeError("Adequação final não localizada: KPIs de atendimento na Consulta Geral.")
+_consulta_kpi_code="""    _status_dashboard_consulta=_mrp_status_atendimento_series(dem)
     _mk=st.columns(5)
     _mrp_dashboard_card_static(_mk[0],"Demandas no MRP",_mrp_numero_br(len(dem)),"#2563eb","TOTAL DA DEMANDA POR PROJETO")
     _mrp_dashboard_card_static(_mk[1],"Dentro do Prazo",_mrp_numero_br((_status_dashboard_consulta=="🟢").sum()),"#16a34a","ATENDIMENTO NO PRAZO OU ANTES")
@@ -189,8 +188,8 @@ _consulta_kpi_new = """    st.caption(f"Último MRP salvo — semana {snap.get('
     _mrp_dashboard_card_static(_mk[3],"Atendimento Crítico",_mrp_numero_br((_status_dashboard_consulta=="🔴").sum()),"#ef4444","ACIMA DE 2 SEMANAS OU SEM PREVISÃO")
     _mrp_dashboard_card_static(_mk[4],"Demandas Não Aptas",_mrp_numero_br((_status_dashboard_consulta=="⚪").sum()),"#94a3b8","RESÍDUOS, SUSPENSAS E CANCELADAS")
 
-    tab_geral, tab_projeto"""
-_final_replace(_consulta_kpi_old, _consulta_kpi_new, "KPIs de atendimento na Consulta Geral")
+"""
+_source=_source[:_consulta_tabs_pos]+_consulta_kpi_code+_source[_consulta_tabs_pos:]
 
 # ---------------------------------------------------------
 # 3) CONSULTA — DEMANDA GERAL: filtros separados.

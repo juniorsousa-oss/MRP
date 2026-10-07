@@ -177,7 +177,8 @@ _final_replace(_metric_old, _metric_new, "formatação brasileira dos indicadore
 # 2.1) KPIs TAMBÉM NA CONSULTA DO ÚLTIMO SNAPSHOT.
 # ---------------------------------------------------------
 _consulta_func_pos=_source.find("def render_consulta_view():")
-_consulta_tabs_pos=_source.find("    tab_geral",_consulta_func_pos)
+_consulta_tabs_marker='    if st.session_state.get("auth_role") == "ADMIN":\n        tab_geral, tab_projeto, tab_tratativa, tab_comparativo = st.tabs('
+_consulta_tabs_pos=_source.find(_consulta_tabs_marker,_consulta_func_pos)
 if _consulta_func_pos<0 or _consulta_tabs_pos<0:
     raise RuntimeError("Adequação final não localizada: KPIs de atendimento na Consulta Geral.")
 _consulta_kpi_code="""    _status_dashboard_consulta=_mrp_status_atendimento_series(dem)

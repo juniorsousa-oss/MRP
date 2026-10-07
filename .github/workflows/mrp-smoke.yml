@@ -109,9 +109,13 @@ jobs:
           assert '["MRP ATUAL","HISTÓRICO"]' not in env["_source"]
           assert "_mrp_compute_cache_key" in env["_source"]
           assert "MRP-DIARIO|" in env["_source"]
-          # Shell SETTA: não pode depender novamente de blocos CSS legados.
+          # Layout SETTA: página normal, sem o shell arredondado externo.
           assert "Bloco visual principal não encontrado para padronização de largura." not in runtime
-          assert "SETTA UI — App Shell Rounded V1" in env["_source"]
+          assert "SETTA UI — Layout padrão Streamlit" in env["_source"]
+          assert "SETTA UI — App Shell Rounded V1" not in env["_source"]
+          assert "height:calc(100vh - 36px)!important" not in env["_source"]
+          assert "border-radius:24px!important" not in env["_source"]
+          assert "box-shadow:0 24px 70px" not in env["_source"]
           assert 'height:150px!important' in env["_source"]
           assert 'st.button(\n        "☰",' in env["_source"]
           # Round trip do formato compactado, sem conexão nem escrita no banco.

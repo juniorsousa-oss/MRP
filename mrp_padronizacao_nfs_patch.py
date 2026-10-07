@@ -98,6 +98,29 @@ try:
     else:
         _central_bundle=_mrp_cached_bundle
 
+        # Consulta somente metadados leves (cache de 15 s). Se a Central mudou
+        # desde o bootstrap da sessão, recarrega as bases uma única vez.
+        _mrp_live_state=_central_mrp.inspect_mrp_state()
+        _mrp_cached_token=str(
+            (_central_bundle or {}).get("state_token") or ""
+        )
+        _mrp_live_token=str(
+            (_mrp_live_state or {}).get("state_token") or ""
+        )
+        if (
+            _mrp_live_token
+            and _mrp_cached_token
+            and _mrp_live_token != _mrp_cached_token
+        ):
+            with st.spinner("ATUALIZANDO MRP COM A CENTRAL..."):
+                _central_bundle=_central_mrp.load_mrp_bundle(
+                    force_check=True
+                )
+            st.session_state["_mrp_central_bundle"]=_central_bundle
+            st.session_state["_mrp_output_meta"]=(
+                _central_bundle.get("output_meta") or {}
+            )
+
     st.session_state.pop("_mrp_central_error",None)
 except Exception as _central_err:
     st.session_state["_mrp_central_error"]=str(_central_err)

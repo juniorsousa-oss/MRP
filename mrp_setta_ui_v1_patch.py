@@ -1,7 +1,7 @@
 SETTA_UI_V1_PATCH = r'''
 # =========================================================
 # SETTA UI — PADRÃO OFICIAL DO CONVERSOR MRP
-# App Shell Rounded V1 + Sidebar Operacional V1
+# Layout padrão Streamlit + Sidebar Operacional V1
 # + Header Superior V1 + Light Lock V1
 # =========================================================
 # Esta camada é somente estrutural/visual. Não altera cálculos,
@@ -76,49 +76,50 @@ _setta_css = """<style>
   --setta-red:#EF4444;
 }
 
-/* SETTA UI — App Shell Rounded V1 */
+/* SETTA UI — Layout padrão Streamlit */
 html,body,#root{
-  height:100%!important;
   min-height:100%!important;
-  max-height:100%!important;
-  overflow:hidden!important;
+  height:auto!important;
+  max-height:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
 }
 html,body{
-  background:#EEF3F8!important;
+  background:#F4F7FB!important;
   background-image:none!important;
 }
 body{
   box-sizing:border-box!important;
-  padding:18px!important;
+  padding:0!important;
   margin:0!important;
-  overflow:hidden!important;
+  overflow-y:auto!important;
 }
 .stApp,
 [data-testid="stApp"]{
   position:relative!important;
   inset:auto!important;
-  width:calc(100vw - 36px)!important;
-  height:calc(100vh - 36px)!important;
-  min-height:0!important;
-  max-height:calc(100vh - 36px)!important;
-  max-width:1680px!important;
-  margin:0 auto!important;
-  border:1px solid rgba(202,214,228,.9)!important;
-  border-radius:24px!important;
-  overflow:hidden!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:100vh!important;
+  max-height:none!important;
+  max-width:none!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  overflow:visible!important;
   background:#F8FAFD!important;
   background-image:none!important;
-  box-shadow:0 24px 70px rgba(15,27,45,.13)!important;
+  box-shadow:none!important;
 }
 [data-testid="stAppViewContainer"]{
   position:relative!important;
   inset:auto!important;
   width:100%!important;
-  height:100%!important;
-  min-height:0!important;
-  max-height:100%!important;
-  border-radius:24px!important;
-  overflow:hidden!important;
+  height:auto!important;
+  min-height:100vh!important;
+  max-height:none!important;
+  border-radius:0!important;
+  overflow:visible!important;
   background:#F4F7FB!important;
   background-image:none!important;
 }
@@ -126,35 +127,21 @@ body{
 .stMain,
 section.main{
   position:relative!important;
-  height:100%!important;
-  min-height:0!important;
-  max-height:100%!important;
+  height:auto!important;
+  min-height:100vh!important;
+  max-height:none!important;
   overflow-x:hidden!important;
-  overflow-y:auto!important;
+  overflow-y:visible!important;
   background:#F4F7FB!important;
   background-image:none!important;
-  scrollbar-width:thin!important;
-  scrollbar-color:#CAD5E3 transparent!important;
-}
-[data-testid="stMain"]::-webkit-scrollbar,
-.stMain::-webkit-scrollbar,
-section.main::-webkit-scrollbar{width:9px!important}
-[data-testid="stMain"]::-webkit-scrollbar-track,
-.stMain::-webkit-scrollbar-track,
-section.main::-webkit-scrollbar-track{background:transparent!important}
-[data-testid="stMain"]::-webkit-scrollbar-thumb,
-.stMain::-webkit-scrollbar-thumb,
-section.main::-webkit-scrollbar-thumb{
-  background:#CAD5E3!important;
-  border-radius:999px!important;
 }
 [data-testid="stMainBlockContainer"],
 [data-testid="stAppViewBlockContainer"]{
   height:auto!important;
-  min-height:100%!important;
+  min-height:100vh!important;
   max-height:none!important;
   overflow:visible!important;
-  padding-bottom:48px!important;
+  padding-bottom:3rem!important;
 }
 [data-testid="stHeader"],
 [data-testid="stToolbar"],
@@ -171,10 +158,10 @@ header[data-testid="stHeader"]{
 .block-container{
   max-width:1780px!important;
   width:100%!important;
-  padding-top:18px!important;
+  padding-top:3.2rem!important;
   padding-left:2.7rem!important;
   padding-right:2.7rem!important;
-  padding-bottom:32px!important;
+  padding-bottom:3rem!important;
 }
 
 /* SETTA UI — Top Controls V1: medidas idênticas ao Conversor MRP */
@@ -203,32 +190,23 @@ header[data-testid="stHeader"]{
   box-shadow:0 2px 8px rgba(15,23,42,.06)!important;
 }
 
-/* SETTA UI — Integração da Sidebar com o App Shell */
+/* SETTA UI — Sidebar no layout padrão */
 section[data-testid="stSidebar"]{
-  align-self:stretch!important;
-  height:100%!important;
-  min-height:100%!important;
-  max-height:100%!important;
   background:#fff!important;
   background-image:none!important;
   border-right:1px solid #e8ebf0!important;
-  border-radius:24px 0 0 24px!important;
+  border-radius:0!important;
   width:260px!important;
   min-width:260px!important;
   max-width:260px!important;
   flex:0 0 260px!important;
   flex-basis:260px!important;
-  overflow-x:hidden!important;
-  overflow-y:auto!important;
-  scrollbar-width:thin!important;
-  scrollbar-color:#D6DEE8 transparent!important;
+  overflow:hidden!important;
 }
 section[data-testid="stSidebar"]>div{
   width:260px!important;
   min-width:260px!important;
   max-width:260px!important;
-  min-height:100%!important;
-  height:auto!important;
   box-sizing:border-box!important;
 }
 section[data-testid="stSidebar"] .block-container{
@@ -444,7 +422,7 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   object-fit:contain!important;
   margin:0!important;
 }
-/* Mobile idêntico ao princípio do Conversor: shell ocupa a tela. */
+/* Mobile: página normal e responsiva. */
 @media(max-width:900px){
   html,body,#root{
     height:auto!important;
@@ -459,7 +437,7 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   }
   .stApp,
   [data-testid="stApp"]{
-    width:100vw!important;
+    width:100%!important;
     height:auto!important;
     min-height:100vh!important;
     max-height:none!important;

@@ -302,20 +302,57 @@ div[data-baseweb="tab-list"] button[aria-selected="true"]{
 }
 
 div.stButton > button,
-div.stDownloadButton > button{
+div.stDownloadButton > button,
+div[data-testid="stDownloadButton"] > button{
   border-radius:9px!important;
   font-weight:800!important;
 }
 div.stButton > button[kind="primary"],
-div.stDownloadButton > button{
+div.stDownloadButton > button,
+div[data-testid="stDownloadButton"] > button{
   background:#111827!important;
   border-color:#111827!important;
   color:#fff!important;
 }
 div.stButton > button[kind="primary"]:hover,
-div.stDownloadButton > button:hover{
+div.stDownloadButton > button:hover,
+div[data-testid="stDownloadButton"] > button:hover{
   background:#1f2937!important;
   border-color:#1f2937!important;
+}
+
+/* EXPORTAÇÃO — evita botões cortados no shell/iframe e mantém o texto legível. */
+div.stDownloadButton,
+div[data-testid="stDownloadButton"]{
+  width:100%!important;
+  min-height:46px!important;
+  height:auto!important;
+  overflow:visible!important;
+  padding:1px 0 3px!important;
+}
+div.stDownloadButton > button,
+div[data-testid="stDownloadButton"] > button{
+  width:100%!important;
+  min-height:44px!important;
+  height:auto!important;
+  max-height:none!important;
+  padding:.68rem .72rem!important;
+  line-height:1.15!important;
+  white-space:normal!important;
+  overflow:visible!important;
+}
+div.stDownloadButton > button p,
+div[data-testid="stDownloadButton"] > button p{
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  line-height:1.15!important;
+}
+div[data-testid="stHorizontalBlock"]:has(div.stDownloadButton),
+div[data-testid="stHorizontalBlock"]:has(div[data-testid="stDownloadButton"]){
+  align-items:stretch!important;
+  overflow:visible!important;
+  padding-bottom:4px!important;
 }
 
 hr{

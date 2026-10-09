@@ -212,7 +212,7 @@ _consulta_geral_form_new = """        with st.form("consulta_geral_filtros", bor
             status = c4.selectbox("STATUS", ["TODOS"] + sorted(mg["Status"].fillna("").astype(str).unique().tolist()), key="consulta_status")
             _bpesq, _blimpa = st.columns([8,1])
             with _bpesq:
-                st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary", on_click=_normalizar_busca_codigo_8, args=("consulta_codigo_busca",))
+                st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
             with _blimpa:
                 st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_codigo_busca","consulta_descricao_busca","consulta_tipo","consulta_status"))"""
 _final_replace(_consulta_geral_form_old, _consulta_geral_form_new, "filtros separados da Demanda Geral em consulta")
@@ -323,7 +323,7 @@ _admin_geral_form_new = """    with st.form("admin_demanda_geral_filtros", borde
         with c4: status=st.selectbox("STATUS",["TODOS","OK","CRIAR S.C."], key="admin_status_geral")
         _bpesq, _blimpa = st.columns([8,1])
         with _bpesq:
-            st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary", on_click=_normalizar_busca_codigo_8, args=("admin_codigo_geral",))
+            st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
         with _blimpa:
             st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_codigo_geral","admin_descricao_geral","admin_status_geral","admin_tipo_geral"))"""
 _final_replace(_admin_geral_form_old, _admin_geral_form_new, "filtros separados da Demanda Geral ADMIN")

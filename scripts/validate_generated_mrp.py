@@ -1,8 +1,10 @@
 """Monta todas as camadas do MRP sem abrir o Streamlit nem ler dados externos."""
 from pathlib import Path
 import ast
+import sys
 
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
 source=(ROOT/"app_mrp.py").read_text(encoding="utf-8")
 last='exec(compile(_runtime_source, "app_mrp_runtime.py", "exec"), globals(), globals())'
 assert source.count(last)==1, "Execução principal do MRP alterada"

@@ -94,8 +94,7 @@ def _mrp_dashboard_navigate(status_key, mostrar_nao_aptas):
     st.session_state["mrp_admin_tabs"]=UI_CONFIG["title_demanda_projeto"]
     st.session_state["admin_status_atendimento"]=status_key
     st.session_state["admin_mostrar_residuos"]=bool(mostrar_nao_aptas)
-    for _key in ("admin_projeto_busca","admin_produto_busca","admin_proj_descricao","admin_semana_projeto"):
-        st.session_state.pop(_key,None)
+    # Os atalhos de status preservam todos os demais filtros selecionados.
 
 def _mrp_dashboard_card(col,titulo,valor,cor,subtitulo,key,status_key,mostrar_nao_aptas=False):
     html=(
@@ -207,7 +206,7 @@ _consulta_geral_form_old = """        with st.form("consulta_geral_filtros", bor
                 st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_busca_geral","consulta_tipo","consulta_status"))"""
 _consulta_geral_form_new = """        with st.form("consulta_geral_filtros", border=False):
             c1, c2, c3, c4 = st.columns(4)
-            codigo_consulta = c1.text_input("CÓDIGO", key="consulta_codigo_busca", placeholder="DIGITE O CÓDIGO")
+            codigo_consulta = c1.selectbox("CÓDIGO", ["TODOS"] + sorted(set(mg["Código"].dropna().astype(str))), key="consulta_codigo_busca")
             descricao_consulta = c2.text_input("DESCRIÇÃO", key="consulta_descricao_busca", placeholder="DIGITE PARTE DA DESCRIÇÃO")
             tipo = c3.selectbox("TIPO", ["TODOS"] + tipos, key="consulta_tipo")
             status = c4.selectbox("STATUS", ["TODOS"] + sorted(mg["Status"].fillna("").astype(str).unique().tolist()), key="consulta_status")
@@ -243,7 +242,7 @@ _consulta_geral_logic_old = """        f = mg.copy()
         if status != "TODOS": f = f[f["Status"].astype(str) == status]
         f = f.reset_index(drop=True)"""
 _consulta_geral_logic_new = """        f = mg.copy()
-        if codigo_consulta:
+        if codigo_consulta != "TODOS":
             f=f[_mrp_codigo_mask(f["Código"],codigo_consulta)]
         if descricao_consulta:
             _dc=descricao_consulta.strip()
@@ -267,8 +266,8 @@ _consulta_proj_form_old = """        with st.form("consulta_projeto_filtros", bo
                 st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_busca_projeto","consulta_semana"))"""
 _consulta_proj_form_new = """        with st.form("consulta_projeto_filtros", border=False):
             c1, c2, c3, c4 = st.columns(4)
-            projeto_consulta = c1.text_input("PROJETO", key="consulta_projeto_busca", placeholder="DIGITE O PROJETO")
-            produto_consulta = c2.text_input("PRODUTO", key="consulta_produto_busca", placeholder="DIGITE O CÓDIGO")
+            projeto_consulta = c1.selectbox("PROJETO", ["TODOS"] + sorted(set(dem["Projeto"].dropna().astype(str))) , key="consulta_projeto_busca")
+            produto_consulta = c2.selectbox("PRODUTO", ["TODOS"] + sorted(set(dem["Produto"].dropna().astype(str))), key="consulta_produto_busca")
             descricao_projeto_consulta = c3.text_input("DESCRIÇÃO", key="consulta_projeto_descricao", placeholder="DIGITE PARTE DA DESCRIÇÃO")
             _semana_opts = ["TODAS"] + semanas
             semana = c4.selectbox("SEMANA", _semana_opts, key="consulta_semana", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
@@ -291,10 +290,10 @@ _consulta_proj_logic_old = """        f = dem.copy()
 _consulta_proj_logic_new = """        f = dem.copy()
         if not mostrar_residuos_consulta:
             f=f[~_mrp_demanda_nao_apta_mask(f)]
-        if projeto_consulta:
+        if projeto_consulta != "TODOS":
             _pc=projeto_consulta.strip()
-            f=f[f["Projeto"].fillna("").astype(str).str.contains(_pc,case=False,na=False,regex=False)]
-        if produto_consulta:
+            f=f[f["Projeto"].fillna("").astype(str).eq(_pc)]
+        if produto_consulta != "TODOS":
             f=f[_mrp_codigo_mask(f["Produto"],produto_consulta)]
         if descricao_projeto_consulta:
             _dpc=descricao_projeto_consulta.strip()
@@ -318,7 +317,7 @@ _admin_geral_form_old = """    with st.form("admin_demanda_geral_filtros", borde
             st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_geral","admin_status_geral","admin_tipo_geral"))"""
 _admin_geral_form_new = """    with st.form("admin_demanda_geral_filtros", border=False):
         c1,c2,c3,c4=st.columns(4)
-        with c1: codigo_admin=st.text_input("CÓDIGO", key="admin_codigo_geral", placeholder="DIGITE O CÓDIGO")
+        with c1: codigo_admin=st.selectbox("CÓDIGO", ["TODOS"]+sorted(set(macro["Código"].dropna().astype(str))), key="admin_codigo_geral")
         with c2: descricao_admin=st.text_input("DESCRIÇÃO", key="admin_descricao_geral", placeholder="DIGITE PARTE DA DESCRIÇÃO")
         with c3: tipo_filtro=st.selectbox("TIPO",["TODOS"]+sorted([x for x in cad["Tipo"].unique() if x]), key="admin_tipo_geral")
         with c4: status=st.selectbox("STATUS",["TODOS","OK","CRIAR S.C."], key="admin_status_geral")
@@ -347,7 +346,7 @@ _admin_search_old = """    if busca:
                 )
             ]
         v = v.reset_index(drop=True)"""
-_admin_search_new = """    if codigo_admin:
+_admin_search_new = """    if codigo_admin != "TODOS":
         v=v[_mrp_codigo_mask(v["Código"],codigo_admin)]
     if descricao_admin:
         _da=descricao_admin.strip()
@@ -369,8 +368,8 @@ _admin_proj_form_old = """    with st.form("admin_demanda_projeto_filtros", bord
             st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_projeto","admin_semana_projeto"))"""
 _admin_proj_form_new = """    with st.form("admin_demanda_projeto_filtros", border=False):
         c1,c2,c3,c4=st.columns(4)
-        with c1: projeto_admin=st.text_input("PROJETO", key="admin_projeto_busca", placeholder="DIGITE O PROJETO")
-        with c2: produto_admin=st.text_input("PRODUTO", key="admin_produto_busca", placeholder="DIGITE O CÓDIGO")
+        with c1: projeto_admin=st.selectbox("PROJETO", ["TODOS"]+sorted(set(demanda_projeto["Projeto"].dropna().astype(str))), key="admin_projeto_busca")
+        with c2: produto_admin=st.selectbox("PRODUTO", ["TODOS"]+sorted(set(demanda_projeto["Produto"].dropna().astype(str))), key="admin_produto_busca")
         with c3: descricao_proj_admin=st.text_input("DESCRIÇÃO", key="admin_proj_descricao", placeholder="DIGITE PARTE DA DESCRIÇÃO")
         _semana_admin_opts=["TODAS"]+sorted(demanda_projeto["Semana de Necessidade"].dropna().unique().tolist()) if len(demanda_projeto) else ["TODAS"]
         with c4: semana_filtro=st.selectbox("SEMANA",_semana_admin_opts, key="admin_semana_projeto", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
@@ -395,10 +394,10 @@ _admin_proj_logic_new = """    d=demanda_projeto.copy()
     if _status_alvo:
         _status_linhas=_mrp_status_atendimento_series(d)
         d=d[_status_linhas==_status_alvo]
-    if projeto_admin:
+    if projeto_admin != "TODOS":
         _pa=projeto_admin.strip()
-        d=d[d["Projeto"].fillna("").astype(str).str.contains(_pa,case=False,na=False,regex=False)]
-    if produto_admin:
+        d=d[d["Projeto"].fillna("").astype(str).eq(_pa)]
+    if produto_admin != "TODOS":
         d=d[_mrp_codigo_mask(d["Produto"],produto_admin)]
     if descricao_proj_admin:
         _dpa=descricao_proj_admin.strip()

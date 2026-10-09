@@ -61,7 +61,7 @@ jobs:
           assert "STATUS DE ATENDIMENTO" in env["_source"]
           assert "mrp_admin_tabs" in env["_source"]
           assert "A Central é a mesma fonte de dados para ADMIN e CONSULTA" in env["_source"]
-          assert '_mrp_pages=["MRP ATUAL", "CONFIGURAÇÕES"] if _mrp_role=="ADMIN" else ["MRP ATUAL"]' in env["_source"]
+          assert '_mrp_pages=["MRP ATUAL", "SOLICITAÇÕES AVULSAS", "CONFIGURAÇÕES"] if _mrp_role=="ADMIN" else ["MRP ATUAL", "SOLICITAÇÕES AVULSAS"]' in env["_source"]
           assert "SETTA UI — Sidebar Operacional V1" in env["_source"]
           assert "SETTA Runtime — Load Once V1" in env["_source"]
           assert 'st.query_params.get("nav")' not in env["_source"]

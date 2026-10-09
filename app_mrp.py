@@ -41,6 +41,7 @@ from mrp_desempenho_final_patch import DESEMPENHO_FINAL_PATCH
 from mrp_central_data_patch import CENTRAL_DATA_PATCH
 from mrp_padronizacao_nfs_patch import PADRONIZACAO_NFS_PATCH
 from mrp_setta_ui_v1_patch import SETTA_UI_V1_PATCH
+from mrp_avulsas_patch import AVULSAS_PATCH
 
 # Mantém toda a lógica funcional validada no runtime estável e aplica somente
 # smoke-layout-performance-20260930
@@ -132,7 +133,7 @@ if _old_export in _source:
 
 _runtime_source = _runtime_source.replace(
     _exec_anchor,
-    _producao_patch + "\n" + ENTREGA_PATCH + "\n" + LAYOUT_PATCH + "\n" + COMPRA_TCTP_PATCH + "\n" + FILTROS_PATCH + "\n" + COMPARATIVO_PATCH + "\n" + UI_ADEQUACOES_PATCH + "\n" + TRATATIVA_PRODUTO_PATCH + "\n" + FILTROS_VISUAL_PATCH + "\n" + LOGIN_PATCH + "\n" + LOGIN_SPACING_PATCH + "\n" + CONEXAO_PATCH + "\n" + SALVAMENTO_COMPACTO_PATCH + "\n" + ANO_SEMANA_PATCH + "\n" + PERFORMANCE_PATCH + "\n" + CENTRAL_DATA_PATCH + "\n" + DESEMPENHO_FINAL_PATCH + "\n" + SETTA_PADRAO_PATCH + "\n" + MRP_PADRAO_FINAL_PATCH + "\n" + PADRONIZACAO_NFS_PATCH + "\n" + ADEQUACOES_FILTROS_TRATATIVAS_PATCH + "\n" + SETTA_UI_V1_PATCH + "\n" + _exec_anchor,
+    _producao_patch + "\n" + ENTREGA_PATCH + "\n" + LAYOUT_PATCH + "\n" + COMPRA_TCTP_PATCH + "\n" + FILTROS_PATCH + "\n" + COMPARATIVO_PATCH + "\n" + UI_ADEQUACOES_PATCH + "\n" + TRATATIVA_PRODUTO_PATCH + "\n" + FILTROS_VISUAL_PATCH + "\n" + LOGIN_PATCH + "\n" + LOGIN_SPACING_PATCH + "\n" + CONEXAO_PATCH + "\n" + SALVAMENTO_COMPACTO_PATCH + "\n" + ANO_SEMANA_PATCH + "\n" + PERFORMANCE_PATCH + "\n" + CENTRAL_DATA_PATCH + "\n" + DESEMPENHO_FINAL_PATCH + "\n" + SETTA_PADRAO_PATCH + "\n" + MRP_PADRAO_FINAL_PATCH + "\n" + PADRONIZACAO_NFS_PATCH + "\n" + ADEQUACOES_FILTROS_TRATATIVAS_PATCH + "\n" + SETTA_UI_V1_PATCH + "\n" + AVULSAS_PATCH + "\n" + _exec_anchor,
     1,
 )
 

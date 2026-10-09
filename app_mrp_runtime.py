@@ -549,4 +549,18 @@ _source = _source.replace(
     1,
 )
 
+# Recarregamento completo do navegador cria uma nova sessão Streamlit.
+# A versão mais recente não pode ficar presa no cache global de 60/120s.
+# Snapshots históricos, identificados por ID imutável, continuam em cache.
+_refresh_meta_old = 'def load_latest_snapshot():\\n    meta=load_latest_snapshot_meta()'
+_refresh_meta_new = '''def load_latest_snapshot():
+    if not st.session_state.get("_mrp_meta_verified_on_page_load"):
+        load_latest_snapshot_meta.clear()
+        load_snapshot_history.clear()
+        st.session_state["_mrp_meta_verified_on_page_load"] = True
+    meta=load_latest_snapshot_meta()'''
+if _source.count(_refresh_meta_old.replace('\\n', '\n')) != 1:
+    raise RuntimeError("Não foi possível habilitar atualização de MRP por carregamento.")
+_source = _source.replace(_refresh_meta_old.replace('\\n', '\n'), _refresh_meta_new, 1)
+
 exec(compile(_source, "app_mrp_original.py", "exec"), globals(), globals())

@@ -50,6 +50,7 @@ def _mrp_avulsas_view():
     c2.metric("SOLICITAÇÕES EM ABERTO",len(abertos))
     c3.metric("SOLICITAÇÕES ATENDIDAS",len(atendidos))
     st.caption(f"BASE DE REFERÊNCIA · ÚLTIMO MRP GRAVADO #{dados.get('snapshot_id','—')}. Os pedidos abertos reduzem a quantidade solicitável.")
+    st.caption("A DIV é um saldo projetado do MRP (inclui entradas previstas). Solicitar não confirma disponibilidade física imediata nem efetua baixa no Protheus.")
 
     st.markdown("#### NOVA SOLICITAÇÃO")
     if not materiais:

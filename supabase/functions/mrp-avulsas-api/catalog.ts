@@ -30,5 +30,7 @@ export function availableAfterReservations(limite: number, reservado: number): n
   return Math.max(0,round3(limite-reservado));
 }
 export function displayStatus(status: unknown): string {
-  return ["ATENDIDA","SEPARADA"].includes(String(status)) ? "SEPARADA" : "PENDENTE";
+  const value=String(status ?? "").toUpperCase();
+  if (value==="RECUSADA") return "RECUSADA";
+  return ["ATENDIDA","SEPARADA"].includes(value) ? "SEPARADA" : "PENDENTE";
 }

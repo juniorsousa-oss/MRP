@@ -43,21 +43,25 @@ def _mrp_avulsas_view():
         return
     materiais=list(dados.get("materials") or [])
     solicitacoes=list(dados.get("rows") or [])
-    abertos=[x for x in solicitacoes if x.get("status")=="ABERTA"]
-    atendidos=[x for x in solicitacoes if x.get("status")=="ATENDIDA"]
+    pendentes=[x for x in solicitacoes if x.get("status")=="ABERTA"]
+    separados=[x for x in solicitacoes if x.get("status")=="ATENDIDA"]
+    usuario_id=str(dados.get("user_id") or "")
+    minhas=[x for x in solicitacoes if str(x.get("criado_por") or "")==usuario_id]
+    meu_pendentes=[x for x in minhas if x.get("status")=="ABERTA"]
+    meu_separados=[x for x in minhas if x.get("status")=="ATENDIDA"]
     c1,c2,c3=st.columns(3)
-    c1.metric("MATERIAIS COM DIV DISPONÍVEL",len(materiais))
-    c2.metric("SOLICITAÇÕES EM ABERTO",len(abertos))
-    c3.metric("SOLICITAÇÕES ATENDIDAS",len(atendidos))
-    st.caption(f"BASE DE REFERÊNCIA · ÚLTIMO MRP GRAVADO #{dados.get('snapshot_id','—')}. Os pedidos abertos reduzem a quantidade solicitável.")
-    st.caption("A DIV é um saldo projetado do MRP (inclui entradas previstas). Solicitar não confirma disponibilidade física imediata nem efetua baixa no Protheus.")
+    c1.metric("MATERIAIS APTOS",len(materiais))
+    c2.metric("SOLICITAÇÕES PENDENTES",len(pendentes))
+    c3.metric("MATERIAIS SEPARADOS",len(separados))
+    st.caption(f"BASE DE REFERÊNCIA · ÚLTIMO MRP GRAVADO #{dados.get('snapshot_id','—')}. Solicitações pendentes e separadas deste MRP reduzem a disponibilidade.")
+    st.caption("Só aparecem materiais com SALDO EM ESTOQUE > 0 e SOBRA (DIV) > 0. A quantidade liberada é limitada ao menor valor, descontando reservas. A separação não realiza baixa no Protheus.")
 
     st.markdown("#### NOVA SOLICITAÇÃO")
     if not materiais:
         st.info("Nenhum material possui DIV positiva ainda disponível para novas solicitações.")
     else:
         opcoes={
-            f"{row['codigo']} · {row['descricao']} · DISPONÍVEL: {row['disponivel']:,.3f}": row
+            f"{row['codigo']} · {row['descricao']} · SALDO: {row['saldo']:,.3f} · SOBRA: {row['div']:,.3f} · SOLICITÁVEL: {row['disponivel']:,.3f}": row
             for row in materiais
         }
         with st.form("mrp_avulsa_criar",clear_on_submit=True):
@@ -71,14 +75,14 @@ def _mrp_avulsas_view():
                 step=1.0,format="%.3f",
             )
             if item:
-                st.caption(f"DIV DO MRP: {float(item['div']):,.3f} · DISPONÍVEL APÓS SOLICITAÇÕES ABERTAS: {maximo:,.3f}")
+                st.caption(f"SALDO FÍSICO: {float(item['saldo']):,.3f} · SOBRA DO MRP (DIV): {float(item['div']):,.3f} · DISPONÍVEL APÓS RESERVAS: {maximo:,.3f}")
             solicitante=st.text_input("SOLICITANTE",value=str(st.session_state.get("auth_nome") or ""))
             enviar=st.form_submit_button("REGISTRAR SOLICITAÇÃO",type="primary",use_container_width=True)
         if enviar:
             if not item or not solicitante.strip():
                 st.error("Selecione um material e informe o solicitante.")
             elif quantidade>maximo+1e-9:
-                st.error("A quantidade solicitada ultrapassa a DIV disponível.")
+                st.error("A quantidade solicitada ultrapassa o saldo/sobra disponível após reservas.")
             else:
                 try:
                     _mrp_avulsas_call("create",{
@@ -91,50 +95,77 @@ def _mrp_avulsas_view():
                     st.error("Não foi possível registrar a solicitação: "+str(exc))
 
     st.markdown('<div class="topic-divider"></div>',unsafe_allow_html=True)
-    tab_abertas,tab_atendidas=st.tabs([
-        f"SOLICITAÇÕES EM ABERTO ({len(abertos)})",
-        f"SOLICITAÇÕES ATENDIDAS ({len(atendidos)})",
-    ])
+    if st.button("ATUALIZAR STATUS DAS SOLICITAÇÕES",key="mrp_avulsas_atualizar_status"):
+        st.rerun()
+    st.caption("O solicitante acompanha aqui a confirmação do operador. Use ATUALIZAR STATUS para consultar a situação mais recente.")
+    if str(dados.get("role"))=="ADMIN":
+        tab_minhas,tab_pendentes,tab_separadas=st.tabs([
+            f"MINHAS SOLICITAÇÕES ({len(minhas)})",
+            f"PENDENTES DE SEPARAÇÃO ({len(pendentes)})",
+            f"SEPARADAS ({len(separados)})",
+        ])
+    else:
+        tab_minhas,tab_separadas=st.tabs([
+            f"MINHAS SOLICITAÇÕES ({len(minhas)})",
+            f"SEPARADAS ({len(meu_separados)})",
+        ])
+        tab_pendentes=None
+
     def tabela(rows):
         view=pd.DataFrame(rows)
-        campos=["id","codigo","descricao","quantidade","solicitante","status","criado_em","atendido_em","observacao_atendimento"]
+        campos=["id","codigo","descricao","quantidade","solicitante","status_exibicao",
+                "criado_em","atendido_em","observacao_atendimento"]
         view=view.reindex(columns=campos)
         view=view.rename(columns={
             "id":"ID","codigo":"CÓDIGO","descricao":"DESCRIÇÃO",
             "quantidade":"QUANTIDADE","solicitante":"SOLICITANTE",
-            "status":"STATUS","criado_em":"SOLICITADO EM",
-            "atendido_em":"ATENDIDO EM","observacao_atendimento":"OBSERVAÇÃO",
+            "status_exibicao":"STATUS","criado_em":"SOLICITADO EM",
+            "atendido_em":"SEPARADO EM","observacao_atendimento":"OBSERVAÇÃO DO OPERADOR",
         })
         return view.fillna("")
-    with tab_abertas:
-        if abertos:
-            _abertos_df=tabela(abertos)
-            st.dataframe(_abertos_df,use_container_width=True,hide_index=True,
-                height=min(560,38+35*len(_abertos_df)))
-            if str(dados.get("role"))=="ADMIN":
+
+    with tab_minhas:
+        if minhas:
+            st.dataframe(tabela(minhas),use_container_width=True,hide_index=True,
+                height=min(560,38+35*len(minhas)))
+            if meu_separados:
+                st.success(f"{len(meu_separados)} solicitação(ões) separada(s). Consulte as observações do operador.")
+            elif meu_pendentes:
+                st.info("Suas solicitações aguardam separação pelo operador.")
+        else:
+            st.info("Você ainda não possui solicitações registradas nesta conta.")
+
+    if tab_pendentes is not None:
+        with tab_pendentes:
+            if pendentes:
+                _pendentes_df=tabela(pendentes)
+                st.dataframe(_pendentes_df,use_container_width=True,hide_index=True,
+                    height=min(560,38+35*len(_pendentes_df)))
                 with st.form("mrp_avulsa_atender"):
                     chaves={
                         f"#{x['id']} · {x['codigo']} · {x['quantidade']} · {x['solicitante']}":x['id']
-                        for x in abertos
+                        for x in pendentes
                     }
-                    alvo=st.selectbox("SOLICITAÇÃO PARA ATENDER",list(chaves.keys()))
-                    obs=st.text_input("OBSERVAÇÃO DO ATENDIMENTO")
-                    concluir=st.form_submit_button("MARCAR COMO ATENDIDA",type="primary",use_container_width=True)
+                    alvo=st.selectbox("SOLICITAÇÃO SEPARADA",list(chaves.keys()))
+                    obs=st.text_input("OBSERVAÇÃO PARA O SOLICITANTE")
+                    concluir=st.form_submit_button("CONFIRMAR MATERIAL SEPARADO",type="primary",use_container_width=True)
                 if concluir:
                     try:
                         _mrp_avulsas_call("attend",{"id":chaves[alvo],"observacao":obs})
+                        st.success("Separação confirmada. O novo status ficará disponível ao solicitante.")
                         st.rerun()
                     except Exception as exc:
-                        st.error("Falha ao atender: "+str(exc))
+                        st.error("Falha ao registrar separação: "+str(exc))
+            else:
+                st.success("Nenhuma solicitação pendente de separação.")
+
+    with tab_separadas:
+        linhas_separadas=separados if str(dados.get("role"))=="ADMIN" else meu_separados
+        if linhas_separadas:
+            st.dataframe(tabela(linhas_separadas),use_container_width=True,hide_index=True,
+                height=min(560,38+35*len(linhas_separadas)))
         else:
-            st.success("Nenhuma solicitação em aberto.")
-    with tab_atendidas:
-        if atendidos:
-            _atendidos_df=tabela(atendidos)
-            st.dataframe(_atendidos_df,use_container_width=True,hide_index=True,
-                height=min(560,38+35*len(_atendidos_df)))
-        else:
-            st.info("Nenhuma solicitação atendida.")
+            st.info("Nenhum material separado neste histórico.")
 
     relatorio=tabela(solicitacoes)
     if not relatorio.empty:

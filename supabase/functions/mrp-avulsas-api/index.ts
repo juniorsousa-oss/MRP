@@ -52,6 +52,19 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = String(body?.action || "").trim();
     const input = body?.payload || {};
+    if (action === "reject") {
+      if (role !== "ADMIN") return fail("ADMIN_REQUIRED", 403);
+      const id = Number(input.id);
+      if (!Number.isSafeInteger(id) || id <= 0) return fail("ID_INVALIDO");
+      const motivo = String(input.motivo || "").trim();
+      if (motivo.length < 5 || motivo.length > 1000)
+        return fail("MOTIVO_RECUSA_OBRIGATORIO_5_A_1000_CARACTERES");
+      const { data, error } = await admin.rpc("mrp_avulsa_recusar_seguro", {
+        p_id: id, p_actor: userId, p_motivo: motivo,
+      });
+      if (error) return fail(error.message);
+      return json({ ok: true, data });
+    }
     if (action === "attend") {
       if (role !== "ADMIN") return fail("ADMIN_REQUIRED", 403);
       const id = Number(input.id);
@@ -100,7 +113,7 @@ Deno.serve(async (req) => {
     if (ledgerError) return fail(ledgerError.message, 500);
 
     let query = admin.from("mrp_solicitacoes_avulsas")
-      .select("id,snapshot_id,codigo,descricao,quantidade,div_referencia,solicitante,criado_por,criado_em,status,atendido_em,observacao_atendimento");
+      .select("id,snapshot_id,codigo,descricao,quantidade,div_referencia,solicitante,criado_por,criado_em,status,atendido_em,observacao_atendimento,recusado_em");
     if(role!=="ADMIN")query=query.eq("criado_por",userId);
     const { data: rows, error: listError } = await query
       .order("criado_em", { ascending: false }).limit(2000);

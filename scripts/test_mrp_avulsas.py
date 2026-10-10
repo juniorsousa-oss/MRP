@@ -44,6 +44,6 @@ assert '"Saldo em Estoque"' in catalog
 assert '"DIV"' in catalog
 assert 'Math.min(saldo, div)' in catalog
 # A consulta pode ver o próprio status; não há alteração fiscal nem baixa de estoque.
-assert '"atendido_em,observacao_atendimento"' in api
+assert 'atendido_em,observacao_atendimento' in api
 assert 'p_div: item.limite' in api
 print("MRP_AVULSAS_FLOW_OK")

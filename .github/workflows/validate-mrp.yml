@@ -15,3 +15,12 @@ jobs:
         run: python -m compileall -q .
       - name: Montar aplicação final
         run: python scripts/validate_generated_mrp.py
+      - name: Testar etapas e permissões das solicitações avulsas
+        run: python -m scripts.test_mrp_avulsas
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Testar regras de saldo, sobra, reservas e status
+        run: deno test supabase/functions/mrp-avulsas-api/catalog_test.ts
+      - name: Verificar compilação da API de solicitações
+        run: deno check supabase/functions/mrp-avulsas-api/index.ts

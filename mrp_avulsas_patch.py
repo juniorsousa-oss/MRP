@@ -45,14 +45,17 @@ def _mrp_avulsas_view():
     solicitacoes=list(dados.get("rows") or [])
     pendentes=[x for x in solicitacoes if x.get("status")=="ABERTA"]
     separados=[x for x in solicitacoes if x.get("status")=="ATENDIDA"]
+    recusadas=[x for x in solicitacoes if x.get("status")=="RECUSADA"]
     usuario_id=str(dados.get("user_id") or "")
     minhas=[x for x in solicitacoes if str(x.get("criado_por") or "")==usuario_id]
     meu_pendentes=[x for x in minhas if x.get("status")=="ABERTA"]
     meu_separados=[x for x in minhas if x.get("status")=="ATENDIDA"]
-    c1,c2,c3=st.columns(3)
+    minhas_recusadas=[x for x in minhas if x.get("status")=="RECUSADA"]
+    c1,c2,c3,c4=st.columns(4)
     c1.metric("MATERIAIS APTOS",len(materiais))
     c2.metric("SOLICITAÇÕES PENDENTES",len(pendentes))
     c3.metric("MATERIAIS SEPARADOS",len(separados))
+    c4.metric("SOLICITAÇÕES RECUSADAS",len(recusadas))
     st.caption(f"BASE DE REFERÊNCIA · ÚLTIMO MRP GRAVADO #{dados.get('snapshot_id','—')}. Solicitações pendentes e separadas deste MRP reduzem a disponibilidade.")
     st.caption("Só aparecem materiais com SALDO EM ESTOQUE > 0 e SOBRA (DIV) > 0. A quantidade liberada é limitada ao menor valor, descontando reservas. A separação não realiza baixa no Protheus.")
 
@@ -64,7 +67,7 @@ def _mrp_avulsas_view():
             f"{row['codigo']} · {row['descricao']} · SALDO: {row['saldo']:,.3f} · SOBRA: {row['div']:,.3f} · SOLICITÁVEL: {row['disponivel']:,.3f}": row
             for row in materiais
         }
-        with st.form("mrp_avulsa_criar",clear_on_submit=True):
+        with st.form("mrp_avulsa_criar",clear_on_submit=True,enter_to_submit=False):
             escolha=st.selectbox("MATERIAL",list(opcoes.keys()),index=None,placeholder="Pesquisar código ou descrição")
             item=opcoes.get(escolha)
             maximo=float(item.get("disponivel") or 0) if item else 0.0
@@ -99,28 +102,31 @@ def _mrp_avulsas_view():
         st.rerun()
     st.caption("O solicitante acompanha aqui a confirmação do operador. Use ATUALIZAR STATUS para consultar a situação mais recente.")
     if str(dados.get("role"))=="ADMIN":
-        tab_minhas,tab_pendentes,tab_separadas=st.tabs([
+        tab_minhas,tab_pendentes,tab_separadas,tab_recusadas=st.tabs([
             f"MINHAS SOLICITAÇÕES ({len(minhas)})",
             f"PENDENTES DE SEPARAÇÃO ({len(pendentes)})",
             f"SEPARADAS ({len(separados)})",
+            f"RECUSADAS ({len(recusadas)})",
         ])
     else:
-        tab_minhas,tab_separadas=st.tabs([
+        tab_minhas,tab_separadas,tab_recusadas=st.tabs([
             f"MINHAS SOLICITAÇÕES ({len(minhas)})",
             f"SEPARADAS ({len(meu_separados)})",
+            f"RECUSADAS ({len(minhas_recusadas)})",
         ])
         tab_pendentes=None
 
     def tabela(rows):
         view=pd.DataFrame(rows)
         campos=["id","codigo","descricao","quantidade","solicitante","status_exibicao",
-                "criado_em","atendido_em","observacao_atendimento"]
+                "criado_em","atendido_em","recusado_em","observacao_atendimento"]
         view=view.reindex(columns=campos)
         view=view.rename(columns={
             "id":"ID","codigo":"CÓDIGO","descricao":"DESCRIÇÃO",
             "quantidade":"QUANTIDADE","solicitante":"SOLICITANTE",
             "status_exibicao":"STATUS","criado_em":"SOLICITADO EM",
-            "atendido_em":"SEPARADO EM","observacao_atendimento":"OBSERVAÇÃO DO OPERADOR",
+            "atendido_em":"SEPARADO EM","recusado_em":"RECUSADO EM",
+            "observacao_atendimento":"OBSERVAÇÃO / MOTIVO DA RECUSA",
         })
         return view.fillna("")
 
@@ -128,6 +134,11 @@ def _mrp_avulsas_view():
         if minhas:
             st.dataframe(tabela(minhas),use_container_width=True,hide_index=True,
                 height=min(560,38+35*len(minhas)))
+            if minhas_recusadas:
+                st.warning(
+                    f"{len(minhas_recusadas)} solicitação(ões) recusada(s). "
+                    "Confira o motivo informado pelo operador na tabela."
+                )
             if meu_separados:
                 st.success(f"{len(meu_separados)} solicitação(ões) separada(s). Consulte as observações do operador.")
             elif meu_pendentes:
@@ -141,21 +152,37 @@ def _mrp_avulsas_view():
                 _pendentes_df=tabela(pendentes)
                 st.dataframe(_pendentes_df,use_container_width=True,hide_index=True,
                     height=min(560,38+35*len(_pendentes_df)))
-                with st.form("mrp_avulsa_atender"):
+                with st.form("mrp_avulsa_atender",enter_to_submit=False):
                     chaves={
                         f"#{x['id']} · {x['codigo']} · {x['quantidade']} · {x['solicitante']}":x['id']
                         for x in pendentes
                     }
-                    alvo=st.selectbox("SOLICITAÇÃO SEPARADA",list(chaves.keys()))
-                    obs=st.text_input("OBSERVAÇÃO PARA O SOLICITANTE")
-                    concluir=st.form_submit_button("CONFIRMAR MATERIAL SEPARADO",type="primary",use_container_width=True)
-                if concluir:
-                    try:
-                        _mrp_avulsas_call("attend",{"id":chaves[alvo],"observacao":obs})
-                        st.success("Separação confirmada. O novo status ficará disponível ao solicitante.")
-                        st.rerun()
-                    except Exception as exc:
-                        st.error("Falha ao registrar separação: "+str(exc))
+                    alvo=st.selectbox("SOLICITAÇÃO PARA TRATATIVA",list(chaves.keys()))
+                    obs=st.text_input(
+                        "OBSERVAÇÃO AO SEPARAR / MOTIVO AO RECUSAR",
+                        help="A recusa exige um motivo de pelo menos 5 caracteres.",
+                    )
+                    btn_sep,btn_rec=st.columns(2)
+                    concluir=btn_sep.form_submit_button(
+                        "CONFIRMAR MATERIAL SEPARADO",type="primary",use_container_width=True,
+                    )
+                    recusar=btn_rec.form_submit_button(
+                        "RECUSAR SOLICITAÇÃO",use_container_width=True,
+                    )
+                if concluir or recusar:
+                    if recusar and len(obs.strip())<5:
+                        st.error("Informe o motivo da recusa (mínimo 5 caracteres).")
+                    else:
+                        try:
+                            if recusar:
+                                _mrp_avulsas_call("reject",{"id":chaves[alvo],"motivo":obs.strip()})
+                                st.success("Solicitação recusada. O motivo ficará disponível ao solicitante.")
+                            else:
+                                _mrp_avulsas_call("attend",{"id":chaves[alvo],"observacao":obs})
+                                st.success("Separação confirmada. O novo status ficará disponível ao solicitante.")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error("Falha ao registrar tratativa: "+str(exc))
             else:
                 st.success("Nenhuma solicitação pendente de separação.")
 
@@ -166,6 +193,14 @@ def _mrp_avulsas_view():
                 height=min(560,38+35*len(linhas_separadas)))
         else:
             st.info("Nenhum material separado neste histórico.")
+
+    with tab_recusadas:
+        linhas_recusadas=recusadas if str(dados.get("role"))=="ADMIN" else minhas_recusadas
+        if linhas_recusadas:
+            st.dataframe(tabela(linhas_recusadas),use_container_width=True,hide_index=True,
+                height=min(560,38+35*len(linhas_recusadas)))
+        else:
+            st.info("Nenhuma solicitação recusada neste histórico.")
 
     relatorio=tabela(solicitacoes)
     if not relatorio.empty:

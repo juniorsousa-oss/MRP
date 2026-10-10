@@ -27,7 +27,14 @@ assert "item['saldo']" in view and "item['div']" in view
 assert 'status_exibicao' in view
 assert '"ATENDIDO EM"' not in view and '"SEPARADO EM"' in view
 assert 'max_value=max(0.001,maximo)' in view
-assert 'st.form("mrp_avulsa_criar",clear_on_submit=True)' in view
+assert 'st.form("mrp_avulsa_criar",clear_on_submit=True,enter_to_submit=False)' in view
+assert 'st.form("mrp_avulsa_atender",enter_to_submit=False)' in view
+assert '"RECUSAR SOLICITAÇÃO"' in view
+assert '_mrp_avulsas_call("reject",{"id":chaves[alvo],"motivo":obs.strip()})' in view
+assert 'if recusar and len(obs.strip())<5:' in view
+assert '"RECUSADAS (' in view
+assert '"OBSERVAÇÃO / MOTIVO DA RECUSA"' in view
+assert '"RECUSADO EM"' in view
 
 api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text(encoding="utf-8")
 catalog=(root/"supabase/functions/mrp-avulsas-api/catalog.ts").read_text(encoding="utf-8")

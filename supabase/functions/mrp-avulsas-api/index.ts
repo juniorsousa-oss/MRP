@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     if (roleError || !["ADMIN", "CONSULTA"].includes(String(permission?.role || "").toUpperCase())) {
       return fail("MRP_ACCESS_DENIED", 403);
     }
-    const role = String(permission.role).toUpperCase();
+    const role = String(permission?.role || "").toUpperCase();
     const body = await req.json();
     const action = String(body?.action || "").trim();
     const input = body?.payload || {};

@@ -34,7 +34,11 @@ for token in [
     'projeto_admin != "TODOS"',
     'produto_admin != "TODOS"',
     'QUANTIDADE SOLICITADA',
-    'SOLICITAÇÕES ATENDIDAS',
+    'PENDENTES DE SEPARAÇÃO',
+    'CONFIRMAR MATERIAL SEPARADO',
+    'MINHAS SOLICITAÇÕES',
+    'SOBRA DO MRP (DIV)',
+    'ATUALIZAR STATUS DAS SOLICITAÇÕES',
 ]:
     assert token in final, f"Ausente no código final: {token}"
 assert 'st.session_state.pop(_key,None)' not in final, "Filtros do projeto ainda são zerados automaticamente."

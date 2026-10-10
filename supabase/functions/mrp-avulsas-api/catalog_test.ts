@@ -29,5 +29,6 @@ Deno.test("display persisted legacy status with new workflow",()=>{
   equal(displayStatus("ATENDIDA"),"SEPARADA","Completed separation");
   equal(displayStatus("PENDENTE"),"PENDENTE","New pending");
   equal(displayStatus("SEPARADA"),"SEPARADA","New separated");
+  equal(displayStatus("RECUSADA"),"RECUSADA","Refused remains distinct from pending");
 });
 console.log("MRP_AVULSAS_CATALOG_OK");

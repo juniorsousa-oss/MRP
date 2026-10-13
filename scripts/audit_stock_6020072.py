@@ -66,7 +66,7 @@ def print_rows(label, rows, is_address=False):
 def audit_derived(key):
     frame = _download_derived_cached(key, "audit", "audit")
     print("DERIVED", key, "shape", frame.shape, "columns", list(frame.columns))
-    code_field = next((c for c in frame.columns if c.upper() in {"COD_MATERIAL","CÓDIGO","CODIGO"}), None)
+    code_field = next((c for c in frame.columns if c.upper() in {"COD_MATERIAL","CÓDIGO","CODIGO","PRODUTO"}), None)
     if not code_field:
         print("DERIVED_MISSING_CODE_FIELD")
         return

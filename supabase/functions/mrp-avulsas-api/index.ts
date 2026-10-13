@@ -163,8 +163,8 @@ Deno.serve(async (req) => {
       const selected: PendingBatchItem[] = [];
       const codes = new Set<string>();
       for (const row of requested) {
-        const raw = String(row?.codigo ?? "").trim().replace(/\\.0$/, "");
-        if (!/^\\d+$/.test(raw)) return fail("CODIGO_INVALIDO");
+        const raw = String(row?.codigo ?? "").trim().replace(/\.0$/, "");
+        if (!/^\d+$/.test(raw)) return fail("CODIGO_INVALIDO");
         const code = raw.padStart(8, "0");
         if (codes.has(code)) return fail("MATERIAL_DUPLICADO_NO_PEDIDO");
         codes.add(code);

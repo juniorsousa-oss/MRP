@@ -117,23 +117,48 @@ def _mrp_avulsas_view():
             f"{r['codigo']} · {r['descricao']} · SOLICITÁVEL: {r['disponivel']:,.3f}":r
             for r in materiais
         }
+        # O seletor fica FORA do st.form: assim trocar o código força rerun,
+        # atualizando o limite de quantidade ANTES de o usuário digitar.
+        # Dentro do formulário, o Streamlit mantém o max do material anterior.
+        escolha=st.selectbox(
+            "MATERIAL",list(opcoes),index=None,
+            placeholder="Pesquisar código ou descrição",
+            key="mrp_avulsa_material_selecionado",
+        )
+        item=opcoes.get(escolha)
+        _code=str(item["codigo"]) if item else ""
+        _limit=float(item["disponivel"]) if item else 0.0
+        _existing=float(_cart.get(_code,{}).get("quantidade",0))
+        _room=max(0.0,_limit-_existing)
         with st.form("mrp_avulsa_criar",clear_on_submit=True,enter_to_submit=False):
-            escolha=st.selectbox("MATERIAL",list(opcoes),index=None,
-                placeholder="Pesquisar código ou descrição")
-            item=opcoes.get(escolha)
-            _code=str(item["codigo"]) if item else ""
-            _limit=float(item["disponivel"]) if item else 0.0
-            _existing=float(_cart.get(_code,{}).get("quantidade",0))
-            _room=max(0.0,_limit-_existing)
-            quantidade=st.number_input(
-                "QUANTIDADE PARA ADICIONAR",min_value=0.001,
-                max_value=max(0.001,_room),value=min(1.0,max(0.001,_room)),
-                step=0.001,format="%.3f",
-            )
-            if item:
-                st.caption(f"SALDO: {float(item['saldo']):,.3f} · SOBRA (DIV): {float(item['div']):,.3f} · DISPONÍVEL RESTANTE: {_room:,.3f}")
-            adicionar=st.form_submit_button("ADICIONAR MATERIAL À LISTA",type="primary",
-                use_container_width=True)
+            if item and _room>=0.001:
+                # Cada material possui seu próprio widget e intervalo:
+                # a quantidade do primeiro não reaparece no segundo.
+                quantidade=st.number_input(
+                    "QUANTIDADE PARA ADICIONAR",min_value=0.001,
+                    max_value=round(_room,3),value=min(1.0,round(_room,3)),
+                    step=0.001,format="%.3f",
+                    key=f"mrp_avulsa_quantidade_{_code}",
+                )
+                st.caption(
+                    f"SALDO: {float(item['saldo']):,.3f} · "
+                    f"SOBRA (DIV): {float(item['div']):,.3f} · "
+                    f"DISPONÍVEL RESTANTE: {_room:,.3f}"
+                )
+                adicionar=st.form_submit_button(
+                    "ADICIONAR MATERIAL À LISTA",type="primary",
+                    use_container_width=True,
+                )
+            else:
+                quantidade=0.0
+                if item:
+                    st.info("Este material já atingiu seu limite na lista. Selecione outro material ou edite a revisão do pedido.")
+                else:
+                    st.caption("Selecione um material acima para informar sua quantidade.")
+                adicionar=st.form_submit_button(
+                    "ADICIONAR MATERIAL À LISTA",type="primary",
+                    use_container_width=True,disabled=True,
+                )
         if adicionar:
             if not item: st.error("Selecione um material.")
             elif _room<0.001 or quantidade>_room+1e-9:

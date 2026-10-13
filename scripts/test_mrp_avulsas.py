@@ -30,7 +30,7 @@ assert 'max_value=max(0.001,_room)' in view
 assert 'st.form("mrp_avulsa_criar",clear_on_submit=True,enter_to_submit=False)' in view
 assert 'st.form("mrp_avulsas_enviar_lote",enter_to_submit=False)' in view
 assert 'ADICIONAR MATERIAL À LISTA' in view
-assert 'st.data_editor(' in view
+assert '_setta_data_editor(' in view
 assert '"create_batch"' in view
 assert '"pedido_id":_pedido_id' in view
 assert '"notify_batch"' in view

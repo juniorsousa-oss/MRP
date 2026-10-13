@@ -59,44 +59,144 @@ def _mrp_avulsas_view():
     st.caption(f"BASE DE REFERÊNCIA · ÚLTIMO MRP GRAVADO #{dados.get('snapshot_id','—')}. Solicitações pendentes e separadas deste MRP reduzem a disponibilidade.")
     st.caption("Só aparecem materiais com SALDO EM ESTOQUE > 0 e SOBRA (DIV) > 0. A quantidade liberada é limitada ao menor valor, descontando reservas. A separação não realiza baixa no Protheus.")
 
-    st.markdown("#### NOVA SOLICITAÇÃO")
-    if not materiais:
-        st.info("Nenhum material possui DIV positiva ainda disponível para novas solicitações.")
-    else:
-        opcoes={
-            f"{row['codigo']} · {row['descricao']} · SALDO: {row['saldo']:,.3f} · SOBRA: {row['div']:,.3f} · SOLICITÁVEL: {row['disponivel']:,.3f}": row
-            for row in materiais
-        }
-        with st.form("mrp_avulsa_criar",clear_on_submit=True,enter_to_submit=False):
-            escolha=st.selectbox("MATERIAL",list(opcoes.keys()),index=None,placeholder="Pesquisar código ou descrição")
-            item=opcoes.get(escolha)
-            maximo=float(item.get("disponivel") or 0) if item else 0.0
-            quantidade=st.number_input(
-                "QUANTIDADE SOLICITADA",min_value=0.001,
-                max_value=max(0.001,maximo),
-                value=min(1.0,max(0.001,maximo)),
-                step=1.0,format="%.3f",
-            )
-            if item:
-                st.caption(f"SALDO FÍSICO: {float(item['saldo']):,.3f} · SOBRA DO MRP (DIV): {float(item['div']):,.3f} · DISPONÍVEL APÓS RESERVAS: {maximo:,.3f}")
-            solicitante=st.text_input("SOLICITANTE",value=str(st.session_state.get("auth_nome") or ""))
-            enviar=st.form_submit_button("REGISTRAR SOLICITAÇÃO",type="primary",use_container_width=True)
-        if enviar:
-            if not item or not solicitante.strip():
-                st.error("Selecione um material e informe o solicitante.")
-            elif quantidade>maximo+1e-9:
-                st.error("A quantidade solicitada ultrapassa o saldo/sobra disponível após reservas.")
-            else:
+    import uuid as _uuid
+    _snapshot = str(dados.get("snapshot_id") or "")
+    _cart = st.session_state.setdefault("_mrp_cart",{})
+    if st.session_state.get("_mrp_cart_snapshot")!=_snapshot:
+        if _cart: st.warning("O MRP mudou; o pedido em preparação foi limpo para evitar saldo antigo.")
+        _cart = {}
+        st.session_state["_mrp_cart"] = _cart
+        st.session_state["_mrp_cart_snapshot"] = _snapshot
+        st.session_state["_mrp_cart_id"] = str(_uuid.uuid4())
+
+    _last = st.session_state.get("_mrp_last_batch")
+    if _last:
+        st.success(f"Pedido registrado · {len(_last.get('ids') or [])} material(is) · protocolo {str(_last.get('pedido_id'))[:8]}")
+        _teams_status=str(_last.get("teams_status") or "")
+        if _teams_status=="ENVIADO":
+            st.info("Notificação aceita pelo webhook do Teams.")
+        else:
+            st.warning({
+                "NAO_CONFIGURADO":"Integração Teams ainda não configurada; pedido salvo.",
+                "FALHA":"Pedido salvo, mas não foi possível notificar o Teams.",
+                "ENVIANDO":"Notificação em processamento.",
+            }.get(_teams_status,"Notificação Teams ainda não confirmada."))
+            if st.button("TENTAR NOTIFICAR TEAMS",key="mrp_batch_retry"):
                 try:
-                    _mrp_avulsas_call("create",{
-                        "codigo":item["codigo"],"quantidade":float(quantidade),
-                        "solicitante":solicitante.strip(),
-                    })
-                    st.success("Solicitação registrada no banco.")
+                    resp=_mrp_avulsas_call("notify_batch",{"pedido_id":_last["pedido_id"]})
+                    _last["teams_status"]=resp.get("teams_status")
                     st.rerun()
                 except Exception as exc:
-                    st.error("Não foi possível registrar a solicitação: "+str(exc))
+                    st.error("Pedido salvo, mas notificação falhou: "+str(exc))
 
+    st.markdown("#### NOVA SOLICITAÇÃO")
+    st.caption("Adicione os materiais primeiro; o registro e a reserva só ocorrem no envio final.")
+    _available={str(x["codigo"]):x for x in materiais}
+    if materiais:
+        opcoes={
+            f"{r['codigo']} · {r['descricao']} · SOLICITÁVEL: {r['disponivel']:,.3f}":r
+            for r in materiais
+        }
+        with st.form("mrp_avulsa_criar",clear_on_submit=True,enter_to_submit=False):
+            escolha=st.selectbox("MATERIAL",list(opcoes),index=None,
+                placeholder="Pesquisar código ou descrição")
+            item=opcoes.get(escolha)
+            _code=str(item["codigo"]) if item else ""
+            _limit=float(item["disponivel"]) if item else 0.0
+            _existing=float(_cart.get(_code,{}).get("quantidade",0))
+            _room=max(0.0,_limit-_existing)
+            quantidade=st.number_input(
+                "QUANTIDADE PARA ADICIONAR",min_value=0.001,
+                max_value=max(0.001,_room),value=min(1.0,max(0.001,_room)),
+                step=0.001,format="%.3f",
+            )
+            if item:
+                st.caption(f"SALDO: {float(item['saldo']):,.3f} · SOBRA (DIV): {float(item['div']):,.3f} · DISPONÍVEL RESTANTE: {_room:,.3f}")
+            adicionar=st.form_submit_button("ADICIONAR MATERIAL À LISTA",type="primary",
+                use_container_width=True)
+        if adicionar:
+            if not item: st.error("Selecione um material.")
+            elif _room<0.001 or quantidade>_room+1e-9:
+                st.error("Quantidade superior à disponibilidade após reservas e itens da lista.")
+            elif len(_cart)>=30 and _code not in _cart:
+                st.error("Máximo de 30 materiais diferentes por pedido.")
+            else:
+                _cart[_code]={
+                    "codigo":_code,"descricao":str(item["descricao"]),
+                    "quantidade":round(_existing+float(quantidade),3),
+                }
+                st.session_state["_mrp_cart_id"]=str(_uuid.uuid4())
+                st.session_state["_mrp_cart_editor_id"]=str(_uuid.uuid4())
+                st.rerun()
+    else:
+        st.info("Não há materiais disponíveis para novas solicitações.")
+
+    if _cart:
+        st.markdown("#### REVISÃO DO PEDIDO")
+        _rows=[{
+            "Código":code,"Descrição":x["descricao"],
+            "Quantidade":float(x["quantidade"]),
+            "Disponível":float((_available.get(code) or {}).get("disponivel") or 0),
+        } for code,x in _cart.items()]
+        with st.form("mrp_avulsas_enviar_lote",enter_to_submit=False):
+            _edited=st.data_editor(pd.DataFrame(_rows),hide_index=True,
+                use_container_width=True,disabled=["Código","Descrição","Disponível"],
+                key="mrp_cart_editor_"+st.session_state.setdefault(
+                    "_mrp_cart_editor_id",str(_uuid.uuid4())),
+                column_config={
+                    "Quantidade":st.column_config.NumberColumn(
+                        "QUANTIDADE",min_value=0.001,step=0.001,format="%.3f",required=True),
+                    "Disponível":st.column_config.NumberColumn("LIMITE",format="%.3f"),
+                })
+            solicitante=st.text_input("SOLICITANTE",
+                value=str(st.session_state.get("auth_nome") or ""),max_chars=180)
+            enviar=st.form_submit_button("REGISTRAR SOLICITAÇÃO",type="primary",
+                use_container_width=True)
+        _remove_options={f"{r['Código']} · {r['Descrição']}":r["Código"] for r in _rows}
+        c_remove,c_clear=st.columns([3,1])
+        with c_remove:
+            _target=st.selectbox("RETIRAR MATERIAL",list(_remove_options),key="mrp_cart_remove_choice")
+            if st.button("REMOVER ITEM",key="mrp_cart_remove_button"):
+                _cart.pop(_remove_options[_target],None)
+                st.session_state["_mrp_cart_id"]=str(_uuid.uuid4())
+                st.session_state["_mrp_cart_editor_id"]=str(_uuid.uuid4())
+                st.rerun()
+        with c_clear:
+            st.write("")
+            if st.button("LIMPAR LISTA",key="mrp_cart_clear"):
+                st.session_state["_mrp_cart"]={}
+                st.session_state["_mrp_cart_id"]=str(_uuid.uuid4())
+                st.rerun()
+        if enviar:
+            _lines=[]
+            _error="" if solicitante.strip() else "Informe o solicitante."
+            for _,r in _edited.iterrows():
+                _code=str(r["Código"])
+                _source=_available.get(_code)
+                _qty=pd.to_numeric(r["Quantidade"],errors="coerce")
+                if not _source:
+                    _error=f"Material {_code} indisponível na base atual.";break
+                if pd.isna(_qty) or _qty<0.001 or round(float(_qty),3)!=float(_qty):
+                    _error=f"Quantidade inválida para {_code}.";break
+                if float(_qty)>float(_source["disponivel"])+1e-9:
+                    _error=f"Saldo insuficiente para {_code}; recalcule a quantidade.";break
+                _lines.append({"codigo":_code,"quantidade":float(_qty)})
+            if _error:
+                st.error(_error)
+            else:
+                _pedido_id=st.session_state.setdefault("_mrp_cart_id",str(_uuid.uuid4()))
+                try:
+                    _result=_mrp_avulsas_call("create_batch",{
+                        "pedido_id":_pedido_id,"solicitante":solicitante.strip(),
+                        "itens":_lines,
+                    })
+                    st.session_state["_mrp_last_batch"]=_result
+                    st.session_state["_mrp_cart"]={}
+                    st.session_state["_mrp_cart_id"]=str(_uuid.uuid4())
+                    st.session_state["_mrp_cart_editor_id"]=str(_uuid.uuid4())
+                    st.rerun()
+                except Exception as exc:
+                    st.error("Pedido não confirmado: "+str(exc))
     st.markdown('<div class="topic-divider"></div>',unsafe_allow_html=True)
     if st.button("ATUALIZAR STATUS DAS SOLICITAÇÕES",key="mrp_avulsas_atualizar_status"):
         st.rerun()

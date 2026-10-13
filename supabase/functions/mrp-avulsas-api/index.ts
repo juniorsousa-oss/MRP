@@ -1,5 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { selectMaterial, availableAfterReservations, displayStatus, type MrpMaterial } from "./catalog.ts";
+import { notifyTeams, type TeamsItem } from "./teams.ts";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -30,6 +31,58 @@ async function unpackMrp(snapshot: Record<string, unknown>): Promise<Map<string,
   return result;
 }
 
+
+type PendingBatchItem = TeamsItem & { limite: number };
+async function sendBatchTeams(
+  admin: any, pedidoId: string, actingUserId: string, actingRole: string,
+): Promise<string> {
+  const { data: pedido, error: pedidoError } = await admin.from("mrp_avulsas_pedidos")
+    .select("id,solicitante,criado_por,teams_status,teams_tentativas")
+    .eq("id", pedidoId).maybeSingle();
+  if (pedidoError || !pedido) throw Error("PEDIDO_NAO_ENCONTRADO");
+  if (pedido.criado_por !== actingUserId && actingRole !== "ADMIN") {
+    throw Error("PEDIDO_ACESSO_NEGADO");
+  }
+  const status = String(pedido.teams_status || "PENDENTE");
+  if (status === "ENVIADO" || status === "ENVIANDO") return status;
+
+  const url = String(Deno.env.get("MRP_TEAMS_WORKFLOW_URL") || "").trim();
+  if (!url) {
+    await admin.from("mrp_avulsas_pedidos").update({
+      teams_status: "NAO_CONFIGURADO", teams_erro: "Integração Teams aguardando configuração."
+    }).eq("id", pedidoId).neq("teams_status", "ENVIADO");
+    return "NAO_CONFIGURADO";
+  }
+  const attempts = Number(pedido.teams_tentativas || 0);
+  const { data: claimed, error: claimError } = await admin.from("mrp_avulsas_pedidos")
+    .update({ teams_status: "ENVIANDO", teams_tentativas: attempts + 1, teams_erro: null })
+    .eq("id", pedidoId).eq("teams_status", status)
+    .eq("teams_tentativas", attempts).select("id").maybeSingle();
+  if (claimError) throw Error("NAO_FOI_POSSIVEL_AGENDAR_NOTIFICACAO");
+  if (!claimed) return "ENVIANDO";
+
+  const { data: children, error: childrenError } = await admin
+    .from("mrp_solicitacoes_avulsas").select("codigo,descricao,quantidade")
+    .eq("pedido_id", pedidoId).order("id", { ascending: true });
+  let outcome: { ok: boolean; error?: string };
+  if (childrenError || !children?.length) {
+    outcome = {ok: false, error: "ITENS_DO_PEDIDO_INDISPONIVEIS"};
+  } else {
+    outcome = await notifyTeams(url, pedidoId, String(pedido.solicitante),
+      children.map((r: any) => ({
+        codigo: String(r.codigo), descricao: String(r.descricao),
+        quantidade: Number(r.quantidade),
+      })));
+  }
+  const update = outcome.ok
+    ? { teams_status: "ENVIADO", teams_enviado_em: new Date().toISOString(), teams_erro: null }
+    : { teams_status: "FALHA", teams_erro: String(outcome.error || "FALHA_NO_TEAMS").slice(0, 350) };
+  const { error: updateError } = await admin.from("mrp_avulsas_pedidos")
+    .update(update).eq("id", pedidoId).eq("teams_status", "ENVIANDO");
+  if (updateError) return "FALHA";
+  return outcome.ok ? "ENVIADO" : "FALHA";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST") return fail("METHOD_NOT_ALLOWED", 405);
@@ -52,6 +105,21 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = String(body?.action || "").trim();
     const input = body?.payload || {};
+    if (action === "notify_batch") {
+      const id = String(input.pedido_id || "");
+      if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id)) return fail("PEDIDO_INVALIDO");
+      const status = await sendBatchTeams(admin, id, userId, role);
+      return json({ ok: true, data: { pedido_id: id, teams_status: status } });
+    }
+    if (action === "batch_status") {
+      const id = String(input.pedido_id || "");
+      if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id)) return fail("PEDIDO_INVALIDO");
+      const {data: pedido, error} = await admin.from("mrp_avulsas_pedidos")
+        .select("id,criado_por,teams_status").eq("id",id).maybeSingle();
+      if (error || !pedido || (pedido.criado_por!==userId && role!=="ADMIN"))
+        return fail("PEDIDO_NAO_ENCONTRADO",404);
+      return json({ok:true,data:{pedido_id:id,teams_status:pedido.teams_status}});
+    }
     if (action === "reject") {
       if (role !== "ADMIN") return fail("ADMIN_REQUIRED", 403);
       const id = Number(input.id);
@@ -75,7 +143,7 @@ Deno.serve(async (req) => {
       if (error) return fail(error.message);
       return json({ ok: true, data });
     }
-    if (!["list", "create"].includes(action)) return fail("ACAO_INVALIDA");
+    if (!["list", "create", "create_batch"].includes(action)) return fail("ACAO_INVALIDA");
     const { data: latest, error: latestError } = await admin.from("mrp_snapshots")
       .select("id,created_at,mrp_geral,compressed_payload")
       .order("created_at", { ascending: false }).order("id", { ascending: false })
@@ -83,6 +151,50 @@ Deno.serve(async (req) => {
     if (latestError) return fail(latestError.message, 500);
     if (!latest) return fail("MRP_AINDA_NAO_SALVO", 409);
     const available = await unpackMrp(latest);
+    if (action === "create_batch") {
+      const requested = input.itens;
+      const solicitante = String(input.solicitante || "").trim();
+      const pedidoId = String(input.pedido_id || "").trim();
+      if (!Array.isArray(requested) || requested.length < 1 || requested.length > 30)
+        return fail("PEDIDO_DEVE_CONTER_1_A_30_MATERIAIS");
+      if (!solicitante || solicitante.length > 180) return fail("SOLICITANTE_OBRIGATORIO");
+      if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(pedidoId))
+        return fail("IDENTIFICADOR_DE_PEDIDO_INVALIDO");
+      const selected: PendingBatchItem[] = [];
+      const codes = new Set<string>();
+      for (const row of requested) {
+        const raw = String(row?.codigo ?? "").trim().replace(/\\.0$/, "");
+        if (!/^\\d+$/.test(raw)) return fail("CODIGO_INVALIDO");
+        const code = raw.padStart(8, "0");
+        if (codes.has(code)) return fail("MATERIAL_DUPLICADO_NO_PEDIDO");
+        codes.add(code);
+        const material = available.get(code);
+        if (!material) return fail("MATERIAL_SEM_SALDO_OU_SOBRA:" + code);
+        const quantity = Number(row?.quantidade);
+        if (!Number.isFinite(quantity) || quantity <= 0
+          || Math.abs(Math.round(quantity * 1000) / 1000 - quantity) > 1e-8)
+          return fail("QUANTIDADE_INVALIDA:" + code);
+        if (quantity > material.limite + 1e-9)
+          return fail("QUANTIDADE_SUPERIOR_AO_LIMITE:" + code);
+        selected.push({
+          codigo: code, descricao: material.descricao,
+          quantidade: quantity, limite: material.limite,
+        });
+      }
+      const { data, error } = await admin.rpc("mrp_avulsa_criar_lote_seguro", {
+        p_snapshot_id: latest.id, p_pedido_id: pedidoId,
+        p_itens: selected, p_solicitante: solicitante, p_criado_por: userId,
+      });
+      if (error) return fail(error.message, 409);
+      // O pedido já está gravado de forma atômica. Uma falha de Teams não
+      // reverte os itens nem repete o lançamento.
+      let teamsStatus = String(data?.teams_status || "PENDENTE");
+      if (teamsStatus !== "ENVIADO") {
+        try { teamsStatus = await sendBatchTeams(admin, pedidoId, userId, role); }
+        catch { teamsStatus = "FALHA"; }
+      }
+      return json({ok:true,data:{...data,teams_status:teamsStatus}});
+    }
     if (action === "create") {
       const codeRaw = String(input.codigo || "").trim().replace(/\.0$/, "");
       if (!/^\d+$/.test(codeRaw)) return fail("CODIGO_INVALIDO");

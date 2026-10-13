@@ -26,7 +26,34 @@ assert "r['codigo']" in view and "r['descricao']" in view
 assert "item['saldo']" in view and "item['div']" in view
 assert 'status_exibicao' in view
 assert '"ATENDIDO EM"' not in view and '"SEPARADO EM"' in view
-assert 'max_value=max(0.001,_room)' in view
+assert 'max_value=round(_room,3)' in view
+assert 'key="mrp_avulsa_material_selecionado"' in view
+assert 'key=f"mrp_avulsa_quantidade_{_code}"' in view
+assert 'if item and _room>=0.001:' in view
+# Regressão: a seleção do material deve ficar fora do formulário.
+# Caso contrário o Streamlit mantém o max_value do item anterior até o submit.
+material_calls=[
+    node for node in ast.walk(methods["_mrp_avulsas_view"])
+    if isinstance(node,ast.Call)
+    and isinstance(node.func,ast.Attribute)
+    and node.func.attr=="selectbox"
+    and node.args and isinstance(node.args[0],ast.Constant)
+    and node.args[0].value=="MATERIAL"
+]
+assert len(material_calls)==1
+for block in ast.walk(methods["_mrp_avulsas_view"]):
+    if not isinstance(block,(ast.With,ast.AsyncWith)):
+        continue
+    if not any(
+        isinstance(item.context_expr,ast.Call)
+        and isinstance(item.context_expr.func,ast.Attribute)
+        and item.context_expr.func.attr=="form"
+        for item in block.items
+    ):
+        continue
+    assert material_calls[0] not in ast.walk(block), (
+        "Seleção MATERIAL não pode ficar dentro do formulário"
+    )
 assert 'st.form("mrp_avulsa_criar",clear_on_submit=True,enter_to_submit=False)' in view
 assert 'st.form("mrp_avulsas_enviar_lote",enter_to_submit=False)' in view
 assert 'ADICIONAR MATERIAL À LISTA' in view

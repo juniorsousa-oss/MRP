@@ -26,8 +26,15 @@ assert "row['saldo']" in view and "row['div']" in view
 assert "item['saldo']" in view and "item['div']" in view
 assert 'status_exibicao' in view
 assert '"ATENDIDO EM"' not in view and '"SEPARADO EM"' in view
-assert 'max_value=max(0.001,maximo)' in view
+assert 'max_value=max(0.001,_room)' in view
 assert 'st.form("mrp_avulsa_criar",clear_on_submit=True,enter_to_submit=False)' in view
+assert 'st.form("mrp_avulsas_enviar_lote",enter_to_submit=False)' in view
+assert 'ADICIONAR MATERIAL À LISTA' in view
+assert 'st.data_editor(' in view
+assert '"create_batch"' in view
+assert '"pedido_id":_pedido_id' in view
+assert '"notify_batch"' in view
+assert 'REMOVER ITEM' in view and 'LIMPAR LISTA' in view
 assert 'st.form("mrp_avulsa_atender",enter_to_submit=False)' in view
 assert '"RECUSAR SOLICITAÇÃO"' in view
 assert '_mrp_avulsas_call("reject",{"id":chaves[alvo],"motivo":obs.strip()})' in view
@@ -54,3 +61,21 @@ assert 'Math.min(saldo, div)' in catalog
 assert 'atendido_em,observacao_atendimento' in api
 assert 'p_div: item.limite' in api
 print("MRP_AVULSAS_FLOW_OK")
+
+migration=(root/"supabase/migrations/20261013_mrp_avulsas_pedidos_multiplos.sql").read_text("utf-8")
+assert "pg_advisory_xact_lock(hashtext('mrp_avulsas:reservas'))" in migration
+assert "MATERIAL_OU_SOLICITANTE_OBRIGATORIOS" not in migration
+assert "SALDO_INSUFICIENTE_CODIGO_" in migration
+assert "PEDIDO_DEVE_CONTER_1_A_30_MATERIAIS" in migration
+assert "IDENTIFICADOR_DE_PEDIDO_REUTILIZADO_COM_DADOS_DIFERENTES" in migration
+assert "pedido_id uuid" in migration
+assert 'if (action === "create_batch") {' in api
+assert "mrp_avulsa_criar_lote_seguro" in api
+assert 'if (action === "notify_batch") {' in api
+assert "sendBatchTeams" in api
+teams=(root/"supabase/functions/mrp-avulsas-api/teams.ts").read_text("utf-8")
+assert "MRP SETTA · NOVA SOLICITAÇÃO AVULSA" in teams
+assert "contentType: \"application/vnd.microsoft.card.adaptive\"" in teams
+assert "solicitante.slice(0,180)" in teams
+assert "itens.map(" in teams
+print("MRP_AVULSAS_MULTI_ITENS_TEAMS_OK")

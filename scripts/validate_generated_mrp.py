@@ -33,11 +33,11 @@ for token in [
     'codigo_admin != "TODOS"',
     'projeto_admin != "TODOS"',
     'produto_admin != "TODOS"',
-    'QUANTIDADE SOLICITADA',
+    'QUANTIDADE PARA ADICIONAR',
     'PENDENTES DE SEPARAÇÃO',
     'CONFIRMAR MATERIAL SEPARADO',
     'MINHAS SOLICITAÇÕES',
-    'SOBRA DO MRP (DIV)',
+    'SOBRA (DIV)',
     'ATUALIZAR STATUS DAS SOLICITAÇÕES',
 ]:
     assert token in final, f"Ausente no código final: {token}"

@@ -22,7 +22,7 @@ assert 'if str(dados.get("role"))=="ADMIN":' in view
 assert 'if tab_pendentes is not None:' in view
 assert '"ATUALIZAR STATUS DAS SOLICITAÇÕES"' in view
 assert 'st.rerun()' in view
-assert "r['saldo']" in view and "r['descricao']" in view
+assert "r['codigo']" in view and "r['descricao']" in view
 assert "item['saldo']" in view and "item['div']" in view
 assert 'status_exibicao' in view
 assert '"ATENDIDO EM"' not in view and '"SEPARADO EM"' in view

@@ -35,6 +35,47 @@ export function teamsCard(id: string, solicitante: string, itens: TeamsItem[]) {
 export async function notifyTeams(
   endpoint: string, id: string, solicitante: string, itens: TeamsItem[],
 ): Promise<{ok: boolean; error?: string}> {
+  return sendCard(endpoint, teamsCard(id, solicitante, itens));
+}
+
+/** Mensagem explicitamente de TESTE: não representa uma solicitação de material. */
+export function teamsTestCard(actor: string) {
+  return {
+    type: "message",
+    attachments: [{
+      contentType: "application/vnd.microsoft.card.adaptive",
+      content: {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        type: "AdaptiveCard",
+        version: "1.4",
+        body: [
+          { type: "TextBlock", text: "TESTE DE CONEXÃO · MRP SETTA",
+            weight: "Bolder", size: "Medium", wrap: true },
+          { type: "TextBlock",
+            text: "A integração entre o MRP SETTA e este grupo do Teams está sendo verificada.",
+            wrap: true },
+          { type: "FactSet", facts: [
+            { title: "Iniciado por", value: actor.slice(0, 120) },
+            { title: "Origem", value: "MRP SETTA — Solicitações Avulsas" },
+          ] },
+          { type: "TextBlock",
+            text: "Mensagem de teste. Nenhuma solicitação ou reserva de material foi criada.",
+            wrap: true, isSubtle: true },
+        ],
+      },
+    }],
+  };
+}
+
+export async function notifyTeamsTest(
+  endpoint: string, actor: string,
+): Promise<{ok: boolean; error?: string}> {
+  return sendCard(endpoint, teamsTestCard(actor));
+}
+
+async function sendCard(
+  endpoint: string, card: unknown,
+): Promise<{ok: boolean; error?: string}> {
   let parsed: URL;
   try { parsed = new URL(endpoint); }
   catch { return {ok:false,error:"ENDERECO_TEAMS_INVALIDO"}; }
@@ -44,7 +85,7 @@ export async function notifyTeams(
       !allowed.some(domain => host === domain || host.endsWith("." + domain))) {
     return {ok:false,error:"DOMINIO_TEAMS_NAO_AUTORIZADO"};
   }
-  const body = JSON.stringify(teamsCard(id, solicitante, itens));
+  const body = JSON.stringify(card);
   if (new TextEncoder().encode(body).length > 27000) {
     return {ok:false,error:"NOTIFICACAO_TEAMS_ACIMA_DO_LIMITE"};
   }

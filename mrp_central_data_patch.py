@@ -497,9 +497,13 @@ _auto_save = """        if st.session_state.get("_mrp_saved_sig")!=_mrp_sig:
                 st.session_state["_mrp_saved_sig"]=_mrp_sig
                 st.success("MRP salvo no histórico compartilhado.")"""
 _manual_history = """        _mrp_today=pd.Timestamp.now(tz="America/Sao_Paulo").strftime("%Y-%m-%d")
-        _mrp_daily_key=hashlib.sha256(f"MRP-DIARIO|{_mrp_today}".encode("utf-8")).hexdigest()
-        if st.session_state.get("_mrp_daily_attempt_day")!=_mrp_today:
-            st.session_state["_mrp_daily_attempt_day"]=_mrp_today
+        # Uma atualização de base no mesmo dia precisa gerar nova fotografia.
+        # A chave depende do conteúdo calculado, evitando duplicar um rerun igual.
+        _mrp_daily_key=hashlib.sha256(
+            f"MRP-DIARIO|{_mrp_today}|{_mrp_sig}".encode("utf-8")
+        ).hexdigest()
+        if st.session_state.get("_mrp_daily_attempt_key")!=_mrp_daily_key:
+            st.session_state["_mrp_daily_attempt_key"]=_mrp_daily_key
             save_snapshot(
                 semana_atual,
                 usuario_mrp,

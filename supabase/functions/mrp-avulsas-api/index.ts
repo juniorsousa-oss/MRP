@@ -1,6 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { selectMaterial, availableAfterReservations, displayStatus, type MrpMaterial } from "./catalog.ts";
-import { notifyTeams, type TeamsItem } from "./teams.ts";
+import { notifyTeams, notifyTeamsTest, type TeamsItem } from "./teams.ts";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -105,6 +105,43 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = String(body?.action || "").trim();
     const input = body?.payload || {};
+    if (action === "test_teams") {
+      // Ação explícita do administrador, sem reserva ou gravação de materiais.
+      if (role !== "ADMIN") return fail("ADMIN_REQUIRED", 403);
+      const destination = String(Deno.env.get("MRP_TEAMS_WORKFLOW_URL") || "").trim();
+      if (!destination) {
+        return json({ ok: true, data: {
+          status: "NAO_CONFIGURADO",
+          message: "Webhook do Teams não encontrado nas variáveis da função.",
+        } });
+      }
+      const { data: last, error: lastError } = await admin.from("mrp_teams_testes")
+        .select("criado_em").eq("user_id", userId)
+        .order("criado_em", { ascending: false }).limit(1).maybeSingle();
+      if (lastError) return fail("NAO_FOI_POSSIVEL_VALIDAR_LIMITE_DE_TESTE", 500);
+      if (last?.criado_em &&
+          Date.now() - new Date(last.criado_em).getTime() < 60000) {
+        return fail("AGUARDE_60_SEGUNDOS_PARA_REPETIR_O_TESTE", 429);
+      }
+      const { data: attempt, error: insertError } = await admin
+        .from("mrp_teams_testes").insert({ user_id: userId, status: "EM_ANDAMENTO" })
+        .select("id").single();
+      if (insertError || !attempt) return fail("REGISTRO_TESTE_INDISPONIVEL", 500);
+      const actor = String(permission?.nome || "Administrador SETTA");
+      const response = await notifyTeamsTest(destination, actor);
+      const result = response.ok ? "ACEITO" : "FALHA";
+      await admin.from("mrp_teams_testes").update({
+        status: result, erro: response.ok ? null : (response.error || "ERRO_NAO_IDENTIFICADO"),
+      }).eq("id", attempt.id);
+      return json({ ok: true, data: {
+        status: result,
+        // Não expor URL, query ou token do webhook na resposta.
+        error: response.ok ? null : (response.error || "ERRO_NAO_IDENTIFICADO"),
+        message: response.ok
+          ? "Webhook aceitou o teste. Confirme a chegada no chat do Teams."
+          : "Falha no envio de teste. Consulte o código do erro.",
+      } });
+    }
     if (action === "notify_batch") {
       const id = String(input.pedido_id || "");
       if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id)) return fail("PEDIDO_INVALIDO");

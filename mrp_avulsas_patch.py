@@ -59,6 +59,26 @@ def _mrp_avulsas_view():
     st.caption(f"BASE DE REFERÊNCIA · ÚLTIMO MRP GRAVADO #{dados.get('snapshot_id','—')}. Solicitações pendentes e separadas deste MRP reduzem a disponibilidade.")
     st.caption("Só aparecem materiais com SALDO EM ESTOQUE > 0 e SOBRA (DIV) > 0. A quantidade liberada é limitada ao menor valor, descontando reservas. A separação não realiza baixa no Protheus.")
 
+    if str(dados.get("role"))=="ADMIN":
+        with st.expander("CONEXÃO COM O TEAMS · TESTE",expanded=False):
+            st.caption(
+                "Verifica o webhook do grupo com uma mensagem identificada como TESTE. "
+                "Nenhuma solicitação é criada e nenhum saldo é reservado."
+            )
+            if st.button("ENVIAR MENSAGEM DE TESTE AO TEAMS",key="mrp_teams_connection_test"):
+                try:
+                    _test=_mrp_avulsas_call("test_teams")
+                    _state=str(_test.get("status") or "")
+                    if _state=="ACEITO":
+                        st.success("O webhook aceitou a mensagem. Confira se ela apareceu no grupo SOLICITAÇÃO DE ITENS AVULSOS - MRP.")
+                    elif _state=="NAO_CONFIGURADO":
+                        st.warning("A variável MRP_TEAMS_WORKFLOW_URL ainda não foi encontrada no Supabase.")
+                    else:
+                        st.error(f"Teste não enviado: {_test.get('error') or _test.get('message') or 'falha desconhecida'}")
+                except Exception as exc:
+                    st.error("Falha no teste Teams: "+str(exc))
+
+
     import uuid as _uuid
     _snapshot = str(dados.get("snapshot_id") or "")
     _cart = st.session_state.setdefault("_mrp_cart",{})

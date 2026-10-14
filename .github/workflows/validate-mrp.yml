@@ -16,7 +16,7 @@ jobs:
       - name: Montar aplicação final
         run: python scripts/validate_generated_mrp.py
       - name: Preparar pandas para validar compras
-        run: python -m pip install "pandas>=2.2,<3"
+        run: python -m pip install "pandas>=2.2,<3" "openpyxl>=3.1,<4"
       - name: Testar layout CSV Protheus e prioridade da Compra MRP
         run: python -m scripts.test_compra_mrp
       - name: Testar etapas e permissões das solicitações avulsas

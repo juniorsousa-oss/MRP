@@ -85,6 +85,72 @@ def _compra_csv_protheus(df):
     # e possui duas colunas vazias apos PRJ.
     return out.to_csv(index=False,sep=",",lineterminator="\\r\\n",quoting=csv.QUOTE_MINIMAL,decimal=".").encode("cp1252")
 
+def _compra_excel_protheus(df):
+    # O importador STSUP25 recebe XLSX e faz a conversao para CSV.
+    # O erro out of bounds [10] of [9] ocorreu com uma planilha de 9 colunas.
+    # Gerar 11 colunas A:K e materializar inclusive as celulas vazias,
+    # seguindo a estrutura fisica do Excel historico que era importado.
+    from xml.etree import ElementTree as ET
+    from zipfile import ZipFile, ZIP_DEFLATED
+
+    out=normalizar_compra_mrp(df).copy()
+    colunas=["produto","qnt","data","psy","cc","op","obs","prioridade","prj"]
+    if not out.empty:
+        if not out["produto"].astype(str).str.fullmatch(r"\d{8}").all():
+            raise ValueError("Compra MRP: existem codigos invalidos.")
+        if not out["prioridade"].astype(str).isin(["1","2"]).all():
+            raise ValueError("Compra MRP: existem prioridades invalidas.")
+        if out["data"].astype(str).eq("").any():
+            raise ValueError("Compra MRP: existem datas de necessidade vazias.")
+
+    out=out[colunas].copy()
+    out["prj"]=""
+    out["_vazio_1"]=""
+    out["_vazio_2"]=""
+    out.columns=colunas+["",""]
+    original=excel_bytes({"Compra_MRP":out})
+
+    ns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    ET.register_namespace("",ns)
+    ET.register_namespace("r","http://schemas.openxmlformats.org/officeDocument/2006/relationships")
+    folha="xl/worksheets/sheet1.xml"
+    destino=BytesIO()
+    with ZipFile(BytesIO(original),"r") as entrada:
+        raiz=ET.fromstring(entrada.read(folha))
+        sheet_data=raiz.find(f"{{{ns}}}sheetData")
+        if sheet_data is None:
+            raise ValueError("Compra MRP: folha de dados ausente.")
+        linhas=sheet_data.findall(f"{{{ns}}}row")
+        if len(linhas)!=len(out)+1:
+            raise ValueError("Compra MRP: quantidade de linhas inconsistente.")
+
+        for linha in linhas:
+            numero=linha.get("r")
+            celulas={c.get("r"):c for c in linha.findall(f"{{{ns}}}c")}
+            for letra in "ABCDEFGHIJK":
+                referencia=f"{letra}{numero}"
+                celula=celulas.get(referencia)
+                if celula is None:
+                    celula=ET.Element(f"{{{ns}}}c",{"r":referencia})
+                    celulas[referencia]=celula
+                # O antigo Excel guarda as colunas vazias como inlineStr.
+                # Uma celula nao existente ou vazia nao deve ser omitida.
+                if not any(celula.find(f"{{{ns}}}{tag}") is not None for tag in ("v","f","is")):
+                    celula.set("t","inlineStr")
+                    interno=ET.SubElement(celula,f"{{{ns}}}is")
+                    ET.SubElement(interno,f"{{{ns}}}t").text=""
+            linha[:]=[celulas[f"{col}{numero}"] for col in "ABCDEFGHIJK"]
+        dimensao=raiz.find(f"{{{ns}}}dimension")
+        if dimensao is not None:
+            dimensao.set("ref",f"A1:K{len(out)+1}")
+
+        conteudo_folha=ET.tostring(raiz,encoding="utf-8",xml_declaration=True)
+        with ZipFile(destino,"w",ZIP_DEFLATED) as saida:
+            for info in entrada.infolist():
+                data=conteudo_folha if info.filename==folha else entrada.read(info.filename)
+                saida.writestr(info,data)
+    return destino.getvalue()
+
 def _compra_exclusoes_ler():
     token=st.session_state.get("auth_access_token")
     if not token:
@@ -235,35 +301,27 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
     # Exige aprovacao explicita antes de disponibilizar qualquer arquivo de compra.
     import hashlib
     assinatura=hashlib.sha256((aptos.to_json(orient="records")+",".join(sorted(excluidos))).encode("utf-8")).hexdigest()
-    # Acoes sempre na parte inferior e lado a lado (em ambas as telas).
-    col_confirmar,col_csv,col_excel,col_finalizar=st.columns([1.7,1.15,1.35,1.6])
+    # O Protheus importa XLSX e converte internamente para CSV.
+    # Exibir apenas a planilha compatibilizada com a rotina STSUP25.
+    col_confirmar,col_excel,col_finalizar=st.columns([1.8,1.45,1.6])
     with col_confirmar:
         if st.button("CONFIRMAR ANÁLISE E LIBERAR ARQUIVOS",key=f"{prefixo}_compra_confirmar",type="primary",use_container_width=True):
             st.session_state[f"{prefixo}_compra_confirmada"]=assinatura
 
     aprovado=st.session_state.get(f"{prefixo}_compra_confirmada")==assinatura
-    csv_valido=xlsx_valido=None
+    xlsx_valido=None
     if aprovado:
         try:
-            csv_valido=_compra_csv_protheus(aptos)
-            xlsx_valido=excel_bytes({"Compra_MRP":aptos})
+            xlsx_valido=_compra_excel_protheus(aptos)
         except Exception as exc:
             aprovado=False
-            st.error(f"Falha na validacao da carga: {exc}")
+            st.error(f"Falha na validação da carga Excel: {exc}")
             st.session_state.pop(f"{prefixo}_compra_confirmada",None)
 
-    with col_csv:
-        if aprovado:
-            st.download_button(
-                "BAIXAR CSV PROTHEUS",csv_valido,"Compra_MRP_Protheus.csv",
-                mime="text/csv",key=f"{prefixo}_compra_csv",use_container_width=True,
-            )
-        else:
-            st.button("BAIXAR CSV PROTHEUS",disabled=True,key=f"{prefixo}_compra_csv_inativo",use_container_width=True)
     with col_excel:
         if aprovado:
             st.download_button(
-                "BAIXAR COMPRA MRP — EXCEL",xlsx_valido,"Compra_MRP_Validada.xlsx",
+                "BAIXAR COMPRA MRP — EXCEL",xlsx_valido,"Compra_MRP_Protheus.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key=f"{prefixo}_compra_xlsx",use_container_width=True,
             )
@@ -272,7 +330,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
     with col_finalizar:
         _compra_botao_finalizar(prefixo)
     if not aprovado:
-        st.caption("Confirme a análise para habilitar os dois arquivos de compra.")
+        st.caption("Confirme a análise para habilitar a planilha Excel do Protheus.")
 
 '''
 _compra_replace(_helpers_anchor,_helpers+_helpers_anchor,"Funcoes de compra/CSV")

@@ -122,6 +122,26 @@ def _compra_exclusoes_salvar(alteracoes):
     )
     r.raise_for_status()
 
+def _compra_abrir(prefixo):
+    # Aprovacoes sao por sessao de analise: reabrir sempre exige confirmar.
+    if not st.session_state.get(f"{prefixo}_compra_aberta",False):
+        st.session_state.pop(f"{prefixo}_compra_confirmada",None)
+    st.session_state[f"{prefixo}_compra_aberta"]=True
+
+def _compra_fechar(prefixo):
+    # Excluidos persistem no Supabase; fecha somente a analise e a liberacao.
+    st.session_state[f"{prefixo}_compra_aberta"]=False
+    st.session_state.pop(f"{prefixo}_compra_confirmada",None)
+
+def _compra_botao_finalizar(prefixo):
+    if st.button(
+        "FINALIZAR ANÁLISE DE COMPRA",
+        key=f"{prefixo}_compra_finalizar",
+        use_container_width=True,
+    ):
+        _compra_fechar(prefixo)
+        st.rerun()
+
 def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
     st.markdown("### VALIDAÇÃO DA COMPRA MRP")
     st.caption("Retire produtos que nao devem ser comprados; a decisao fica salva e podera ser revertida. Nao altera a demanda calculada no MRP.")
@@ -129,6 +149,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
         exclusoes=_compra_exclusoes_ler()
     except Exception as exc:
         st.error(f"Nao foi possivel verificar as exclusoes: {exc}. Exportacao de compra bloqueada.")
+        _compra_botao_finalizar(prefixo)
         return
     base=normalizar_compra_mrp(df)
     base=base[base["produto"].ne("")].copy()
@@ -178,6 +199,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
                         st.rerun()
                     except Exception as exc:
                         st.error(f"Falha ao salvar as decisoes: {exc}")
+                _compra_botao_finalizar(prefixo)
                 return
         else:
             st.dataframe(por_produto,hide_index=True,use_container_width=True)
@@ -204,27 +226,53 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
     st.dataframe(aptos,hide_index=True,use_container_width=True)
     if aptos.empty:
         st.info("Nenhum item apto para gerar a carga.")
+        _compra_botao_finalizar(prefixo)
         return
     if aptos["prioridade"].isin(["1","2"]).sum()!=len(aptos):
         st.error("Existem itens sem prioridade valida. Processe novamente o MRP com o cadastro contendo a coluna AL (Entrega).")
+        _compra_botao_finalizar(prefixo)
         return
     # Exige aprovacao explicita antes de disponibilizar qualquer arquivo de compra.
     import hashlib
     assinatura=hashlib.sha256((aptos.to_json(orient="records")+",".join(sorted(excluidos))).encode("utf-8")).hexdigest()
-    if st.button("CONFIRMAR ANALISE E LIBERAR ARQUIVOS",key=f"{prefixo}_compra_confirmar",type="primary"):
-        st.session_state[f"{prefixo}_compra_confirmada"]=assinatura
-    if st.session_state.get(f"{prefixo}_compra_confirmada")!=assinatura:
-        st.info("Os arquivos de compra serao liberados somente apos a confirmacao acima.")
-        return
-    try:
-        csv_valido=_compra_csv_protheus(aptos)
-        xlsx_valido=excel_bytes({"Compra_MRP":aptos})
-    except Exception as exc:
-        st.error(f"Falha na validacao da carga: {exc}")
-        return
-    b1,b2=st.columns(2)
-    b1.download_button("BAIXAR CSV PROTHEUS",csv_valido,"Compra_MRP_Protheus.csv",mime="text/csv",key=f"{prefixo}_compra_csv",use_container_width=True)
-    b2.download_button("BAIXAR COMPRA MRP EXCEL",xlsx_valido,"Compra_MRP_Validada.xlsx",mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",key=f"{prefixo}_compra_xlsx",use_container_width=True)
+    # Acoes sempre na parte inferior e lado a lado (em ambas as telas).
+    col_confirmar,col_csv,col_excel,col_finalizar=st.columns([1.7,1.15,1.35,1.6])
+    with col_confirmar:
+        if st.button("CONFIRMAR ANÁLISE E LIBERAR ARQUIVOS",key=f"{prefixo}_compra_confirmar",type="primary",use_container_width=True):
+            st.session_state[f"{prefixo}_compra_confirmada"]=assinatura
+
+    aprovado=st.session_state.get(f"{prefixo}_compra_confirmada")==assinatura
+    csv_valido=xlsx_valido=None
+    if aprovado:
+        try:
+            csv_valido=_compra_csv_protheus(aptos)
+            xlsx_valido=excel_bytes({"Compra_MRP":aptos})
+        except Exception as exc:
+            aprovado=False
+            st.error(f"Falha na validacao da carga: {exc}")
+            st.session_state.pop(f"{prefixo}_compra_confirmada",None)
+
+    with col_csv:
+        if aprovado:
+            st.download_button(
+                "BAIXAR CSV PROTHEUS",csv_valido,"Compra_MRP_Protheus.csv",
+                mime="text/csv",key=f"{prefixo}_compra_csv",use_container_width=True,
+            )
+        else:
+            st.button("BAIXAR CSV PROTHEUS",disabled=True,key=f"{prefixo}_compra_csv_inativo",use_container_width=True)
+    with col_excel:
+        if aprovado:
+            st.download_button(
+                "BAIXAR COMPRA MRP — EXCEL",xlsx_valido,"Compra_MRP_Validada.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key=f"{prefixo}_compra_xlsx",use_container_width=True,
+            )
+        else:
+            st.button("BAIXAR COMPRA MRP — EXCEL",disabled=True,key=f"{prefixo}_compra_excel_inativo",use_container_width=True)
+    with col_finalizar:
+        _compra_botao_finalizar(prefixo)
+    if not aprovado:
+        st.caption("Confirme a análise para habilitar os dois arquivos de compra.")
 
 '''
 _compra_replace(_helpers_anchor,_helpers+_helpers_anchor,"Funcoes de compra/CSV")
@@ -238,12 +286,19 @@ _compra_replace('        "Compra_MRP": comp,\n','',"Remover compra do ZIP da con
 _compra_replace('"Compra_MRP":compras_mrp_export,','',"Remover compra do ZIP e Excel geral ADMIN")
 _compra_replace(
     'c4.download_button("BAIXAR COMPRA MRP", data=compra_excel_consulta, file_name="Compra_MRP.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)',
-    'c4.caption("Compra MRP: valide os itens abaixo.")\n    render_validacao_compra_mrp(comp, "consulta")',
+    '''if c4.button("ANÁLISE DE COMPRA",key="consulta_compra_abrir",use_container_width=True):
+        _compra_abrir("consulta")
+    if st.session_state.get("consulta_compra_aberta",False):
+        render_validacao_compra_mrp(comp,"consulta")''',
     "Bloqueio download direto CONSULTA",
 )
 _compra_replace(
     'with b4: st.download_button("BAIXAR COMPRA MRP",compra_excel_data,"Compra_MRP.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)',
-    'with b4: st.caption("Compra MRP: valide os itens abaixo.")\nrender_validacao_compra_mrp(compras_mrp_export, "admin", cad)',
+    '''with b4:
+    if st.button("ANÁLISE DE COMPRA",key="admin_compra_abrir",use_container_width=True):
+        _compra_abrir("admin")
+if st.session_state.get("admin_compra_aberta",False):
+    render_validacao_compra_mrp(compras_mrp_export,"admin",cad)''',
     "Bloqueio download direto ADMIN",
 )
 # Recalcular a compra e prioridades nas sessoes ainda abertas.

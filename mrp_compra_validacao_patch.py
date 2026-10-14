@@ -230,7 +230,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
 _compra_replace(_helpers_anchor,_helpers+_helpers_anchor,"Funcoes de compra/CSV")
 
 _fab_anchor='fab_det=op[["ORDEM DE PRODUÇÃO","Código Produto","Semana Entrega"]]'
-_compra_replace(_fab_anchor,'compras_mrp=_preparar_compra_prioridades(compras_mrp,cad)\n'+_fab_anchor,"Prioridades antes de salvar no historico")
+_compra_replace(_fab_anchor,'compras_mrp=_preparar_compra_prioridades(compras_mrp,cad)\n    '+_fab_anchor,"Prioridades antes de salvar no historico")
 
 # O resultado do MRP pode ser exportado livremente, mas a Compra MRP deve
 # passar pela aprovacao. Removemos caminhos alternativos de exportacao direta.
@@ -246,6 +246,8 @@ _compra_replace(
     'with b4: st.caption("Compra MRP: valide os itens abaixo.")\nrender_validacao_compra_mrp(compras_mrp_export, "admin", cad)',
     "Bloqueio download direto ADMIN",
 )
+# Recalcular a compra e prioridades nas sessoes ainda abertas.
+_source=_source.replace("MRP-CALC-V2","MRP-CALC-V3-COMPRA",1)
 _source=_source.replace(
     'MRP-SNAPSHOT-V7-COMPRA-TCTP',
     'MRP-SNAPSHOT-V8-COMPRA-PRIORIDADE-CSV',

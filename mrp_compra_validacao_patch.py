@@ -243,13 +243,8 @@ _compra_replace(
 )
 _compra_replace(
     'with b4: st.download_button("BAIXAR COMPRA MRP",compra_excel_data,"Compra_MRP.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)',
-    'with b4: st.caption("Compra MRP: valide os itens abaixo.")',
+    'with b4: st.caption("Compra MRP: valide os itens abaixo.")\nrender_validacao_compra_mrp(compras_mrp_export, "admin", cad)',
     "Bloqueio download direto ADMIN",
-)
-_compra_replace(
-    '\nst.divider()\nif st.session_state.get("auth_role") == "ADMIN":\n    render_mrp_history()',
-    '\nrender_validacao_compra_mrp(compras_mrp_export, "admin", cad)\nst.divider()\nif st.session_state.get("auth_role") == "ADMIN":\n    render_mrp_history()',
-    "Validação de compras ADMIN",
 )
 _source=_source.replace(
     'MRP-SNAPSHOT-V7-COMPRA-TCTP',

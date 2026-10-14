@@ -21,6 +21,9 @@ names = {
 }
 nodes = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
 assert {node.name for node in nodes} == names, "Funções de compra ausentes no código gerado"
+# Isola as regras puras de compra sem invocar decorators de Streamlit.
+for node in nodes:
+    node.decorator_list = []
 namespace = {"pd": pd, "date": date}
 exec(compile(ast.Module(body=nodes, type_ignores=[]), "mrp_compra_puro.py", "exec"), namespace)
 calcular = namespace["_preparar_compra_prioridades"]

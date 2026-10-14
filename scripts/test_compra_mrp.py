@@ -5,6 +5,8 @@ import ast
 import csv
 import io
 import runpy
+from zipfile import ZipFile
+from xml.etree import ElementTree as ET
 from types import SimpleNamespace
 from datetime import date, timedelta
 
@@ -19,6 +21,8 @@ names = {
     "_compra_codigo",
     "_preparar_compra_prioridades",
     "_compra_csv_protheus",
+    "_compra_excel_protheus",
+    "excel_bytes",
     "_compra_abrir",
     "_compra_fechar",
 }
@@ -27,7 +31,7 @@ assert {node.name for node in nodes} == names, "Funções de compra ausentes no 
 # Isola as regras puras de compra sem invocar decorators de Streamlit.
 for node in nodes:
     node.decorator_list = []
-namespace = {"pd": pd, "date": date, "st": SimpleNamespace(session_state={})}
+namespace = {"pd": pd, "date": date, "st": SimpleNamespace(session_state={}), "BytesIO":io.BytesIO}
 exec(compile(ast.Module(body=nodes, type_ignores=[]), "mrp_compra_puro.py", "exec"), namespace)
 calcular = namespace["_preparar_compra_prioridades"]
 gerar_csv = namespace["_compra_csv_protheus"]
@@ -89,5 +93,27 @@ assert possui_validacao_condicional("consulta")
 assert source.count('ANÁLISE DE COMPRA') >= 2
 assert "FINALIZAR ANÁLISE DE COMPRA" in source
 assert "col_confirmar,col_csv,col_excel,col_finalizar" in source
+
+# Regra STSUP25: o Excel deve conter 11 colunas A:K, inclusive fisicamente
+# nas linhas cujos campos D (psy), I (prj), J e K estao vazios.
+excel_binario=namespace["_compra_excel_protheus"](result)
+with ZipFile(io.BytesIO(excel_binario)) as zip_excel:
+    folha=ET.fromstring(zip_excel.read("xl/worksheets/sheet1.xml"))
+    ns={"m":"http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    dimensao=folha.find("m:dimension",ns)
+    assert dimensao is not None and dimensao.get("ref")==f"A1:K{len(result)+1}", dimensao.attrib if dimensao is not None else None
+    linhas=folha.findall("./m:sheetData/m:row",ns)
+    assert len(linhas)==len(result)+1
+    for linha in linhas:
+        referencias=[c.attrib.get("r") for c in linha.findall("m:c",ns)]
+        assert referencias==[f"{col}{linha.attrib['r']}" for col in "ABCDEFGHIJK"],referencias
+    for celula in linhas[1].findall("m:c",ns):
+        if celula.attrib["r"] in {"D2","I2","J2","K2"}:
+            assert celula.attrib["t"]=="inlineStr"
+            assert celula.find("m:is/m:t",ns) is not None, celula.attrib
+    cabeçalho=linhas[0]
+    assert [c.attrib["r"] for c in cabeçalho.findall("m:c",ns)][-3:]==["I1","J1","K1"]
+
+print("MRP_COMPRA_EXCEL_STSUP25_11_COLUNAS_OK")
 print("MRP_COMPRA_PRIORIDADE_CSV_OK")
 print("MRP_COMPRA_ABRIR_FECHAR_VALIDADO")

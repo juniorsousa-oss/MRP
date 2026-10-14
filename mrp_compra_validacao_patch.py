@@ -69,7 +69,7 @@ def _compra_csv_protheus(df):
     import csv
     out=normalizar_compra_mrp(df).copy()
     if not out.empty:
-        if (out["produto"].str.fullmatch(r"\\\\d{8}") != True).any():
+        if (out["produto"].str.fullmatch(r"\\d{8}") != True).any():
             raise ValueError("Compra MRP: codigo do produto invalido para o Protheus.")
         if not out["prioridade"].isin(["1","2"]).all():
             raise ValueError("Compra MRP: existem prioridades sem calculo; reprocese as bases.")
@@ -230,12 +230,12 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
 _compra_replace(_helpers_anchor,_helpers+_helpers_anchor,"Funcoes de compra/CSV")
 
 _fab_anchor='fab_det=op[["ORDEM DE PRODUÇÃO","Código Produto","Semana Entrega"]]'
-_compra_replace(_fab_anchor,'compras_mrp=_preparar_compra_prioridades(compras_mrp,cad)\\n'+_fab_anchor,"Prioridades antes de salvar no historico")
+_compra_replace(_fab_anchor,'compras_mrp=_preparar_compra_prioridades(compras_mrp,cad)\n'+_fab_anchor,"Prioridades antes de salvar no historico")
 
 # O resultado do MRP pode ser exportado livremente, mas a Compra MRP deve
 # passar pela aprovacao. Removemos caminhos alternativos de exportacao direta.
-_compra_replace('    "Compra_MRP": comp,\\n','',"Remover compra do ZIP da consulta")
-_compra_replace('    "Compra_MRP": comp,\\n','',"Remover compra do Excel da consulta",count=0) if False else None
+_compra_replace('    "Compra_MRP": comp,\n','',"Remover compra do ZIP da consulta")
+_compra_replace('    "Compra_MRP": comp,\n','',"Remover compra do Excel da consulta",count=0) if False else None
 _compra_replace('"Compra_MRP":compras_mrp_export,','',"Remover compra do ZIP e Excel geral ADMIN")
 _compra_replace(
     'c4.download_button("BAIXAR COMPRA MRP", data=compra_excel_consulta, file_name="Compra_MRP.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)',
@@ -248,13 +248,13 @@ _compra_replace(
     "Bloqueio download direto ADMIN",
 )
 _compra_replace(
-    '\\n\\ndef load_sources(cb,eb,gb,pb,mb):',
-    '\\n    render_validacao_compra_mrp(comp, "consulta")\\n\\ndef load_sources(cb,eb,gb,pb,mb):',
+    '\n\ndef load_sources(cb,eb,gb,pb,mb):',
+    '\n    render_validacao_compra_mrp(comp, "consulta")\n\ndef load_sources(cb,eb,gb,pb,mb):',
     "Validação de compras CONSULTA",
 )
 _compra_replace(
-    '\\nst.divider()\\nif st.session_state.get("auth_role") == "ADMIN":\\n    render_mrp_history()',
-    '\\nrender_validacao_compra_mrp(compras_mrp_export, "admin", cad)\\nst.divider()\\nif st.session_state.get("auth_role") == "ADMIN":\\n    render_mrp_history()',
+    '\nst.divider()\nif st.session_state.get("auth_role") == "ADMIN":\n    render_mrp_history()',
+    '\nrender_validacao_compra_mrp(compras_mrp_export, "admin", cad)\nst.divider()\nif st.session_state.get("auth_role") == "ADMIN":\n    render_mrp_history()',
     "Validação de compras ADMIN",
 )
 _source=_source.replace(

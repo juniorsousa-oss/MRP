@@ -45,6 +45,23 @@ def semanas_da_base(df, coluna, periodo=None, data=None):
                      index=df.index, dtype=str)
 
 
+def semana_mrp_antecipada(valor, dias=30):
+    """Recalcula a semana pelo DATA MRP original menos 30 dias corridos.
+
+    Datas vencidas continuam na semana atual, preservando a regra do conversor.
+    """
+    data = pd.to_datetime(valor, dayfirst=True, errors='coerce')
+    if pd.isna(data):
+        return None
+    data_calculo = max((pd.Timestamp(data) - pd.Timedelta(days=dias)).date(), date.today())
+    domingo = data_calculo - timedelta(days=(data_calculo.weekday() + 1) % 7)
+    primeiro_domingo = date(domingo.year, 1, 1)
+    primeiro_domingo += timedelta(days=(6 - primeiro_domingo.weekday()) % 7)
+    numero = ((domingo - primeiro_domingo).days // 7) + 1
+    sabado = domingo + timedelta(days=6)
+    return f"{domingo.year}-{numero:02d}", f"{domingo:%d/%m/%Y} a {sabado:%d/%m/%Y}"
+
+
 st.set_page_config(page_title='MRP | SETTA', page_icon='📦', layout='wide')
 st.markdown('''<style>.block-container{padding-top:1rem}.small{font-size:.8rem;color:#666}</style>''', unsafe_allow_html=True)
 
@@ -99,6 +116,25 @@ def load_sources(cb, eb, gb, pb, mb):
     rg['Projeto'] = rg['Projeto'].fillna('').astype(str)
     rg = rg.dropna(subset=['Código']).copy()
     rg['Código'] = rg['Código'].astype(int)
+
+    # A semana exportada pode ser de uma versão antiga do conversor.
+    # Recalcular sempre pela DATA MRP original (que também pode ser
+    # a DATA CLIENTE usada como fallback), sem descontar os 30 dias duas vezes.
+    # Sem data válida, mantemos a semana já atribuída pelo conversor.
+    if 'DATA MRP' in rg.columns:
+        antecipacoes = rg['DATA MRP'].map(semana_mrp_antecipada)
+        mask = antecipacoes.notna()
+        if mask.any():
+            rg.loc[mask, 'Semana'] = antecipacoes.loc[mask].map(lambda v: v[0])
+            rg.loc[mask, 'SEMANA DE NECESSIDADE'] = rg.loc[mask, 'Semana']
+            rg.loc[mask, 'PERIODO DA SEMANA'] = antecipacoes.loc[mask].map(lambda v: v[1])
+
+    # A coluna agregada da base deve refletir as novas semanas.
+    if 'NECESSIDADE DA SEMANA' in rg.columns:
+        rg['NECESSIDADE DA SEMANA'] = (
+            rg.groupby(['Código', 'Semana'])['Pendência'].transform('sum')
+        )
+
     rg['Semana válida'] = rg['Semana'].str.match(r'^\d{4}-\d{2}$', na=False)
     rg_mrp = rg[rg['Semana válida']].copy()
     rg_mrp['Semana'] = rg_mrp['Semana'].astype(str)

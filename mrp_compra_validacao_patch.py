@@ -234,8 +234,7 @@ _compra_replace(_fab_anchor,'compras_mrp=_preparar_compra_prioridades(compras_mr
 
 # O resultado do MRP pode ser exportado livremente, mas a Compra MRP deve
 # passar pela aprovacao. Removemos caminhos alternativos de exportacao direta.
-_compra_replace('    "Compra_MRP": comp,\n','',"Remover compra do ZIP da consulta")
-_compra_replace('    "Compra_MRP": comp,\n','',"Remover compra do Excel da consulta",count=0) if False else None
+_compra_replace('        "Compra_MRP": comp,\n','',"Remover compra do ZIP da consulta")
 _compra_replace('"Compra_MRP":compras_mrp_export,','',"Remover compra do ZIP e Excel geral ADMIN")
 _compra_replace(
     'c4.download_button("BAIXAR COMPRA MRP", data=compra_excel_consulta, file_name="Compra_MRP.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)',

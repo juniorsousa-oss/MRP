@@ -238,18 +238,13 @@ _compra_replace('        "Compra_MRP": comp,\n','',"Remover compra do ZIP da con
 _compra_replace('"Compra_MRP":compras_mrp_export,','',"Remover compra do ZIP e Excel geral ADMIN")
 _compra_replace(
     'c4.download_button("BAIXAR COMPRA MRP", data=compra_excel_consulta, file_name="Compra_MRP.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)',
-    'c4.caption("Compra MRP: valide os itens abaixo.")',
+    'c4.caption("Compra MRP: valide os itens abaixo.")\n    render_validacao_compra_mrp(comp, "consulta")',
     "Bloqueio download direto CONSULTA",
 )
 _compra_replace(
     'with b4: st.download_button("BAIXAR COMPRA MRP",compra_excel_data,"Compra_MRP.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)',
     'with b4: st.caption("Compra MRP: valide os itens abaixo.")',
     "Bloqueio download direto ADMIN",
-)
-_compra_replace(
-    '\n\ndef load_sources(cb,eb,gb,pb,mb):',
-    '\n    render_validacao_compra_mrp(comp, "consulta")\n\ndef load_sources(cb,eb,gb,pb,mb):',
-    "Validação de compras CONSULTA",
 )
 _compra_replace(
     '\nst.divider()\nif st.session_state.get("auth_role") == "ADMIN":\n    render_mrp_history()',

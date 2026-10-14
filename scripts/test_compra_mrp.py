@@ -92,7 +92,9 @@ assert possui_validacao_condicional("admin")
 assert possui_validacao_condicional("consulta")
 assert source.count('ANÁLISE DE COMPRA') >= 2
 assert "FINALIZAR ANÁLISE DE COMPRA" in source
-assert "col_confirmar,col_csv,col_excel,col_finalizar" in source
+assert "col_confirmar,col_excel,col_finalizar" in source
+assert 'st.download_button(\n                "BAIXAR COMPRA MRP — EXCEL"' in source
+assert 'key=f"{prefixo}_compra_csv"' not in source
 
 # Regra STSUP25: o Excel deve conter 11 colunas A:K, inclusive fisicamente
 # nas linhas cujos campos D (psy), I (prj), J e K estao vazios.

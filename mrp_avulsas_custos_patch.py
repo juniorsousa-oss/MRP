@@ -46,4 +46,12 @@ _cost_prefix="""    import unicodedata as _unicode_cad
         cad["Valor Última Compra"]=float("nan")
 """
 _source=_source.replace(_cost_anchor,_cost_prefix+_cost_anchor)
+# Nova assinatura de calculo: obriga nova fotografia com o valor da ultima compra.
+if _source.count("MRP-CALC-V4-COMPRA-TCTP-GRUPO")!=1:
+    raise RuntimeError("Custos avulsos: assinatura do MRP nao localizada.")
+_source=_source.replace(
+    "MRP-CALC-V4-COMPRA-TCTP-GRUPO",
+    "MRP-CALC-V5-CUSTO-ULTIMA-COMPRA",
+    1,
+)
 '''

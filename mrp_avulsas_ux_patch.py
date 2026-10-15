@@ -60,6 +60,83 @@ div[data-testid="stForm"]{border:1px solid #d7e3ed;border-radius:14px;padding:15
   .mrp-av-section strong{font-size:16px}
   div[data-testid="stMetric"]{padding:12px;min-height:84px}
 }
+
+/* Refinamento 02: contraste e densidade consistentes com a página SETTA. */
+.mrp-av-hero{
+  padding:19px 24px!important;
+  margin:4px 0 16px!important;
+  border-radius:16px!important;
+  min-height:102px;
+}
+.mrp-av-hero h2{
+  color:#ffffff!important;
+  font-size:clamp(19px,1.7vw,26px)!important;
+  font-weight:800!important;
+  line-height:1.18!important;
+  letter-spacing:-.45px!important;
+  margin:6px 0 8px!important;
+}
+.mrp-av-hero p{color:#e7f5fa!important;font-size:13px!important;line-height:1.5!important}
+.mrp-av-hero .mrp-av-eyebrow{color:#98ece7!important;font-size:11px!important}
+.mrp-av-hero .mrp-av-profile{color:#ffffff!important;font-size:11px!important}
+.mrp-av-section{margin:13px 0 11px!important;padding:4px 0 4px 14px!important}
+.mrp-av-section strong{font-size:18px!important;line-height:1.3!important}
+.mrp-av-section small{font-size:12px!important;line-height:1.55!important;color:#586d80!important}
+.mrp-av-section span{font-size:10px!important;color:#bd343d!important}
+.mrp-av-rule{margin:16px 0 13px!important}
+.mrp-av-meta{
+  color:#566c80!important;
+  font-size:12px!important;
+  line-height:1.6!important;
+  padding:9px 12px!important;
+  margin:8px 0 13px!important;
+  background:rgba(239,246,249,.78)!important;
+  border-left:3px solid #337487!important;
+  border-radius:0 8px 8px 0;
+}
+div[data-testid="stMetric"]{
+  min-height:82px!important;
+  padding:11px 15px!important;
+  border-radius:12px!important;
+}
+div[data-testid="stMetric"] [data-testid="stMetricLabel"],
+div[data-testid="stMetric"] [data-testid="stMetricLabel"] p{
+  font-size:12px!important;
+  font-weight:730!important;
+}
+div[data-testid="stMetric"] [data-testid="stMetricValue"]{
+  font-size:25px!important;
+  line-height:1.15!important;
+  font-weight:800!important;
+}
+.st-key-mrp_avulsas_atualizar_status button{
+  min-height:37px!important;
+  width:auto!important;
+  border-radius:9px!important;
+  border:1px solid #95b0c0!important;
+  color:#143247!important;
+  background:#ffffff!important;
+  padding:0 18px!important;
+  font-size:12px!important;
+  font-weight:750!important;
+  box-shadow:none!important;
+}
+.st-key-mrp_avulsas_atualizar_status button:hover{border-color:#1f6178!important;background:#edf5f7!important}
+.st-key-mrp_avulsas_atualizar_status button:focus-visible{
+  outline:2px solid #277e97!important;outline-offset:2px!important;
+}
+div[data-baseweb="tab-list"] button{
+  font-size:12px!important;
+  font-weight:700!important;
+  padding:10px 13px!important;
+}
+@media (max-width:780px){
+  .mrp-av-hero{padding:16px 18px!important;min-height:auto}
+  .mrp-av-hero h2{font-size:20px!important}
+  .mrp-av-meta{font-size:11px!important}
+  div[data-testid="stMetric"]{min-height:72px!important;padding:9px 12px!important}
+}
+
 </style>
 """
 _avulsa_header='    st.markdown(' + "'<div class=\"section-band\"><div class=\"section-band-kicker\">01 · REQUISIÇÕES</div><div class=\"section-band-title\">SOLICITAÇÕES AVULSAS DE MATERIAL</div></div>',unsafe_allow_html=True)"
@@ -153,24 +230,14 @@ _avulsa_ux_substituir(
 )
 
 _avulsa_ux_substituir(
-    '        st.markdown("### FILA OPERACIONAL")',
-    """        st.markdown(
-            '<div class="mrp-av-section"><span>TRATATIVAS DO ALMOXARIFADO</span>'
-            '<strong>Fila de separação</strong>'
-            '<small>Analise cada solicitação antes de confirmar. Recusas exigem motivo registrado.</small></div>',
-            unsafe_allow_html=True,
-        )""",
+    '        st.markdown("### FILA OPERACIONAL")\n        st.caption("Acompanhe os pedidos e registre a separação ou recusa na aba PENDENTES DE SEPARAÇÃO.")',
+    '        pass',
     "central operador",
 )
 
 _avulsa_ux_substituir(
-    '        st.markdown("### ACOMPANHAMENTO ADMINISTRATIVO")',
-    """        st.markdown(
-            '<div class="mrp-av-section"><span>SUPERVISÃO</span>'
-            '<strong>Acompanhamento das requisições</strong>'
-            '<small>Visão geral de pedidos pendentes, separados e recusados, sem ações de separação.</small></div>',
-            unsafe_allow_html=True,
-        )""",
+    '        st.markdown("### ACOMPANHAMENTO ADMINISTRATIVO")\n        st.caption("Visão geral. Tratativas exclusivas do perfil OPERADOR.")',
+    '        pass',
     "acompanhamento admin",
 )
 
@@ -235,4 +302,105 @@ _avulsa_ux_substituir(
 """,
     "pedido em tratativa",
 )
+
+# Eliminar a faixa duplicada: o título funcional já consta no hero.
+_avulsa_ux_substituir(_avulsa_header,"","sem cabeçalho repetido")
+
+# Painéis sem indicadores duplicados; consultas só veem seus próprios pedidos.
+_avulsa_ux_substituir(
+    """    c1,c2,c3,c4=st.columns(4)
+    c1.metric("MATERIAIS APTOS" if perfil=="CONSULTA" else "ITENS EM ABERTO",len(materiais) if perfil=="CONSULTA" else len(pendentes))
+    c2.metric("SOLICITAÇÕES PENDENTES",len(pendentes))
+    c3.metric("MATERIAIS SEPARADOS",len(separados))
+    c4.metric("SOLICITAÇÕES RECUSADAS",len(recusadas))""",
+    """    if perfil=="CONSULTA":
+        c1,c2,c3,c4=st.columns(4,gap="small")
+        c1.metric("MATERIAIS DISPONÍVEIS",len(materiais))
+        c2.metric("AGUARDANDO SEPARAÇÃO",len(meu_pendentes))
+        c3.metric("SEPARADOS",len(meu_separados))
+        c4.metric("RECUSADOS",len(minhas_recusadas))
+    else:
+        c1,c2,c3=st.columns(3,gap="small")
+        c1.metric("AGUARDANDO SEPARAÇÃO",len(pendentes))
+        c2.metric("MATERIAIS SEPARADOS",len(separados))
+        c3.metric("SOLICITAÇÕES RECUSADAS",len(recusadas))""",
+    "indicadores sem repetição",
+)
+
+# Informação essencial em um único trecho legível, sem legendas redundantes.
+_avulsa_ux_substituir(
+    """    st.caption(f"BASE DE REFERÊNCIA · ÚLTIMO MRP GRAVADO #{dados.get('snapshot_id','—')}. Solicitações pendentes e separadas deste MRP reduzem a disponibilidade.")
+    if perfil=="CONSULTA":
+        st.caption("Materiais solicitáveis: saldo físico e sobra (DIV) positivos, respeitando reservas. A separação não realiza baixa no Protheus.")
+    else:
+        st.caption("Fila operacional de pedidos. A separação não realiza baixa no Protheus.")""",
+    """    _base_avulsa=f'MRP DE REFERÊNCIA #{dados.get("snapshot_id","—")}'
+    _nota_avulsa=(
+        "A disponibilidade considera estoque, sobra (DIV) e reservas existentes."
+        if perfil=="CONSULTA" else
+        "A separação registra o atendimento, sem realizar baixa de estoque no Protheus."
+    )
+    st.markdown(
+        '<div class="mrp-av-meta"><b>'+_base_avulsa+'</b> · '+_nota_avulsa+'</div>',
+        unsafe_allow_html=True,
+    )""",
+    "resumo de referência",
+)
+
+# Toolbar clara e compacta: controles na mesma linha da área de acompanhamento.
+_old_toolbar = """    st.markdown('<div class="mrp-av-rule"></div>',unsafe_allow_html=True)
+    _titulo_acomp="Acompanhe suas solicitações" if perfil=="CONSULTA" else "Histórico e situação dos pedidos"
+    st.markdown(
+        '<div class="mrp-av-section"><span>ACOMPANHAMENTO</span><strong>'
+        +_titulo_acomp+'</strong><small>Consulte os status e as observações de cada material.</small></div>',
+        unsafe_allow_html=True,
+    )
+    _refresh,_hint=st.columns([1,3])
+    with _refresh:
+        if st.button("ATUALIZAR STATUS DAS SOLICITAÇÕES",key="mrp_avulsas_atualizar_status",use_container_width=True):
+            st.rerun()
+    with _hint:
+        st.caption("Atualize para conferir separações e recusas registradas pelo operador.")"""
+_new_toolbar = """    st.markdown('<div class="mrp-av-rule"></div>',unsafe_allow_html=True)
+    _titulo_acomp="Minhas solicitações" if perfil=="CONSULTA" else (
+        "Fila de separação e histórico" if perfil=="OPERADOR" else "Situação das solicitações"
+    )
+    _acomp,_refresh=st.columns([4,1.2],gap="small",vertical_alignment="center")
+    with _acomp:
+        st.markdown(
+            '<div class="mrp-av-section"><span>ACOMPANHAMENTO</span><strong>'
+            +_titulo_acomp+'</strong></div>',
+            unsafe_allow_html=True,
+        )
+    with _refresh:
+        if st.button("ATUALIZAR STATUS",key="mrp_avulsas_atualizar_status",use_container_width=True):
+            st.rerun()"""
+_avulsa_ux_substituir(_old_toolbar,_new_toolbar,"barra de acompanhamento")
+
+# Ferramenta de diagnóstico fica fora do fluxo principal e somente no ADMIN.
+_teams_start='    if str(dados.get("role"))=="ADMIN":\n        with st.expander("CONEXÃO COM O TEAMS · TESTE",expanded=False):'
+_teams_end='    if perfil=="CONSULTA":\n        import uuid as _uuid'
+if _source.count(_teams_start)!=1 or _source.count(_teams_end)!=1:
+    raise RuntimeError("UX Solicitações: bloco de integração com Teams não identificado.")
+_teams_begin=_source.index(_teams_start)
+_teams_finish=_source.index(_teams_end,_teams_begin)
+_teams_bloco=_source[_teams_begin:_teams_finish].rstrip()
+_teams_bloco=_teams_bloco.replace(
+    "CONEXÃO COM O TEAMS · TESTE",
+    "ADMINISTRAÇÃO · TESTAR CONEXÃO COM O TEAMS",
+    1,
+)
+_source=_source[:_teams_begin]+_source[_teams_finish:]
+_teams_bottom='\nif _mrp_page=="SOLICITAÇÕES AVULSAS":'
+if _source.count(_teams_bottom)!=1:
+    raise RuntimeError("UX Solicitações: rodapé para ferramentas do administrador indisponível.")
+_source=_source.replace(
+    _teams_bottom,
+    '\n    if perfil=="ADMIN":\n'
+    '        st.markdown("##### Ferramentas administrativas")\n'
+    +_teams_bloco+'\n'
+    +_teams_bottom,
+    1,
+)
+
 '''

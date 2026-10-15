@@ -112,8 +112,8 @@ export async function notificarEmail(admin:any,pedidoId:string,tipo:TipoEmail):P
     .select("id,numero,solicitante,finalidade,psys,cr,aprovador,destino,estado")
     .eq("id",pedidoId).maybeSingle();
   if(pedidoError||!pedido)throw Error("PEDIDO_NAO_ENCONTRADO");
-  if((tipo==="SEPARADA"&&pedido.estado!=="SEPARADA") ||
-     (tipo==="ENTREGUE"&&pedido.estado!=="ENTREGUE"&&pedido.estado!=="SEPARADA"))
+  if((tipo==="SEPARADA"&&!["SEPARADA","ENTREGUE"].includes(String(pedido.estado))) ||
+     (tipo==="ENTREGUE"&&pedido.estado!=="ENTREGUE"))
     throw Error("PEDIDO_NAO_ESTA_NO_STATUS_DA_NOTIFICACAO");
   const {data:itens,error:itemsError}=await admin.from("mrp_solicitacoes_avulsas")
     .select("codigo,descricao,quantidade,valor_unitario_ref").eq("pedido_id",pedidoId)

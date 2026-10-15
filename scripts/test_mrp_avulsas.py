@@ -9,7 +9,7 @@ assert "_mrp_avulsas_view" in funcs and "_mrp_avulsas_call" in funcs
 view=ast.get_source_segment(source,funcs["_mrp_avulsas_view"])
 for token in (
     'mrp_avulsa_area_selecao','mrp_avulsa_confirmacao',
-    'ETAPA 01','ETAPA 02','ETAPA 03',
+    '_etapa("01"','_etapa("02"','_etapa("03"',
     'st.form("mrp_avulsa_criar"','st.form("mrp_avulsas_enviar_lote"',
     '"GARANTIA"','"ACERTO GERENCIAL"','"TRANSFERÊNCIA ENTRE FILIAL"',
     '"E-MAIL DO SOLICITANTE"','"CR"','"APROVADOR"','"PSY OU PSYs"',

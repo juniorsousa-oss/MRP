@@ -70,6 +70,33 @@ for _old_display,_new_display in _display_replacements:
 # Demanda TC/TP é alocado às OPs TC/TP por semana de necessidade.
 _fab_anchor = 'fab_det=op[["ORDEM DE PRODUÇÃO","Código Produto","Semana Entrega"]].sort_values(["Código Produto","Semana Entrega","ORDEM DE PRODUÇÃO"]).copy(); fab_det["Quantidade"]=1\n'
 _tc_purchase_code = '''# Complemento da Compra MRP para demandas originadas do MRP TC/TP.
+def _consolidar_compras_tctp(linhas):
+    # Somente demandas TC/TP: por material + data + parametros da SC.
+    # Linhas S.A. nao passam por esta funcao.
+    colunas=["produto","qnt","data","psy","cc","op","obs","prioridade"]
+    if not linhas:
+        return pd.DataFrame(columns=colunas)
+    base=pd.DataFrame(linhas)
+    base["qnt"]=pd.to_numeric(base["qnt"],errors="coerce").fillna(0.0)
+    consolidadas=[]
+    for _,bloco in base.groupby(["produto","data","psy","cc"],sort=False,dropna=False):
+        ops=[]
+        for valor in bloco["op"]:
+            op_valor=str(valor or "").strip()
+            if op_valor and op_valor not in ops:
+                ops.append(op_valor)
+        consolidadas.append({
+            "produto":bloco["produto"].iloc[0],
+            "qnt":float(bloco["qnt"].sum()),
+            "data":bloco["data"].iloc[0],
+            "psy":bloco["psy"].iloc[0],
+            "cc":bloco["cc"].iloc[0],
+            "op":"",  # Protheus nao aceita ordem de TC/TP neste campo.
+            "obs":"MRP TC/TP - OPs: "+", ".join(ops) if ops else "MRP TC/TP - SEM OP",
+            "prioridade":"",
+        })
+    return pd.DataFrame(consolidadas,columns=colunas)
+
 if len(tc_rows) and len(macro):
     _compra_sa_tmp=compras_mrp.copy()
     if len(_compra_sa_tmp):
@@ -121,7 +148,10 @@ if len(tc_rows) and len(macro):
                 })
                 _restante_tc-=_usar
         if _tc_compras:
-            compras_mrp=pd.concat([compras_mrp,pd.DataFrame(_tc_compras)],ignore_index=True)
+            # Agrupar quantidades das OPs TC/TP somente quando mesmo material
+            # e mesma data de necessidade; guardar OPs unicas na observacao.
+            _tc_agrupar=_consolidar_compras_tctp(_tc_compras)
+            compras_mrp=pd.concat([compras_mrp,_tc_agrupar],ignore_index=True)
             compras_mrp["qnt"]=pd.to_numeric(compras_mrp["qnt"],errors="coerce").fillna(0.0).map(
                 lambda x:int(x) if float(x).is_integer() else float(x)
             )

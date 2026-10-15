@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     const userId = identity.user.id;
     const { data: permission, error: roleError } = await admin.from("user_roles")
       .select("role,nome").eq("user_id", userId).maybeSingle();
-    if (roleError || !["ADMIN", "CONSULTA"].includes(String(permission?.role || "").toUpperCase())) {
+    if (roleError || !["ADMIN", "CONSULTA", "OPERADOR"].includes(String(permission?.role || "").toUpperCase())) {
       return fail("MRP_ACCESS_DENIED", 403);
     }
     const role = String(permission?.role || "").toUpperCase();
@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
       return json({ok:true,data:{pedido_id:id,teams_status:pedido.teams_status}});
     }
     if (action === "reject") {
-      if (role !== "ADMIN") return fail("ADMIN_REQUIRED", 403);
+      if (role !== "OPERADOR") return fail("OPERADOR_REQUIRED", 403);
       const id = Number(input.id);
       if (!Number.isSafeInteger(id) || id <= 0) return fail("ID_INVALIDO");
       const motivo = String(input.motivo || "").trim();
@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, data });
     }
     if (action === "attend") {
-      if (role !== "ADMIN") return fail("ADMIN_REQUIRED", 403);
+      if (role !== "OPERADOR") return fail("OPERADOR_REQUIRED", 403);
       const id = Number(input.id);
       if (!Number.isSafeInteger(id) || id <= 0) return fail("ID_INVALIDO");
       const { data, error } = await admin.rpc("mrp_avulsa_atender_seguro", {
@@ -181,6 +181,8 @@ Deno.serve(async (req) => {
       return json({ ok: true, data });
     }
     if (!["list", "create", "create_batch"].includes(action)) return fail("ACAO_INVALIDA");
+    // A autorizacao e validada no servidor; ocultar controles nao basta.
+    if (action !== "list" && role !== "CONSULTA") return fail("CONSULTA_REQUIRED", 403);
     const { data: latest, error: latestError } = await admin.from("mrp_snapshots")
       .select("id,created_at,mrp_geral,compressed_payload")
       .order("created_at", { ascending: false }).order("id", { ascending: false })
@@ -263,7 +265,7 @@ Deno.serve(async (req) => {
 
     let query = admin.from("mrp_solicitacoes_avulsas")
       .select("id,snapshot_id,codigo,descricao,quantidade,div_referencia,solicitante,criado_por,criado_em,status,atendido_em,observacao_atendimento,recusado_em");
-    if(role!=="ADMIN")query=query.eq("criado_por",userId);
+    if(role==="CONSULTA")query=query.eq("criado_por",userId);
     const { data: rows, error: listError } = await query
       .order("criado_em", { ascending: false }).limit(2000);
     if (listError) return fail(listError.message, 500);
@@ -286,7 +288,8 @@ Deno.serve(async (req) => {
       ...r, status_exibicao: displayStatus(r.status),
     }));
     return json({ ok: true, data: {
-      snapshot_id: latest.id, materials, rows: visibleRows, role, user_id:userId,
+      snapshot_id: latest.id, materials: role === "CONSULTA" ? materials : [],
+      rows: visibleRows, role, user_id:userId,
     }});
   } catch (e) {
     return fail(String(e instanceof Error ? e.message : e), 500);

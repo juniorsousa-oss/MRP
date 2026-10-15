@@ -14,6 +14,16 @@ view_code=ast.get_source_segment(source,view)
 
 for style in ("mrp-av-hero","mrp-av-steps","mrp-av-section","mrp-av-item"):
     assert style in source, style
+# Segunda revisao: banner legivel e acesso rapido ao acompanhamento.
+assert 'color:#ffffff!important' in source
+assert '.mrp-av-meta' in source
+assert 'c1,c2,c3=st.columns(3,gap="small")' in view_code
+assert 'c1.metric("AGUARDANDO SEPARAÇÃO",len(pendentes))' in view_code
+assert 'st.button("ATUALIZAR STATUS",key="mrp_avulsas_atualizar_status"' in view_code
+assert "ADMINISTRAÇÃO · TESTAR CONEXÃO COM O TEAMS" in view_code
+assert view_code.index("ADMINISTRAÇÃO · TESTAR CONEXÃO COM O TEAMS") > view_code.index("EXPORTAR TODAS AS SOLICITAÇÕES")
+assert '<div class="section-band"><div class="section-band-kicker">01 · REQUISIÇÕES' not in view_code
+
 assert "ETAPA 01 · ESCOLHA" in source
 assert "ETAPA 02 · CONFERÊNCIA" in source
 assert "ETAPA 03 · CONFIRMAR E ENVIAR" in source

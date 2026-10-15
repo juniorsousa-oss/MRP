@@ -65,66 +65,73 @@ def _preparar_compra_prioridades(df, cad):
         out.at[idx,"prj"]=""
     return out
 
-def _compra_csv_protheus(df):
-    import csv
-    out=normalizar_compra_mrp(df).copy()
-    if not out.empty:
-        if (out["produto"].str.fullmatch(r"\\d{8}") != True).any():
-            raise ValueError("Compra MRP: codigo do produto invalido para o Protheus.")
-        if not out["prioridade"].isin(["1","2"]).all():
-            raise ValueError("Compra MRP: existem prioridades sem calculo; reprocese as bases.")
-        if out["data"].astype(str).eq("").any():
-            raise ValueError("Compra MRP: ha datas vazias; revise o MRP.")
-    cols=["Produto","Qtd","data","psy","cc","op","obs","prioridade","prj","",""]
-    out=out[["produto","qnt","data","psy","cc","op","obs","prioridade","prj"]]
-    out["prj"]=""
-    out["vazio_1"]=""
-    out["vazio_2"]=""
-    out.columns=cols
-    # O exemplo do Protheus utiliza separador COMMA, nao ponto-e-virgula,
-    # e possui duas colunas vazias apos PRJ.
-    return out.to_csv(index=False,sep=",",lineterminator="\\r\\n",quoting=csv.QUOTE_MINIMAL,decimal=".").encode("cp1252")
-
 def _compra_excel_protheus(df):
-    # O importador STSUP25 recebe XLSX e faz a conversao para CSV.
-    # O erro out of bounds [10] of [9] ocorreu com uma planilha de 9 colunas.
-    # Gerar 11 colunas A:K e materializar inclusive as celulas vazias,
-    # seguindo a estrutura fisica do Excel historico que era importado.
+    """Carga XLSX do STSUP25: C = texto DD/MM/AAAA; prioridade = J.
+
+    A rotina do Protheus converte este XLSX em CSV. Datas numericas no Excel
+    podem ser convertidas em MM/DD/YYYY, portanto a coluna C e texto real.
+    """
     from xml.etree import ElementTree as ET
     from zipfile import ZipFile, ZIP_DEFLATED
 
-    out=normalizar_compra_mrp(df).copy()
-    colunas=["produto","qnt","data","psy","cc","op","obs","prioridade","prj"]
-    if not out.empty:
-        if not out["produto"].astype(str).str.fullmatch(r"\d{8}").all():
+    base=normalizar_compra_mrp(df).copy()
+    if not base.empty:
+        if not base["produto"].astype(str).str.fullmatch(r"\d{8}").all():
             raise ValueError("Compra MRP: existem codigos invalidos.")
-        if not out["prioridade"].astype(str).isin(["1","2"]).all():
+        if not base["prioridade"].astype(str).isin(["1","2"]).all():
             raise ValueError("Compra MRP: existem prioridades invalidas.")
-        if out["data"].astype(str).eq("").any():
-            raise ValueError("Compra MRP: existem datas de necessidade vazias.")
+        datas=base["data"].astype(str).str.strip()
+        if not datas.str.fullmatch(r"\d{2}/\d{2}/\d{4}").all():
+            raise ValueError("Compra MRP: data deve estar no formato DD/MM/AAAA.")
+        if pd.to_datetime(datas,format="%d/%m/%Y",errors="coerce").isna().any():
+            raise ValueError("Compra MRP: existem datas de necessidade invalidas.")
 
-    out=out[colunas].copy()
-    out["prj"]=""
-    out["_vazio_1"]=""
-    out["_vazio_2"]=""
-    out.columns=colunas+["",""]
-    original=excel_bytes({"Compra_MRP":out})
+    # Layout validado: H sem cabecalho, I vunit, J prioridade, K justificativa.
+    # A coluna 'data' e propositalmente STRING, nunca datetime ou serial do Excel.
+    colunas=["produto","qnt","data","psy","cc","op","obs","","vunit","prioridade","justificativa"]
+    export=pd.DataFrame({
+        "produto":base["produto"].astype(str),
+        "qnt":base["qnt"],
+        "data":base["data"].astype(str),
+        "psy":base["psy"],
+        "cc":base["cc"],
+        "op":base["op"],
+        "obs":base["obs"],
+        "": [""] * len(base),
+        "vunit": [""] * len(base),
+        "prioridade":base["prioridade"].astype(str),
+        "justificativa": [""] * len(base),
+    })[colunas]
+    original=excel_bytes({"Compra_MRP":export})
 
     ns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     ET.register_namespace("",ns)
     ET.register_namespace("r","http://schemas.openxmlformats.org/officeDocument/2006/relationships")
     folha="xl/worksheets/sheet1.xml"
+    estilo="xl/styles.xml"
     destino=BytesIO()
     with ZipFile(BytesIO(original),"r") as entrada:
         raiz=ET.fromstring(entrada.read(folha))
+        estilos=ET.fromstring(entrada.read(estilo))
+        formatos=estilos.find(f"{{{ns}}}cellXfs")
+        if formatos is None:
+            raise ValueError("Compra MRP: estilos do Excel ausentes.")
+        # Formato 49 e o formato interno de TEXTO do Excel ('@').
+        texto_xf=ET.Element(f"{{{ns}}}xf",{
+            "numFmtId":"49","fontId":"0","fillId":"0","borderId":"0",
+            "xfId":"0","applyNumberFormat":"1",
+        })
+        formatos.append(texto_xf)
+        formatos.set("count",str(len(formatos)))
+        estilo_texto=str(len(formatos)-1)
+
         sheet_data=raiz.find(f"{{{ns}}}sheetData")
         if sheet_data is None:
             raise ValueError("Compra MRP: folha de dados ausente.")
         linhas=sheet_data.findall(f"{{{ns}}}row")
-        if len(linhas)!=len(out)+1:
+        if len(linhas)!=len(export)+1:
             raise ValueError("Compra MRP: quantidade de linhas inconsistente.")
-
-        for linha in linhas:
+        for idx,linha in enumerate(linhas):
             numero=linha.get("r")
             celulas={c.get("r"):c for c in linha.findall(f"{{{ns}}}c")}
             for letra in "ABCDEFGHIJK":
@@ -133,22 +140,35 @@ def _compra_excel_protheus(df):
                 if celula is None:
                     celula=ET.Element(f"{{{ns}}}c",{"r":referencia})
                     celulas[referencia]=celula
-                # O antigo Excel guarda as colunas vazias como inlineStr.
-                # Uma celula nao existente ou vazia nao deve ser omitida.
                 if not any(celula.find(f"{{{ns}}}{tag}") is not None for tag in ("v","f","is")):
                     celula.set("t","inlineStr")
                     interno=ET.SubElement(celula,f"{{{ns}}}is")
                     ET.SubElement(interno,f"{{{ns}}}t").text=""
+            if idx>0:
+                # Escrever explicitamente como string inline + formato @.
+                # Isso impede serial numerico 46360 -> 12/4/2026 no Protheus.
+                data_c=celulas[f"C{numero}"]
+                for filho in list(data_c):
+                    data_c.remove(filho)
+                data_c.set("t","inlineStr")
+                data_c.set("s",estilo_texto)
+                interno=ET.SubElement(data_c,f"{{{ns}}}is")
+                ET.SubElement(interno,f"{{{ns}}}t").text=export.iloc[idx-1]["data"]
             linha[:]=[celulas[f"{col}{numero}"] for col in "ABCDEFGHIJK"]
         dimensao=raiz.find(f"{{{ns}}}dimension")
         if dimensao is not None:
-            dimensao.set("ref",f"A1:K{len(out)+1}")
-
+            dimensao.set("ref",f"A1:K{len(export)+1}")
         conteudo_folha=ET.tostring(raiz,encoding="utf-8",xml_declaration=True)
+        conteudo_estilo=ET.tostring(estilos,encoding="utf-8",xml_declaration=True)
         with ZipFile(destino,"w",ZIP_DEFLATED) as saida:
             for info in entrada.infolist():
-                data=conteudo_folha if info.filename==folha else entrada.read(info.filename)
-                saida.writestr(info,data)
+                if info.filename==folha:
+                    conteudo=conteudo_folha
+                elif info.filename==estilo:
+                    conteudo=conteudo_estilo
+                else:
+                    conteudo=entrada.read(info.filename)
+                saida.writestr(info,conteudo)
     return destino.getvalue()
 
 def _compra_exclusoes_ler():

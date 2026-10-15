@@ -13,7 +13,7 @@ for token in (
     'st.form("mrp_avulsa_criar"','st.form("mrp_avulsas_enviar_lote"',
     '"GARANTIA"','"ACERTO GERENCIAL"','"TRANSFERÊNCIA ENTRE FILIAL"',
     '"E-MAIL DO SOLICITANTE"','"CR"','"APROVADOR"','"PSY OU PSYs"',
-    '"ASTEC"','"REGISTRAR SOLICITAÇÃO"',
+    ''ASTEC'','"REGISTRAR SOLICITAÇÃO"',
     '"✕"','"LIMPAR LISTA"','"create_batch"',
     '"pedido_tratar"','"SEPARAR"','"RECUSAR"','"ENTREGAR"',
     '"garantia_resultado"','"UTILIZADO"','"DEVOLVIDO"',

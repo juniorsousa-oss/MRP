@@ -1,6 +1,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { selectMaterial, availableAfterReservations, displayStatus, type MrpMaterial } from "./catalog.ts";
 import { notifyTeams, notifyTeamsTest, type TeamsItem } from "./teams.ts";
+import { notificarEmail } from "./email.ts";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -157,6 +158,48 @@ Deno.serve(async (req) => {
         return fail("PEDIDO_NAO_ENCONTRADO",404);
       return json({ok:true,data:{pedido_id:id,teams_status:pedido.teams_status}});
     }
+    if (action === "pedido_tratar") {
+      if (role !== "OPERADOR") return fail("OPERADOR_REQUIRED",403);
+      const pedidoId=String(input.pedido_id||"").trim();
+      const acao=String(input.acao||"").toUpperCase();
+      const observacao=String(input.observacao||"").trim();
+      if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(pedidoId))
+        return fail("PEDIDO_INVALIDO");
+      if(!["SEPARAR","RECUSAR","ENTREGAR"].includes(acao))
+        return fail("ACAO_INVALIDA");
+      const {data,error}=await admin.rpc("mrp_avulsa_pedido_tratar_seguro",{
+        p_pedido_id:pedidoId,p_actor:userId,p_acao:acao,p_obs:observacao,
+      });
+      if(error)return fail(error.message,409);
+      let emailStatus:string|null=null;
+      if(acao==="SEPARAR"||acao==="ENTREGAR"){
+        try{emailStatus=await notificarEmail(admin,pedidoId,
+          acao==="SEPARAR"?"SEPARADA":"ENTREGUE");}
+        catch {emailStatus="FALHA";}
+      }
+      return json({ok:true,data:{...data,email_status:emailStatus}});
+    }
+    if (action === "garantia_resultado") {
+      if(role!=="CONSULTA")return fail("CONSULTA_REQUIRED",403);
+      const itemId=Number(input.id);
+      const resultado=String(input.resultado||"");
+      if(!Number.isSafeInteger(itemId)||itemId<1 || !["UTILIZADO","DEVOLVIDO"].includes(resultado))
+        return fail("DADOS_DA_GARANTIA_INVALIDOS");
+      const {data,error}=await admin.rpc("mrp_avulsa_garantia_resultado_seguro",{
+        p_item:itemId,p_actor:userId,p_resultado:resultado,
+      });
+      if(error)return fail(error.message,409);
+      return json({ok:true,data});
+    }
+    if(action==="email_retry"){
+      if(role!=="OPERADOR"&&role!=="ADMIN")return fail("OPERADOR_OU_ADMIN_REQUIRED",403);
+      const id=String(input.pedido_id||"");
+      const tipo=String(input.tipo||"");
+      if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(id)||
+         !["SEPARADA","ENTREGUE"].includes(tipo))return fail("DADOS_NOTIFICACAO_INVALIDOS");
+      const status=await notificarEmail(admin,id,tipo as "SEPARADA"|"ENTREGUE");
+      return json({ok:true,data:{pedido_id:id,tipo,email_status:status}});
+    }
     if (action === "reject") {
       if (role !== "OPERADOR") return fail("OPERADOR_REQUIRED", 403);
       const id = Number(input.id);
@@ -192,7 +235,11 @@ Deno.serve(async (req) => {
     const available = await unpackMrp(latest);
     if (action === "create_batch") {
       const requested = input.itens;
-      const solicitante = String(input.solicitante || "").trim();
+      const solicitante = String(input.solicitante || "").trim().toLowerCase();
+      const finalidade = String(input.finalidade || "");
+      const psys = String(input.psys || "").trim();
+      const cr = String(input.cr || "").trim();
+      const aprovador = String(input.aprovador || "").trim();
       const pedidoId = String(input.pedido_id || "").trim();
       if (!Array.isArray(requested) || requested.length < 1 || requested.length > 30)
         return fail("PEDIDO_DEVE_CONTER_1_A_30_MATERIAIS");
@@ -218,11 +265,13 @@ Deno.serve(async (req) => {
         selected.push({
           codigo: code, descricao: material.descricao,
           quantidade: quantity, limite: material.limite,
+          valor_unitario: material.valor_unitario,
         });
       }
-      const { data, error } = await admin.rpc("mrp_avulsa_criar_lote_seguro", {
+      const { data, error } = await admin.rpc("mrp_avulsa_criar_lote_v2_seguro", {
         p_snapshot_id: latest.id, p_pedido_id: pedidoId,
-        p_itens: selected, p_solicitante: solicitante, p_criado_por: userId,
+        p_itens: selected, p_email: solicitante, p_criado_por: userId,
+        p_finalidade: finalidade, p_psys: psys, p_cr: cr, p_aprovador: aprovador,
       });
       if (error) return fail(error.message, 409);
       // O pedido já está gravado de forma atômica. Uma falha de Teams não
@@ -264,7 +313,7 @@ Deno.serve(async (req) => {
     if (ledgerError) return fail(ledgerError.message, 500);
 
     let query = admin.from("mrp_solicitacoes_avulsas")
-      .select("id,snapshot_id,codigo,descricao,quantidade,div_referencia,solicitante,criado_por,criado_em,status,atendido_em,observacao_atendimento,recusado_em");
+      .select("id,pedido_id,snapshot_id,codigo,descricao,quantidade,div_referencia,solicitante,criado_por,criado_em,status,atendido_em,observacao_atendimento,recusado_em,valor_unitario_ref,destino_garantia,destino_garantia_em");
     if(role==="CONSULTA")query=query.eq("criado_por",userId);
     const { data: rows, error: listError } = await query
       .order("criado_em", { ascending: false }).limit(2000);
@@ -287,7 +336,27 @@ Deno.serve(async (req) => {
     const visibleRows = (rows || []).map((r:any) => ({
       ...r, status_exibicao: displayStatus(r.status),
     }));
+    // Cabeçalho de pedidos: número único, finalidade, separação e entrega.
+    let pedidosQuery=admin.from("mrp_avulsas_pedidos").select(
+      "id,numero,solicitante,criado_por,criado_em,finalidade,psys,cr,aprovador,destino,estado,separado_em,entregue_em,observacao_operador,teams_status"
+    );
+    if(role==="CONSULTA")pedidosQuery=pedidosQuery.eq("criado_por",userId);
+    const {data:pedidos,error:pedidosError}=await pedidosQuery
+      .order("criado_em",{ascending:false}).limit(2000);
+    if(pedidosError)return fail(pedidosError.message,500);
+    const ids=(pedidos||[]).map((p:any)=>p.id);
+    const avisos:any[]=[];
+    if(ids.length){
+      const {data,eventos,error:emailError}=await (async ()=>{
+        const q=await admin.from("mrp_avulsas_email_eventos")
+          .select("pedido_id,tipo,status").in("pedido_id",ids);
+        return {data:q.data,eventos:q.data,error:q.error};
+      })();
+      if(emailError)return fail("NOTIFICACOES_INDISPONIVEIS",500);
+      avisos.push(...(eventos||[]));
+    }
     return json({ ok: true, data: {
+      pedidos:pedidos||[], email_eventos:avisos,
       snapshot_id: latest.id, materials: role === "CONSULTA" ? materials : [],
       rows: visibleRows, role, user_id:userId,
     }});

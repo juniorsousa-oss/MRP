@@ -40,7 +40,7 @@ mapping = (root / "supabase/functions/mrp-avulsas-api/catalog.ts").read_text("ut
 sql = (root / "supabase/migrations/20261010_mrp_avulsas_recusa.sql").read_text("utf-8")
 assert 'if (action === "reject") {' in api
 reject = api[api.index('if (action === "reject") {'):api.index('if (action === "attend") {')]
-assert 'if (role !== "ADMIN") return fail("ADMIN_REQUIRED", 403)' in reject
+assert 'if (role !== "OPERADOR") return fail("OPERADOR_REQUIRED", 403)' in reject
 assert 'motivo.length < 5 || motivo.length > 1000' in reject
 assert 'admin.rpc("mrp_avulsa_recusar_seguro"' in reject
 assert 'p_actor: userId' in reject and 'p_motivo: motivo' in reject

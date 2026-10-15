@@ -76,8 +76,8 @@ assert 'selectMaterial(row)' in api
 assert 'item.limite' in api
 assert 'availableAfterReservations(item.limite' in api
 assert 'x.saldo > 0 && x.div > 0' in api
-assert 'role!=="ADMIN"' in api and 'query.eq("criado_por",userId)' in api
-assert 'role !== "ADMIN"' in api and 'admin.rpc("mrp_avulsa_atender_seguro"' in api
+assert 'role==="CONSULTA"' in api and 'query.eq("criado_por",userId)' in api
+assert 'role !== "OPERADOR"' in api and 'admin.rpc("mrp_avulsa_atender_seguro"' in api
 assert 'displayStatus(r.status)' in api
 assert 'for (const r of ledger || [])' in api
 assert '"ATENDIDA" && Number(r.snapshot_id)' in api

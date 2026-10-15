@@ -33,7 +33,7 @@ async function unpackMrp(snapshot: Record<string, unknown>): Promise<Map<string,
 }
 
 
-type PendingBatchItem = TeamsItem & { limite: number };
+type PendingBatchItem = TeamsItem & { limite: number; valor_unitario: number | null };
 async function sendBatchTeams(
   admin: any, pedidoId: string, actingUserId: string, actingRole: string,
 ): Promise<string> {

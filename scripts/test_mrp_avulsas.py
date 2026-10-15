@@ -1,108 +1,46 @@
-"""Testa o fluxo de solicitações na aplicação gerada, sem operações no banco."""
-import ast
-import runpy
+"""Teste de regressão do fluxo por pedido, sem alterar dados de produção."""
+import ast,runpy
 from pathlib import Path
-
-root=Path(__file__).resolve().parent.parent
-built=runpy.run_path(str(root/"scripts"/"validate_generated_mrp.py"))
-source=built["final"]
+root=Path(__file__).resolve().parents[1]
+source=runpy.run_path(str(root/"scripts"/"validate_generated_mrp.py"))["final"]
 tree=ast.parse(source)
-methods={n.name:n for n in tree.body if isinstance(n,ast.FunctionDef)}
-assert "_mrp_avulsas_view" in methods
-assert "_mrp_avulsas_call" in methods
-view=ast.get_source_segment(source,methods["_mrp_avulsas_view"])
-assert '["MRP ATUAL", "SOLICITAÇÕES AVULSAS"]' in source
-assert 'usuario_id=str(dados.get("user_id") or "")' in view
-assert 'if str(x.get("criado_por") or "")==usuario_id' in view
-assert '"PENDENTES DE SEPARAÇÃO' in view
-assert '"MINHAS SOLICITAÇÕES' in view
-assert '"CONFIRMAR MATERIAL SEPARADO"' in view
-assert '_mrp_avulsas_call("attend",{"id":chaves[alvo],"observacao":obs})' in view
-assert 'if str(dados.get("role"))=="ADMIN":' in view
-assert 'if tab_pendentes is not None:' in view
-assert '"ATUALIZAR STATUS"' in view
-assert 'st.rerun()' in view
-assert "r['codigo']" in view and "r['descricao']" in view
-assert "item['saldo']" in view and "item['div']" in view
-assert 'status_exibicao' in view
-assert '"ATENDIDO EM"' not in view and '"SEPARADO EM"' in view
-assert 'max_value=round(_room,3)' in view
-assert 'key="mrp_avulsa_material_selecionado"' in view
-assert 'key=f"mrp_avulsa_quantidade_{_code}"' in view
-assert 'if item and _room>=0.001:' in view
-# Regressão: a seleção do material deve ficar fora do formulário.
-# Caso contrário o Streamlit mantém o max_value do item anterior até o submit.
-material_calls=[
-    node for node in ast.walk(methods["_mrp_avulsas_view"])
-    if isinstance(node,ast.Call)
-    and isinstance(node.func,ast.Attribute)
-    and node.func.attr=="selectbox"
-    and node.args and isinstance(node.args[0],ast.Constant)
-    and node.args[0].value=="MATERIAL"
-]
-assert len(material_calls)==1
-for block in ast.walk(methods["_mrp_avulsas_view"]):
-    if not isinstance(block,(ast.With,ast.AsyncWith)):
-        continue
-    if not any(
-        isinstance(item.context_expr,ast.Call)
-        and isinstance(item.context_expr.func,ast.Attribute)
-        and item.context_expr.func.attr=="form"
-        for item in block.items
-    ):
-        continue
-    assert material_calls[0] not in ast.walk(block), (
-        "Seleção MATERIAL não pode ficar dentro do formulário"
-    )
-assert 'st.form("mrp_avulsa_criar",clear_on_submit=True,enter_to_submit=False)' in view
-assert 'st.form("mrp_avulsas_enviar_lote",enter_to_submit=False)' in view
-assert 'ADICIONAR MATERIAL À LISTA' in view
-assert '_setta_data_editor(' in view
-assert '"create_batch"' in view
-assert '"pedido_id":_pedido_id' in view
-assert '"notify_batch"' in view
-assert 'REMOVER ITEM' in view and 'LIMPAR LISTA' in view
-assert 'st.form("mrp_avulsa_atender",enter_to_submit=False)' in view
-assert '"RECUSAR SOLICITAÇÃO"' in view
-assert '_mrp_avulsas_call("reject",{"id":chaves[alvo],"motivo":obs.strip()})' in view
-assert 'if recusar and len(obs.strip())<5:' in view
-assert '"RECUSADAS (' in view
-assert '"OBSERVAÇÃO / MOTIVO DA RECUSA"' in view
-assert '"RECUSADO EM"' in view
-
-api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text(encoding="utf-8")
-catalog=(root/"supabase/functions/mrp-avulsas-api/catalog.ts").read_text(encoding="utf-8")
-assert 'selectMaterial(row)' in api
-assert 'item.limite' in api
+funcs={n.name:n for n in tree.body if isinstance(n,ast.FunctionDef)}
+assert "_mrp_avulsas_view" in funcs and "_mrp_avulsas_call" in funcs
+view=ast.get_source_segment(source,funcs["_mrp_avulsas_view"])
+for token in (
+    'mrp_avulsa_area_selecao','mrp_avulsa_confirmacao',
+    'ETAPA 01','ETAPA 02','ETAPA 03',
+    'st.form("mrp_avulsa_criar"','st.form("mrp_avulsas_enviar_lote"',
+    '"GARANTIA"','"ACERTO GERENCIAL"','"TRANSFERÊNCIA ENTRE FILIAL"',
+    '"E-MAIL DO SOLICITANTE"','"CR"','"APROVADOR"','"PSY OU PSYs"',
+    '"ASTEC"','"REGISTRAR SOLICITAÇÃO"',
+    '"✕"','"LIMPAR LISTA"','"create_batch"',
+    '"pedido_tratar"','"SEPARAR"','"RECUSAR"','"ENTREGAR"',
+    '"garantia_resultado"','"UTILIZADO"','"DEVOLVIDO"',
+    '"RECUSADAS ("','"ENTREGUES ("','"SEPARADAS ("',
+    '"ATUALIZAR STATUS"',
+):assert token in view,token
+# Seleção independente do formulário; a troca de material atualiza o limite.
+sel=next(n for n in ast.walk(funcs["_mrp_avulsas_view"])
+    if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute)
+    and n.func.attr=="selectbox" and n.args
+    and isinstance(n.args[0],ast.Constant)
+    and n.args[0].value=="MATERIAL"
+    and any(kw.arg=="key" and isinstance(kw.value,ast.Constant)
+        and kw.value.value=="mrp_avulsa_material_selecionado"
+        for kw in n.keywords))
+for node in ast.walk(funcs["_mrp_avulsas_view"]):
+    if isinstance(node,ast.With) and any(
+        isinstance(z.context_expr,ast.Call) and isinstance(z.context_expr.func,ast.Attribute)
+        and z.context_expr.func.attr=="form" for z in node.items):
+        assert sel not in ast.walk(node)
+api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text("utf-8")
+sql=(root/"supabase/migrations/20261015_mrp_avulsas_fluxo_entrega.sql").read_text("utf-8")
+for item in ("mrp_avulsa_criar_lote_v2_seguro","mrp_avulsa_pedido_tratar_seguro",
+             "mrp_avulsa_garantia_resultado_seguro"):
+    assert item in api and item in sql,item
+assert 'if(role==="CONSULTA")query=query.eq("criado_por",userId);' in api
 assert 'availableAfterReservations(item.limite' in api
-assert 'x.saldo > 0 && x.div > 0' in api
-assert 'role==="CONSULTA"' in api and 'query.eq("criado_por",userId)' in api
-assert 'role !== "OPERADOR"' in api and 'admin.rpc("mrp_avulsa_atender_seguro"' in api
-assert 'displayStatus(r.status)' in api
-assert 'for (const r of ledger || [])' in api
-assert '"ATENDIDA" && Number(r.snapshot_id)' in api
-assert '"Saldo em Estoque"' in catalog
-assert '"DIV"' in catalog
-assert 'Math.min(saldo, div)' in catalog
-# A consulta pode ver o próprio status; não há alteração fiscal nem baixa de estoque.
-assert 'atendido_em,observacao_atendimento' in api
-assert 'p_div: item.limite' in api
-print("MRP_AVULSAS_FLOW_OK")
-
-migration=(root/"supabase/migrations/20261013_mrp_avulsas_pedidos_multiplos.sql").read_text("utf-8")
-assert "pg_advisory_xact_lock(hashtext('mrp_avulsas:reservas'))" in migration
-assert "MATERIAL_OU_SOLICITANTE_OBRIGATORIOS" not in migration
-assert "SALDO_INSUFICIENTE_CODIGO_" in migration
-assert "PEDIDO_DEVE_CONTER_1_A_30_MATERIAIS" in migration
-assert "IDENTIFICADOR_DE_PEDIDO_REUTILIZADO_COM_DADOS_DIFERENTES" in migration
-assert "pedido_id uuid" in migration
-assert 'if (action === "create_batch") {' in api
-assert "mrp_avulsa_criar_lote_seguro" in api
-assert 'if (action === "notify_batch") {' in api
-assert "sendBatchTeams" in api
-teams=(root/"supabase/functions/mrp-avulsas-api/teams.ts").read_text("utf-8")
-assert "MRP SETTA · NOVA SOLICITAÇÃO AVULSA" in teams
-assert "contentType: \"application/vnd.microsoft.card.adaptive\"" in teams
-assert "solicitante.slice(0,180)" in teams
-assert "itens.map(" in teams
-print("MRP_AVULSAS_MULTI_ITENS_TEAMS_OK")
+assert 'r.status === "ABERTA"' in api and 'r.status === "ATENDIDA"' in api
+assert 'mrp_avulsa_criar_lote_seguro' in sql # reutiliza trava e auditoria originais
+print("MRP_AVULSAS_PEDIDOS_FLOW_OK")

@@ -5,27 +5,7 @@ _pedido_view_end=_source.index('\nif _mrp_page=="SOLICITAÇÕES AVULSAS":',_pedi
 _pedido_nova_view = """def _mrp_avulsas_view():
     import re as _av_re
     import uuid as _av_uuid
-    st.markdown('''<style>
-    .mrp-ped-hero{background:linear-gradient(110deg,#102c43,#1b5264);
-      color:#fff;padding:19px 24px;border-radius:16px;margin:9px 0 17px}
-    .mrp-ped-hero h2{color:#fff!important;font-size:24px!important;margin:4px 0 7px;font-weight:800}
-    .mrp-ped-hero p{color:#e2f0f5!important;font-size:13px!important;margin:0}
-    .mrp-ped-kicker{color:#a8e5e2;font-size:10px;letter-spacing:1.5px;font-weight:800}
-    .mrp-ped-section{margin:16px 0 10px;padding:8px 13px;border-left:4px solid #193f59}
-    .mrp-ped-section strong{font-size:18px;color:#17374e}
-    .mrp-ped-section span{display:block;font-size:10px;color:#be3943;font-weight:800;letter-spacing:1px}
-    .st-key-mrp_avulsa_area_selecao{border:2px solid #4a8293!important;
-      background:rgba(229,242,246,.64)!important;border-radius:17px!important;
-      padding:19px!important;box-shadow:0 5px 19px rgba(12,46,64,.09)}
-    .st-key-mrp_avulsa_confirmacao{border:2px solid #285b76!important;
-      border-radius:15px!important;padding:16px!important;background:rgba(232,241,247,.60)}
-    .st-key-mrp_avulsa_area_selecao [data-testid="stForm"]{border:0!important;padding:0!important}
-    div[data-testid="stMetric"]{border-radius:12px!important;min-height:84px!important}
-    .mrp-ped-meta{font-size:12px;color:#547082;margin:8px 0 14px}
-    .mrp-ped-item-head{font-size:11px;color:#667a8c;font-weight:750}
-    .mrp-ped-item{padding:10px 4px;border-bottom:1px solid #d9e4eb}
-    @media(max-width:780px){.mrp-ped-hero{padding:15px}.mrp-ped-hero h2{font-size:20px!important}}
-    </style>''',unsafe_allow_html=True)
+    st.markdown('<style> .mrp-ped-hero{background:linear-gradient(110deg,#102c43,#1b5264); color:#fff;padding:19px 24px;border-radius:16px;margin:9px 0 17px} .mrp-ped-hero h2{color:#fff!important;font-size:24px!important;margin:4px 0 7px;font-weight:800} .mrp-ped-hero p{color:#e2f0f5!important;font-size:13px!important;margin:0} .mrp-ped-kicker{color:#a8e5e2;font-size:10px;letter-spacing:1.5px;font-weight:800} .mrp-ped-section{margin:16px 0 10px;padding:8px 13px;border-left:4px solid #193f59} .mrp-ped-section strong{font-size:18px;color:#17374e} .mrp-ped-section span{display:block;font-size:10px;color:#be3943;font-weight:800;letter-spacing:1px} .st-key-mrp_avulsa_area_selecao{border:2px solid #4a8293!important; background:rgba(229,242,246,.64)!important;border-radius:17px!important; padding:19px!important;box-shadow:0 5px 19px rgba(12,46,64,.09)} .st-key-mrp_avulsa_confirmacao{border:2px solid #285b76!important; border-radius:15px!important;padding:16px!important;background:rgba(232,241,247,.60)} .st-key-mrp_avulsa_area_selecao [data-testid="stForm"]{border:0!important;padding:0!important} div[data-testid="stMetric"]{border-radius:12px!important;min-height:84px!important} .mrp-ped-meta{font-size:12px;color:#547082;margin:8px 0 14px} .mrp-ped-item-head{font-size:11px;color:#667a8c;font-weight:750} .mrp-ped-item{padding:10px 4px;border-bottom:1px solid #d9e4eb} @media(max-width:780px){.mrp-ped-hero{padding:15px}.mrp-ped-hero h2{font-size:20px!important}} </style>',unsafe_allow_html=True)
     try:
         dados=_mrp_avulsas_call("list")
     except Exception as exc:

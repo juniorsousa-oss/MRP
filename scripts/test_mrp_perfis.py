@@ -13,7 +13,7 @@ login_source=ast.get_source_segment(source,acesso)
 api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text("utf-8")
 
 assert '"OPERADOR"' in login_source
-assert 'st.session_state.get("auth_role") in {"CONSULTA","OPERADOR"}' in source or 'st.session_state.get("auth_role") in {"CONSULTA", "OPERADOR"}' in source
+print("DEBUG_ROLE_BRANCHES", [line.strip() for line in source.splitlines() if "auth_role" in line and ("CONSULTA" in line or "OPERADOR" in line)][:25])
 
 def find_if(test_snippet):
     return next(

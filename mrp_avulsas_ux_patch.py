@@ -145,10 +145,10 @@ _avulsa_ux_substituir(
 )
 
 _avulsa_ux_substituir(
-    '            solicitante=st.text_input("SOLICITANTE",',
-    """            st.markdown("**ETAPA 03 · CONFIRMAR E ENVIAR**")
-            st.caption("Ao registrar, o sistema valida novamente os saldos e encaminha a solicitação ao almoxarifado.")
-            solicitante=st.text_input("SOLICITANTE",""",
+    '                solicitante=st.text_input("SOLICITANTE",',
+    """                st.markdown("**ETAPA 03 · CONFIRMAR E ENVIAR**")
+                st.caption("Ao registrar, o sistema valida novamente os saldos e encaminha a solicitação ao almoxarifado.")
+                solicitante=st.text_input("SOLICITANTE",""",
     "orientação do envio",
 )
 

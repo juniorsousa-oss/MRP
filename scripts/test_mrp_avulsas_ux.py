@@ -9,7 +9,7 @@ s=ast.get_source_segment(source,view)
 for x in ('mrp-ped-hero','mrp-ped-section','mrp_avulsa_area_selecao',
           'mrp_avulsa_confirmacao','"✕"','"ATUALIZAR STATUS"',
           '_etapa("01"','_etapa("02"','_etapa("03"',
-          'REGISTRAR SOLICITAÇÃO','DESTINO','ASTEC',
+          'REGISTRAR SOLICITAÇÃO','Destino','ASTEC',
           'MINHAS SOLICITAÇÕES','SEPARADAS','ENTREGUES','RECUSADAS'):
     assert x in s,x
 assert "max 30" not in s.lower()

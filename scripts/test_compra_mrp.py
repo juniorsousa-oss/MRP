@@ -138,6 +138,59 @@ with ZipFile(io.BytesIO(excel_binario)) as zip_excel:
     # Formato da data sera replicado literalmente na conversao da tabela
     # para CSV, nao havendo valor serial (46360) nem 12/4/2026.
 
+# TC/TP: compras da mesma data e mesmo material viram uma unica SC.
+# Mantem OPs na observacao e campo OP vazio para o STSUP25.
+tc_def=next(
+    (node for node in ast.walk(tree)
+     if isinstance(node,ast.FunctionDef) and node.name=="_consolidar_compras_tctp"),
+    None,
+)
+assert tc_def is not None, "Consolidacao de TC/TP nao inserida no MRP"
+tc_def.decorator_list=[]
+exec(compile(ast.Module(body=[tc_def],type_ignores=[]),"mrp_compra_tctp.py","exec"),namespace)
+agrupar_tc=namespace["_consolidar_compras_tctp"]
+assert "_consolidar_compras_tctp(_tc_compras)" in source
+tc_exemplos=[
+    {"produto":80098,"qnt":2,"data":"06/11/2026","psy":"","cc":"600307","op":"26031401001","obs":"MRP","prioridade":""},
+    {"produto":80098,"qnt":3,"data":"06/11/2026","psy":"","cc":"600307","op":"26031401002","obs":"MRP","prioridade":""},
+    {"produto":80098,"qnt":1,"data":"06/11/2026","psy":"","cc":"600307","op":"26031401001","obs":"MRP","prioridade":""},
+    {"produto":80098,"qnt":4,"data":"13/11/2026","psy":"","cc":"600307","op":"26031401003","obs":"MRP","prioridade":""},
+    {"produto":90017,"qnt":5,"data":"06/11/2026","psy":"","cc":"600307","op":"26031401004","obs":"MRP","prioridade":""},
+]
+tc_agrupado=agrupar_tc(tc_exemplos)
+assert len(tc_agrupado)==3, tc_agrupado.to_dict("records")
+assert tc_agrupado["qnt"].sum()==15
+assert tc_agrupado["op"].eq("").all()
+primeira=tc_agrupado.iloc[0]
+assert primeira["produto"]==80098 and primeira["qnt"]==6
+assert primeira["data"]=="06/11/2026"
+assert primeira["obs"]=="MRP TC/TP - OPs: 26031401001, 26031401002",primeira["obs"]
+assert tc_agrupado.iloc[1]["qnt"]==4 and tc_agrupado.iloc[1]["data"]=="13/11/2026"
+assert tc_agrupado.iloc[2]["produto"]==90017 and tc_agrupado.iloc[2]["qnt"]==5
+
+cad_tc=pd.DataFrame([
+    {"Código":80098,"Lead Time (dias)":0},
+    {"Código":90017,"Lead Time (dias)":0},
+])
+tc_com_prioridades=calcular(tc_agrupado,cad_tc)
+assert tc_com_prioridades["prioridade"].isin(["1","2"]).all()
+excel_tc=namespace["_compra_excel_protheus"](tc_com_prioridades)
+with ZipFile(io.BytesIO(excel_tc)) as zip_excel:
+    ns={"m":"http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    xml=ET.fromstring(zip_excel.read("xl/worksheets/sheet1.xml"))
+    linhas=xml.findall("./m:sheetData/m:row",ns)
+    assert len(linhas)==4
+    data_c=next(c for c in linhas[1].findall("m:c",ns) if c.get("r")=="C2")
+    campo_op=next(c for c in linhas[1].findall("m:c",ns) if c.get("r")=="F2")
+    campo_obs=next(c for c in linhas[1].findall("m:c",ns) if c.get("r")=="G2")
+    campo_prio=next(c for c in linhas[1].findall("m:c",ns) if c.get("r")=="J2")
+    assert "".join(data_c.find("m:is",ns).itertext())=="06/11/2026"
+    assert "".join(campo_op.find("m:is",ns).itertext())==""
+    assert "26031401001" in "".join(campo_obs.find("m:is",ns).itertext())
+    assert "26031401002" in "".join(campo_obs.find("m:is",ns).itertext())
+    assert "".join(campo_prio.find("m:is",ns).itertext()) in ("1","2")
+print("MRP_COMPRA_TCTP_OP_VAZIA_E_AGRUPAMENTO_OK")
+
 print("MRP_COMPRA_EXCEL_DATA_TEXTO_DD_MM_AAAA_OK")
 print("MRP_COMPRA_LAYOUT_STSUP25_PRIORIDADE_J_OK")
 print("MRP_COMPRA_ABRIR_FECHAR_VALIDADO")

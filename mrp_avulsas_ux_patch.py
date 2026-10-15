@@ -197,11 +197,11 @@ _avulsa_ux_substituir(
 
 _avulsa_ux_substituir(
     '        return view.fillna("")\n',
-    """        for _coluna in ("criado_em","atendido_em","recusado_em"):
+    """        for _coluna in ("SOLICITADO EM","SEPARADO EM","RECUSADO EM"):
             # ISO/UTC do Supabase convertido para data e hora local da fábrica.
             _datas=pd.to_datetime(view[_coluna],utc=True,errors="coerce")
             view[_coluna]=_datas.dt.tz_convert("America/Sao_Paulo").dt.strftime("%d/%m/%Y %H:%M").fillna("")
-        view["status_exibicao"]=view["status_exibicao"].replace({
+        view["STATUS"]=view["STATUS"].replace({
             "PENDENTE":"AGUARDANDO SEPARAÇÃO",
             "ABERTA":"AGUARDANDO SEPARAÇÃO",
             "ATENDIDA":"SEPARADO",

@@ -66,11 +66,9 @@ def _preparar_compra_prioridades(df, cad):
     return out
 
 def _compra_excel_protheus(df):
-    """Carga XLSX do STSUP25: C = texto DD/MM/AAAA; prioridade = J.
-
-    A rotina do Protheus converte este XLSX em CSV. Datas numericas no Excel
-    podem ser convertidas em MM/DD/YYYY, portanto a coluna C e texto real.
-    """
+    # Carga XLSX do STSUP25: C = texto DD/MM/AAAA; prioridade = J.
+    # A rotina converte XLSX em CSV. Datas numericas podem ser
+    # convertidas em MM/DD/YYYY; C deve ser texto real.
     from xml.etree import ElementTree as ET
     from zipfile import ZipFile, ZIP_DEFLATED
 

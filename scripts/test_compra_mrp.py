@@ -106,8 +106,11 @@ with ZipFile(io.BytesIO(excel_binario)) as zip_excel:
         referencias=[c.attrib.get("r") for c in linha.findall("m:c",ns)]
         assert referencias==[f"{col}{linha.attrib['r']}" for col in "ABCDEFGHIJK"], referencias
 
-    shared=ET.fromstring(zip_excel.read("xl/sharedStrings.xml"))
-    strings=["".join(t.itertext()) for t in shared.findall("m:si",ns)]
+    # Openpyxl pode gravar inlineStr sem arquivo sharedStrings.
+    strings=[]
+    if "xl/sharedStrings.xml" in zip_excel.namelist():
+        shared=ET.fromstring(zip_excel.read("xl/sharedStrings.xml"))
+        strings=["".join(t.itertext()) for t in shared.findall("m:si",ns)]
     def conteudo(celula):
         if celula.get("t")=="s":
             return strings[int(celula.find("m:v",ns).text)]

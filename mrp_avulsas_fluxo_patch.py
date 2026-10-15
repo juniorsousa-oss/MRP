@@ -13,6 +13,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         return
     perfil=str(dados.get("role") or "").upper()
     pedidos=list(dados.get("pedidos") or [])
+    email_eventos=list(dados.get("email_eventos") or [])
     itens=list(dados.get("rows") or [])
     materiais=list(dados.get("materials") or [])
     _titulos={
@@ -79,6 +80,22 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 if p.get("aprovador"):st.write("**Aprovador:** "+str(p["aprovador"]))
                 if p.get("destino"):st.write("**Destino:** "+str(p["destino"]))
                 if p.get("observacao_operador"):st.caption("Operador: "+str(p["observacao_operador"]))
+                if perfil in {"OPERADOR","ADMIN"}:
+                    _status_eventos=[e for e in email_eventos if str(e.get("pedido_id"))==str(p["id"])]
+                    for _evento in _status_eventos:
+                        _situacao=str(_evento.get("status") or "")
+                        _tipo=str(_evento.get("tipo") or "")
+                        st.caption("E-mail "+_tipo.lower()+": "+_situacao)
+                        if _situacao not in {"ACEITO","ENVIANDO"} and st.button(
+                            "TENTAR REENVIAR E-MAIL · "+_tipo,
+                            key="email_retry_"+str(p["id"])+"_"+_tipo,
+                        ):
+                            try:
+                                _r=_mrp_avulsas_call("email_retry",{
+                                    "pedido_id":p["id"],"tipo":_tipo})
+                                st.info("Situação do envio: "+str(_r.get("email_status")))
+                                st.rerun()
+                            except Exception as exc:st.error(str(exc))
                 _linhas=[]
                 _total=0.0
                 _sem_preco=False
@@ -133,6 +150,9 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         _etapa("01","Selecionar materiais","Escolha um material e informe quanto deseja solicitar.")
         with st.container(key="mrp_avulsa_area_selecao",border=True):
             _available={str(i["codigo"]):i for i in materiais}
+            if materiais and not any(i.get("valor_unitario") is not None for i in materiais):
+                st.warning("Valores de última compra ainda não disponíveis neste MRP. "
+                           "Reprocesse a base CADASTROS antes de confirmar entregas.")
             if not materiais:
                 st.info("Nenhum material disponível para solicitar neste momento.")
             else:

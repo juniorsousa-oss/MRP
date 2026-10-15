@@ -31,11 +31,20 @@ _pedido_nova_view = """def _mrp_avulsas_view():
     _separados=[p for p in pedidos if p.get("estado")=="SEPARADA"]
     _entregues=[p for p in pedidos if p.get("estado")=="ENTREGUE"]
     _recusados=[p for p in pedidos if p.get("estado")=="RECUSADA"]
+    _legados_separados=[]
+    _legados_recusados=[]
+    for _pedido_antigo in pedidos:
+        if _pedido_antigo.get("estado")!="LEGADO":continue
+        _filhos=[i for i in itens if str(i.get("pedido_id") or "")==str(_pedido_antigo.get("id") or "")]
+        if _filhos and all(i.get("status")=="ATENDIDA" for i in _filhos):
+            _legados_separados.append(_pedido_antigo)
+        elif _filhos and all(i.get("status")=="RECUSADA" for i in _filhos):
+            _legados_recusados.append(_pedido_antigo)
     _counters=st.columns(4 if perfil=="CONSULTA" else 3)
     if perfil=="CONSULTA":
         _counters[0].metric("MATERIAIS DISPONÍVEIS",len(materiais))
         _counters[1].metric("AGUARDANDO",len(_pendentes))
-        _counters[2].metric("SEPARADAS",len(_separados))
+        _counters[2].metric("SEPARADAS",len(_separados)+len(_legados_separados))
         _counters[3].metric("ENTREGUES",len(_entregues))
     else:
         _counters[0].metric("AGUARDANDO SEPARAÇÃO",len(_pendentes))
@@ -71,7 +80,13 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             filhos=_itens_pedido(p)
             proto=_protocolo(p)
             titulo=proto+" · "+_labels.get(str(p.get("finalidade")), "SOLICITAÇÃO ANTERIOR")
-            titulo+=" · "+str(p.get("estado") or "LEGADO")+" · "+str(len(filhos))+" materiais"
+            _estado_tela=str(p.get("estado") or "LEGADO")
+            if _estado_tela=="LEGADO" and filhos:
+                if all(i.get("status")=="ATENDIDA" for i in filhos):
+                    _estado_tela="SEPARADA · HISTÓRICO"
+                elif all(i.get("status")=="RECUSADA" for i in filhos):
+                    _estado_tela="RECUSADA · HISTÓRICO"
+            titulo+=" · "+_estado_tela+" · "+str(len(filhos))+" materiais"
             with st.expander(titulo,expanded=False):
                 st.markdown("**Solicitante:** "+str(p.get("solicitante") or "")+
                   "  \\\\n**Criada em:** "+_hora(p.get("criado_em")))
@@ -325,14 +340,14 @@ _pedido_nova_view = """def _mrp_avulsas_view():
     else:
         tabs=st.tabs([
           "MINHAS SOLICITAÇÕES ("+str(len(pedidos))+")" if perfil=="CONSULTA" else "TODAS ("+str(len(pedidos))+")",
-          "SEPARADAS ("+str(len(_separados))+")",
+          "SEPARADAS ("+str(len(_separados)+len(_legados_separados))+")",
           "ENTREGUES ("+str(len(_entregues))+")",
-          "RECUSADAS ("+str(len(_recusados))+")",
+          "RECUSADAS ("+str(len(_recusados)+len(_legados_recusados))+")",
         ])
         with tabs[0]:_mostrar_pedidos(pedidos,"Nenhuma solicitação registrada.")
-        with tabs[1]:_mostrar_pedidos(_separados,"Nenhuma solicitação separada.")
+        with tabs[1]:_mostrar_pedidos(_separados+_legados_separados,"Nenhuma solicitação separada.")
         with tabs[2]:_mostrar_pedidos(_entregues,"Nenhuma solicitação entregue.")
-        with tabs[3]:_mostrar_pedidos(_recusados,"Nenhuma solicitação recusada.")
+        with tabs[3]:_mostrar_pedidos(_recusados+_legados_recusados,"Nenhuma solicitação recusada.")
     _ids_legado={str(p["id"]) for p in pedidos if p.get("estado")=="LEGADO"}
     _antigos=[i for i in itens if not i.get("pedido_id") or str(i.get("pedido_id")) in _ids_legado]
     if _antigos:

@@ -13,7 +13,7 @@ login_source=ast.get_source_segment(source,acesso)
 api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text("utf-8")
 
 assert '"OPERADOR"' in login_source
-print("DEBUG_ROLE_BRANCHES", [line.strip() for line in source.splitlines() if "auth_role" in line and ("CONSULTA" in line or "OPERADOR" in line)][:25])
+assert 'st.session_state.get("auth_role") in {"ADMIN", "CONSULTA", "OPERADOR"}' in source
 
 def find_if(test_snippet):
     return next(
@@ -32,9 +32,13 @@ def contains_string(root_node, val):
     return val in ast.unparse(root_node)
 
 # Somente CONSULTA enxerga a criacao, carrinho e botao de envio.
-bloco_consulta=find_if("perfil == 'CONSULTA'")
+bloco_consulta=next(
+    (node for node in ast.walk(avulsa)
+     if isinstance(node,ast.If)
+     and "perfil == 'CONSULTA'" in ast.unparse(node.test)
+     and 'create_batch' in ast.unparse(node)),None
+)
 assert bloco_consulta is not None
-assert contains_string(bloco_consulta,'create_batch')
 assert contains_string(bloco_consulta,'REGISTRAR SOLICITAÇÃO')
 # Formulario de tratativa acessivel exclusivamente pelo OPERADOR.
 operador=find_if("perfil == 'OPERADOR'")

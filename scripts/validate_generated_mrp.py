@@ -34,7 +34,7 @@ for token in [
     'projeto_admin != "TODOS"',
     'produto_admin != "TODOS"',
     'QUANTIDADE PARA ADICIONAR',
-    'PENDENTES DE SEPARAÇÃO',
+    'PENDENTES (',
     'CONFIRMAR MATERIAL SEPARADO',
     'MINHAS SOLICITAÇÕES',
     'SOBRA (DIV)',

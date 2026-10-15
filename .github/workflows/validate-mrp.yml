@@ -32,5 +32,7 @@ jobs:
           deno-version: v2.x
       - name: Testar regras de saldo, sobra, reservas e status
         run: deno test supabase/functions/mrp-avulsas-api/catalog_test.ts
+      - name: Testar emails de separação e entrega
+        run: deno test supabase/functions/mrp-avulsas-api/email_test.ts
       - name: Verificar compilação da API de solicitações
         run: deno check supabase/functions/mrp-avulsas-api/index.ts

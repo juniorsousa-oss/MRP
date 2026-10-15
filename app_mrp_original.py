@@ -253,6 +253,7 @@ def _require_login(login_cfg):
         email_map = {
             "almoxsetta": "almoxarifado.energy@gruposetta.com",
             "consulta": "consulta.mrp@gruposetta.com",
+            "operador": "operador.almox@gruposetta.com",
         }
         email = email_map.get(usuario, usuario)
         if not usuario or not password:

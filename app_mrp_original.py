@@ -101,7 +101,7 @@ def _public_login_config():
 # =========================================================
 # AUTENTICAÇÃO E PERFIS — SUPABASE AUTH
 # ADMIN = pode carregar/processar/salvar MRP
-# CONSULTA = somente consulta/histórico
+# CONSULTA = solicita e acompanha; OPERADOR = separa/recusa
 # =========================================================
 def _auth_headers(token=None):
     return {
@@ -140,7 +140,7 @@ def _logout():
     st.rerun()
 
 def _require_login(login_cfg):
-    if st.session_state.get("auth_access_token") and st.session_state.get("auth_role") in {"ADMIN", "CONSULTA"}:
+    if st.session_state.get("auth_access_token") and st.session_state.get("auth_role") in {"ADMIN", "CONSULTA", "OPERADOR"}:
         return True
     primary = str(login_cfg.get("color_primary") or LOGIN_DEFAULT_CONFIG["color_primary"])
     title_color = str(login_cfg.get("color_title") or LOGIN_DEFAULT_CONFIG["color_title"])
@@ -263,7 +263,7 @@ def _require_login(login_cfg):
                 user = auth.get("user") or {}
                 token = auth.get("access_token")
                 role = _load_my_role(token, user.get("id")) if token and user.get("id") else None
-                if not role or role.get("role") not in {"ADMIN", "CONSULTA"}:
+                if not role or role.get("role") not in {"ADMIN", "CONSULTA", "OPERADOR"}:
                     st.error("Usuário autenticado, mas sem perfil autorizado no MRP.")
                 else:
                     st.session_state["auth_access_token"] = token
@@ -874,8 +874,11 @@ with st.sidebar:
     else:
         cadastro_file=estoque_file=geral_file=compras_file=mt_file=None
         usuario_mrp=st.session_state.get("auth_nome", "")
-if st.session_state.get("auth_role") == "CONSULTA":
-    st.info("Modo CONSULTA: consulta, filtros, detalhamento e exportação liberados. Alimentação das 5 bases, processamento, gravação e histórico/comparativo permanecem bloqueados.")
+if st.session_state.get("auth_role") in {"CONSULTA","OPERADOR"}:
+    if st.session_state.get("auth_role") == "CONSULTA":
+        st.info("Modo CONSULTA: análise MRP, solicitações de materiais e acompanhamento. Separação e recusa restritas ao OPERADOR.")
+    else:
+        st.info("Modo OPERADOR: análise MRP e tratativas de solicitações. Criação de pedidos restrita à CONSULTA.")
     try:
         render_consulta_view()
     except Exception as e:

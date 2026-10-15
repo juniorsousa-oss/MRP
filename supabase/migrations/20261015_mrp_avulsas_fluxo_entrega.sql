@@ -90,68 +90,67 @@ declare
   v_result jsonb;
   v_pedido public.mrp_avulsas_pedidos%rowtype;
   v_item jsonb;
-  v_itens jsonb := '[]'::jsonb;
-  v_destino text;
-  v_email text := lower(trim(coalesce(p_email,'')));
-  v_finalidade text := trim(coalesce(p_finalidade,''));
+  v_email text;
+  v_psys text;
+  v_cr text;
+  v_aprovador text;
 begin
-  if not exists (select 1 from public.user_roles
-                  where user_id=p_criado_por and role='CONSULTA') then
-    raise exception 'PERFIL_CONSULTA_OBRIGATORIO';
+  v_email := lower(trim(coalesce(p_email,'')));
+  v_psys := case when p_finalidade='GARANTIA' then trim(coalesce(p_psys,'')) else '' end;
+  v_cr := case when p_finalidade='ACERTO_GERENCIAL' then trim(coalesce(p_cr,'')) else '' end;
+  v_aprovador := case when p_finalidade='ACERTO_GERENCIAL' then trim(coalesce(p_aprovador,'')) else '' end;
+  if not exists(select 1 from public.user_roles where user_id=p_criado_por and role='CONSULTA') then
+    raise exception 'CONSULTA_OBRIGATORIA';
   end if;
-  if length(v_email)>180 or
-     v_email !~ '^[a-z0-9][a-z0-9._%+-]*\.[a-z0-9._%+-]+@gruposetta\.com$' then
+  if length(v_email)>180 or v_email !~ '^[a-z0-9][a-z0-9._%+-]*[.][a-z0-9._%+-]+@gruposetta[.]com$' then
     raise exception 'EMAIL_CORPORATIVO_INVALIDO';
   end if;
-  if v_finalidade not in ('GARANTIA','ACERTO_GERENCIAL','TRANSFERENCIA') then
+  if p_finalidade not in ('GARANTIA','ACERTO_GERENCIAL','TRANSFERENCIA') then
     raise exception 'FINALIDADE_INVALIDA';
   end if;
-  if v_finalidade='GARANTIA' and length(trim(coalesce(p_psys,'')))<2 then
+  if p_finalidade='GARANTIA' and length(v_psys)<2 then
     raise exception 'PSYS_OBRIGATORIOS';
   end if;
-  if v_finalidade='ACERTO_GERENCIAL' and
-     (length(trim(coalesce(p_cr,'')))<1 or length(trim(coalesce(p_aprovador,'')))<2) then
+  if p_finalidade='ACERTO_GERENCIAL' and (length(v_cr)<1 or length(v_aprovador)<2) then
     raise exception 'CR_E_APROVADOR_OBRIGATORIOS';
   end if;
-  if length(coalesce(p_psys,''))>1000 or length(coalesce(p_cr,''))>150
-     or length(coalesce(p_aprovador,''))>180 then
-    raise exception 'CAMPOS_DA_FINALIDADE_MUITO_EXTENSOS';
+  if length(v_psys)>1000 or length(v_cr)>150 or length(v_aprovador)>180 then
+    raise exception 'DADOS_DA_FINALIDADE_MUITO_EXTENSOS';
   end if;
-  v_destino := case when v_finalidade='TRANSFERENCIA' then 'ASTEC' else null end;
-  -- A função original preserva trava transacional, limites de DIV e idempotência.
-  v_result:=public.mrp_avulsa_criar_lote_seguro(
+  v_result := public.mrp_avulsa_criar_lote_seguro(
     p_snapshot_id,p_pedido_id,p_itens,v_email,p_criado_por
   );
   select * into v_pedido from public.mrp_avulsas_pedidos where id=p_pedido_id;
   if coalesce((v_result->>'repetido')::boolean,false) then
-    if v_pedido.finalidade is distinct from v_finalidade or
-       coalesce(v_pedido.psys,'') is distinct from case when v_finalidade='GARANTIA' then trim(coalesce(p_psys,'')) else '' end or
-       coalesce(v_pedido.cr,'') is distinct from case when v_finalidade='ACERTO_GERENCIAL' then trim(coalesce(p_cr,'')) else '' end or
-       coalesce(v_pedido.aprovador,'') is distinct from case when v_finalidade='ACERTO_GERENCIAL' then trim(coalesce(p_aprovador,'')) else '' end then
+    if v_pedido.finalidade is distinct from p_finalidade or
+       coalesce(v_pedido.psys,'')<>v_psys or
+       coalesce(v_pedido.cr,'')<>v_cr or
+       coalesce(v_pedido.aprovador,'')<>v_aprovador then
       raise exception 'PEDIDO_REPETIDO_COM_DADOS_DIFERENTES';
     end if;
   else
-    update public.mrp_avulsas_pedidos
-       set finalidade=v_finalidade,
-           psys=case when v_finalidade='GARANTIA' then trim(p_psys) end,
-           cr=case when v_finalidade='ACERTO_GERENCIAL' then trim(p_cr) end,
-           aprovador=case when v_finalidade='ACERTO_GERENCIAL' then trim(p_aprovador) end,
-           destino=v_destino,
-           estado='PENDENTE'
-     where id=p_pedido_id;
+    update public.mrp_avulsas_pedidos set
+      finalidade=p_finalidade,
+      psys=nullif(v_psys,''),
+      cr=nullif(v_cr,''),
+      aprovador=nullif(v_aprovador,''),
+      destino=case when p_finalidade='TRANSFERENCIA' then 'ASTEC' end,
+      estado='PENDENTE'
+    where id=p_pedido_id;
     for v_item in select value from jsonb_array_elements(p_itens) loop
-      update public.mrp_solicitacoes_avulsas
-         set valor_unitario_ref=
-           case when jsonb_typeof(v_item->'valor_unitario')='number'
-                 and (v_item->>'valor_unitario')::numeric >=0
-                then round((v_item->>'valor_unitario')::numeric,4)
-                else null end
-       where pedido_id=p_pedido_id and codigo=v_item->>'codigo';
+      if jsonb_typeof(v_item->'valor_unitario')='number' then
+        if (v_item->>'valor_unitario')::numeric < 0 then
+          raise exception 'VALOR_UNITARIO_INVALIDO';
+        end if;
+        update public.mrp_solicitacoes_avulsas set
+          valor_unitario_ref=round((v_item->>'valor_unitario')::numeric,4)
+        where pedido_id=p_pedido_id and codigo=v_item->>'codigo';
+      end if;
     end loop;
     insert into public.mrp_avulsas_eventos(pedido_id,evento,autor)
-      values (p_pedido_id,'CRIADA',p_criado_por);
+      values(p_pedido_id,'CRIADA',p_criado_por);
   end if;
-  return v_result || jsonb_build_object('numero',v_pedido.numero,'finalidade',v_finalidade);
+  return v_result || jsonb_build_object('numero',v_pedido.numero,'finalidade',p_finalidade);
 end;
 $$;
 revoke all on function public.mrp_avulsa_criar_lote_v2_seguro(bigint,uuid,jsonb,text,text,text,text,text,uuid) from public,anon,authenticated;

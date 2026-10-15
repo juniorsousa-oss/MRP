@@ -4,7 +4,7 @@ AVULSAS_CUSTOS_PATCH = r'''
 _cost_anchor='    cad=cad[_cad_ok].copy()'
 if _source.count(_cost_anchor)!=2:
     raise RuntimeError("Custos avulsos: carregadores CADASTROS nao encontrados.")
-_cost_prefix='''    import unicodedata as _unicode_cad
+_cost_prefix="""    import unicodedata as _unicode_cad
     def _cad_normalizar_nome(nome):
         texto=_unicode_cad.normalize("NFKD",str(nome or "").strip().upper())
         return "".join(ch for ch in texto if not _unicode_cad.combining(ch))
@@ -44,6 +44,6 @@ _cost_prefix='''    import unicodedata as _unicode_cad
     else:
         # Valor nao carregado no MRP ate que o CADASTROS tenha o campo.
         cad["Valor Última Compra"]=float("nan")
-'''
+"""
 _source=_source.replace(_cost_anchor,_cost_prefix+_cost_anchor)
 '''

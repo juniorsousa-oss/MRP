@@ -231,7 +231,8 @@ _avulsa_ux_substituir(
                                 "  \\\\n**Quantidade:** "+str(_pedido_escolhido.get("quantidade") or "")+
                                 " · **Solicitante:** "+str(_pedido_escolhido.get("solicitante") or "")
                             )
-                        st.caption("Confirme a separação apenas após disponibilizar o material. Para recusar, informe o motivo.")""",
+                        st.caption("Confirme a separação apenas após disponibilizar o material. Para recusar, informe o motivo.")
+""",
     "pedido em tratativa",
 )
 '''

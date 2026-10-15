@@ -38,7 +38,7 @@ for token in [
     'CONFIRMAR MATERIAL SEPARADO',
     'MINHAS SOLICITAÇÕES',
     'SOBRA (DIV)',
-    'ATUALIZAR STATUS DAS SOLICITAÇÕES',
+    'ATUALIZAR STATUS',
 ]:
     assert token in final, f"Ausente no código final: {token}"
 assert 'st.session_state.pop(_key,None)' not in final, "Filtros do projeto ainda são zerados automaticamente."

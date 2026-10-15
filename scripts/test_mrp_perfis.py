@@ -13,6 +13,7 @@ login_source=ast.get_source_segment(source,acesso)
 api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text("utf-8")
 
 assert '"OPERADOR"' in login_source
+assert '"operador": "operador.almox@gruposetta.com"' in login_source
 assert 'st.session_state.get("auth_role") in {"ADMIN", "CONSULTA", "OPERADOR"}' in source
 
 def find_if(test_snippet):

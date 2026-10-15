@@ -20,7 +20,7 @@ assert '"CONFIRMAR MATERIAL SEPARADO"' in view
 assert '_mrp_avulsas_call("attend",{"id":chaves[alvo],"observacao":obs})' in view
 assert 'if str(dados.get("role"))=="ADMIN":' in view
 assert 'if tab_pendentes is not None:' in view
-assert '"ATUALIZAR STATUS DAS SOLICITAÇÕES"' in view
+assert '"ATUALIZAR STATUS"' in view
 assert 'st.rerun()' in view
 assert "r['codigo']" in view and "r['descricao']" in view
 assert "item['saldo']" in view and "item['div']" in view

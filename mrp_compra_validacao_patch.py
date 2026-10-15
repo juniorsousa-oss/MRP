@@ -378,10 +378,10 @@ if st.session_state.get("admin_compra_aberta",False):
     "Bloqueio download direto ADMIN",
 )
 # Recalcular a compra e prioridades nas sessoes ainda abertas.
-_source=_source.replace("MRP-CALC-V2","MRP-CALC-V3-COMPRA",1)
+_source=_source.replace("MRP-CALC-V2","MRP-CALC-V4-COMPRA-TCTP-GRUPO",1)
 _source=_source.replace(
     'MRP-SNAPSHOT-V7-COMPRA-TCTP',
-    'MRP-SNAPSHOT-V8-COMPRA-PRIORIDADE-CSV',
+    'MRP-SNAPSHOT-V9-COMPRA-TCTP-GRUPO-OP-OBS',
     1,
 )
 """

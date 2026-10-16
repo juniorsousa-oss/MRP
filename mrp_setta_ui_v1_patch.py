@@ -21,43 +21,14 @@ if _old_nav_fn in _source:
 
 # 3) Drawer SETTA. A injeção no runtime acontece junto com o CSS,
 # antes da sidebar e do cabeçalho, para eliminar layout shift.
-_drawer_runtime = """# Menu SETTA independente do painel interno do Streamlit:
-# apenas a navegação própria (st.container) é exibida quando o usuário abre.
-def _setta_sidebar_mode() -> str:
-    return "open" if st.session_state.get("_setta_sidebar_mode")=="open" else "closed"
-
-def _setta_toggle_sidebar_desktop() -> None:
-    st.session_state["_setta_sidebar_mode"]=(
-        "closed" if _setta_sidebar_mode()=="open" else "open"
-    )
-
-def _setta_toggle_sidebar_mobile() -> None:
-    st.session_state["_setta_sidebar_mode"]=(
-        "closed" if _setta_sidebar_mode()=="open" else "open"
-    )
-
+_drawer_runtime = """# O menu SETTA usa st.popover sem rerun no abrir/fechar.
+# Alterar a chave do popover ao navegar o desmonta e fecha imediatamente.
 def _setta_close_sidebar() -> None:
-    st.session_state["_setta_sidebar_mode"]="closed"
-
-_setta_sidebar_mode_current=_setta_sidebar_mode()
-
-# O botão é renderizado sempre, inclusive com a navegação fechada.
-# Os links, status e semana são renderizados posteriormente em painel próprio.
-with st.container(key="setta_top_controls"):
-    st.button(
-        "☰",
-        key="setta_drawer_toggle",
-        help="Abrir ou fechar menu (computador)",
-        use_container_width=True,
-        on_click=_setta_toggle_sidebar_desktop,
+    st.session_state["_setta_menu_revision"]=(
+        int(st.session_state.get("_setta_menu_revision") or 0)+1
     )
-    st.button(
-        "☰",
-        key="setta_drawer_toggle_mobile",
-        help="Abrir ou fechar menu (celular)",
-        use_container_width=True,
-        on_click=_setta_toggle_sidebar_mobile,
-    )
+
+_setta_menu_revision=int(st.session_state.get("_setta_menu_revision") or 0)
 """
 
 # 4) CSS canônico do shell SETTA.
@@ -209,77 +180,137 @@ header[data-testid="stHeader"]{
   box-shadow:0 2px 10px rgba(15,23,42,.14)!important;
 }
 
-/* Menu SETTA independente: nunca depender do DOM da sidebar do Streamlit. */
-section[data-testid="stSidebar"]{
-  display:none!important;
-  visibility:hidden!important;
-}
-.st-key-setta_custom_navigation{
+/* Painel de navegação Streamlit com abertura instantânea sem rerun.
+   CSS restrito ao popover e não aos containers do MRP. */
+[class*="st-key-setta_menu_popover_"]{
   position:fixed!important;
-  top:0!important;
-  left:0!important;
+  top:calc(12px + env(safe-area-inset-top,0px))!important;
+  left:14px!important;
   right:auto!important;
+  width:56px!important;
+  min-width:56px!important;
+  max-width:56px!important;
+  padding:0!important;
+  margin:0!important;
+  z-index:10010!important;
+}
+[class*="st-key-setta_menu_popover_"] [data-testid="stPopover"],
+[class*="st-key-setta_menu_popover_"] button{
+  min-width:56px!important;
+  width:56px!important;
+  max-width:56px!important;
+}
+[class*="st-key-setta_menu_popover_"] button{
+  min-height:44px!important;
+  height:44px!important;
+  max-height:44px!important;
+  padding:0!important;
+  border:1px solid #dfe5ec!important;
+  border-radius:12px!important;
+  background:rgba(255,255,255,.98)!important;
+  color:#111827!important;
+  box-shadow:0 2px 10px rgba(15,23,42,.13)!important;
+  font-size:16px!important;
+}
+[class*="st-key-setta_menu_popover_"] button:hover{
+  background:#f7f9fc!important;
+  border-color:#d2dbe6!important;
+}
+/* O conteúdo do popover é montado em portal pela biblioteca BaseWeb,
+   portanto não deve receber position:fixed no mesmo container do botão. */
+div[data-baseweb="popover"]:has(.sidebar-brand){
   box-sizing:border-box!important;
-  width:min(86vw,280px)!important;
-  min-width:0!important;
-  max-width:280px!important;
-  height:100dvh!important;
-  min-height:0!important;
-  max-height:100dvh!important;
+  width:280px!important;
+  min-width:min(280px,88vw)!important;
+  max-width:min(280px,88vw)!important;
+  max-height:calc(100dvh - 70px)!important;
   overflow-y:auto!important;
   overscroll-behavior:contain!important;
-  padding:88px 16px 30px!important;
-  margin:0!important;
-  z-index:500!important;
-  border-right:1px solid #e8ebf0!important;
+  padding:0!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:14px!important;
   background:#fff!important;
-  box-shadow:5px 0 30px rgba(15,23,42,.15)!important;
+  box-shadow:0 12px 38px rgba(15,23,42,.17)!important;
 }
-.st-key-setta_custom_navigation [data-testid="stVerticalBlock"]{
+div[data-baseweb="popover"]:has(.sidebar-brand) [data-testid="stVerticalBlock"]{
   gap:0!important;
   row-gap:0!important;
   min-width:0!important;
 }
-.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"]{
-  margin:0 0 2px!important;
+div[data-baseweb="popover"]:has(.sidebar-brand) .sidebar-brand{
+  margin:0 0 18px!important;
+}
+/* A restauração do estilo dos botões usa os mesmos seletores que antes
+   eram restritos ao section[data-testid=stSidebar]. */
+div[data-baseweb="popover"]:has(.sidebar-brand) [class*="st-key-mrp_nav_btn_"]{
+  margin:0 0 3px!important;
   padding:0!important;
   width:100%!important;
 }
-.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"] button{
-  display:flex!important;
+div[data-baseweb="popover"]:has(.sidebar-brand) [class*="st-key-mrp_nav_btn_"] button{
   position:relative!important;
-  justify-content:flex-start!important;
+  display:flex!important;
   width:100%!important;
+  height:42px!important;
   min-height:42px!important;
+  max-height:42px!important;
+  justify-content:flex-start!important;
+  text-align:left!important;
   padding:0 12px 0 24px!important;
   border-radius:10px!important;
-  text-align:left!important;
+  box-shadow:none!important;
 }
-.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"] button p{
+div[data-baseweb="popover"]:has(.sidebar-brand) [class*="st-key-mrp_nav_btn_"] button > div{
   width:100%!important;
-  font-size:13px!important;
+  justify-content:flex-start!important;
   text-align:left!important;
 }
-.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]{
+div[data-baseweb="popover"]:has(.sidebar-brand) [class*="st-key-mrp_nav_btn_"] button p{
+  width:100%!important;
+  text-align:left!important;
+  margin:0!important;
+  font-size:13px!important;
+  line-height:16px!important;
+}
+div[data-baseweb="popover"]:has(.sidebar-brand) [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]{
   background:transparent!important;
   border:1px solid transparent!important;
   color:#374151!important;
+  font-weight:500!important;
 }
-.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]{
+div[data-baseweb="popover"]:has(.sidebar-brand) [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]:hover{
+  background:#f8fafc!important;
+  border-color:#e5e7eb!important;
+  color:#111827!important;
+}
+div[data-baseweb="popover"]:has(.sidebar-brand) [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]{
   background:#111827!important;
   border:1px solid #111827!important;
   color:#fff!important;
+  font-weight:700!important;
+  box-shadow:0 5px 14px rgba(17,24,39,.14)!important;
 }
-.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]::before{
+div[data-baseweb="popover"]:has(.sidebar-brand) [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]::before{
   content:""!important;
   position:absolute!important;
-  top:50%!important;
   left:7px!important;
-  width:4px!important;
+  top:50%!important;
   height:20px!important;
+  width:4px!important;
   background:#ef4444!important;
   border-radius:999px!important;
   transform:translateY(-50%)!important;
+}
+@media(max-width:900px){
+  [class*="st-key-setta_menu_popover_"]{
+    left:14px!important;
+    top:calc(12px + env(safe-area-inset-top,0px))!important;
+  }
+  div[data-baseweb="popover"]:has(.sidebar-brand){
+    width:min(280px,88vw)!important;
+    min-width:0!important;
+    max-width:min(280px,88vw)!important;
+  }
 }
 
 /* SETTA UI — Sidebar no layout padrão */
@@ -787,10 +818,9 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
 
 </style>"""
 
-# O menu montado pelo st.sidebar pode ser desmontado pelo Streamlit,
-# dependendo da largura, zoom, estado nativo ou versão do navegador.
-# Montamos os MESMOS controles e cards em st.container, diretamente no
-# conteúdo principal. O painel é aberto/recolhido apenas pela sessão.
+# Renderização de menu em st.popover (Streamlit 1.55).
+# O botão abre/fecha diretamente no navegador sem rerun; clicar numa opção
+# atualiza a página e fecha o menu ao mudar a chave do popover.
 _menu_original_anchor = (
     'with st.sidebar:\n'
     '    st.markdown(\n'
@@ -801,15 +831,16 @@ _menu_block_end = _source.find('\ndef _mrp_source_card_html(', _menu_block_start
 if _menu_block_start < 0 or _menu_block_end < 0:
     raise RuntimeError("Navegação SETTA não localizada para painel independente.")
 _menu_original = _source[_menu_block_start:_menu_block_end]
+# A abertura do popover é 100% no cliente, sem nova execução do Python.
+# O menu conserva os mesmos botões, status, textos e autorização dos perfis.
+# Mudanças de página incrementam a revisão e fecham o popover sem estado
+# persistente de sidebar e sem deslocar o conteúdo principal.
 _menu_personalizado = _menu_original.replace(
     'with st.sidebar:',
-    'with st.container(key="setta_custom_navigation"):',
+    'with st.popover("☰", width=56, '
+    'help="Abrir ou fechar navegação", on_change="ignore", '
+    'key=f"setta_menu_popover_{_setta_menu_revision}"):',
     1,
-)
-_menu_personalizado = (
-    'if _setta_sidebar_mode_current=="open":\n'
-    + ''.join('    '+_line if _line.strip() else _line
-              for _line in _menu_personalizado.splitlines(keepends=True))
 )
 _source = (
     _source[:_menu_block_start]

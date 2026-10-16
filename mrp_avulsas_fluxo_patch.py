@@ -166,6 +166,97 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     if _sem_preco:
                         st.caption("Alguns materiais continuam sem custo identificado no CADASTROS. "
                                    "Não será exibido um total completo até obter todos os valores.")
+                # Acoes no proprio cartao da S.A.: evita que o operador precise
+                # procurar um formulario escondido no fim da fila.
+                if perfil=="OPERADOR" and p.get("estado")=="PENDENTE":
+                    st.markdown("**TRATATIVA DA "+proto+"**")
+                    with st.form("mrp_avulsa_atender_"+str(p["id"]),enter_to_submit=False):
+                        _obs=st.text_input("OBSERVAÇÃO / MOTIVO DA RECUSA",
+                            key="obs_pedido_"+str(p["id"]))
+                        _a,_b=st.columns(2)
+                        _sep=_a.form_submit_button("CONFIRMAR MATERIAL SEPARADO",
+                            type="primary",use_container_width=True)
+                        _rec=_b.form_submit_button("RECUSAR SOLICITAÇÃO",
+                            use_container_width=True)
+                    if _sep or _rec:
+                        if _rec and len(_obs.strip())<5:
+                            st.error("A recusa exige motivo de pelo menos 5 caracteres.")
+                        else:
+                            try:
+                                _resp=_mrp_avulsas_call("pedido_tratar",{
+                                    "pedido_id":p["id"],
+                                    "acao":"RECUSAR" if _rec else "SEPARAR",
+                                    "observacao":_obs.strip(),
+                                })
+                                if _rec:
+                                    _msg="Recusa registrada para "+proto+"."
+                                else:
+                                    _email_status=str(_resp.get("email_status") or "")
+                                    _msg="Separação confirmada para "+proto+". "
+                                    _msg+=("E-mail aceito pelo serviço."
+                                      if _email_status=="ACEITO" else
+                                      "E-mail ainda não configurado."
+                                      if _email_status=="NAO_CONFIGURADO" else
+                                      "Aviso por e-mail pendente de envio.")
+                                st.session_state["_mrp_avulsas_operador_retorno"]=_msg
+                                st.rerun()
+                            except Exception as exc:
+                                st.error("Não foi possível registrar a tratativa: "+str(exc))
+                if perfil=="OPERADOR" and p.get("estado")=="SEPARADA":
+                    st.markdown("**CONFIRMAR ENTREGA DA "+proto+"**")
+                    with st.form("mrp_avulsa_entregar_"+str(p["id"]),enter_to_submit=False):
+                        _psys=str(p.get("psys") or "")
+                        _cr=str(p.get("cr") or "")
+                        _aprovador=str(p.get("aprovador") or "")
+                        if p.get("finalidade")=="GARANTIA":
+                            _psys=st.text_area("PSY OU PSYs DA GARANTIA",
+                                value=_psys,max_chars=1000,
+                                key="psys_entrega_"+str(p["id"]),
+                                help="Identificação obrigatória para o comunicado da entrega.")
+                        elif p.get("finalidade")=="ACERTO_GERENCIAL":
+                            _cr=st.text_input("CR DO ACERTO GERENCIAL",
+                                value=_cr,max_chars=150,
+                                key="cr_entrega_"+str(p["id"]))
+                            _aprovador=st.text_input("APROVADOR DO ACERTO",
+                                value=_aprovador,max_chars=180,
+                                key="aprovador_entrega_"+str(p["id"]))
+                        elif p.get("finalidade")=="TRANSFERENCIA":
+                            st.caption("Destino de transferência: ASTEC.")
+                        else:
+                            st.error("Finalidade não cadastrada. Regularize antes da entrega.")
+                        _confirmar=st.checkbox(
+                            "Confirmo a entrega física de todos os materiais desta S.A.",
+                            key="confirmar_entrega_"+str(p["id"]),
+                        )
+                        _entregar=st.form_submit_button("CONFIRMAR ENTREGA",
+                            type="primary",use_container_width=True)
+                    if _entregar:
+                        if not _confirmar:
+                            st.error("Confirme a entrega física antes de registrar.")
+                        elif p.get("finalidade")=="GARANTIA" and len(_psys.strip())<2:
+                            st.error("Informe o(s) PSY(s) desta garantia.")
+                        elif p.get("finalidade")=="ACERTO_GERENCIAL" and (
+                            not _cr.strip() or len(_aprovador.strip())<2
+                        ):
+                            st.error("Informe o CR e o aprovador antes da entrega.")
+                        else:
+                            try:
+                                _resp=_mrp_avulsas_call("pedido_tratar",{
+                                    "pedido_id":p["id"],"acao":"ENTREGAR",
+                                    "psys":_psys.strip(),"cr":_cr.strip(),
+                                    "aprovador":_aprovador.strip(),
+                                })
+                                _email_status=str(_resp.get("email_status") or "")
+                                _msg="Entrega confirmada para "+proto+". "
+                                _msg+=("E-mail aceito pelo serviço."
+                                    if _email_status=="ACEITO" else
+                                    "E-mail ainda não configurado."
+                                    if _email_status=="NAO_CONFIGURADO" else
+                                    "Aviso por e-mail pendente de envio.")
+                                st.session_state["_mrp_avulsas_operador_retorno"]=_msg
+                                st.rerun()
+                            except Exception as exc:
+                                st.error("Não foi possível confirmar a entrega: "+str(exc))
                 if perfil=="CONSULTA" and p.get("estado")=="ENTREGUE" and p.get("finalidade")=="GARANTIA" and filhos:
                     st.markdown("**Destinação dos materiais de garantia**")
                     _choices={str(i["codigo"])+" · "+str(i.get("descricao") or "")+
@@ -385,38 +476,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             "RECUSADAS ("+str(len(_recusados)+len(_legados_recusados))+")",
         ])
         with tab_pendentes:
-            _mostrar_pedidos(_pendentes+_legados_pendentes,"Nenhuma solicitação aguardando separação.")
-            if _pendentes:
-                with st.form("mrp_avulsa_atender",enter_to_submit=False):
-                    _choices={_protocolo(p)+" · "+str(p.get("solicitante")):p["id"] for p in _pendentes}
-                    alvo=st.selectbox("SOLICITAÇÃO PARA TRATATIVA",list(_choices))
-                    obs=st.text_input("OBSERVAÇÃO OU MOTIVO DA RECUSA")
-                    t1,t2=st.columns(2)
-                    concluir=t1.form_submit_button("CONFIRMAR MATERIAL SEPARADO",
-                        type="primary",use_container_width=True)
-                    recusar=t2.form_submit_button("RECUSAR SOLICITAÇÃO",
-                        use_container_width=True)
-                if concluir or recusar:
-                    if recusar and len(obs.strip())<5:
-                        st.error("A recusa exige motivo de pelo menos 5 caracteres.")
-                    else:
-                        try:
-                            resposta=_mrp_avulsas_call("pedido_tratar",{
-                              "pedido_id":_choices[alvo],"acao":"RECUSAR" if recusar else "SEPARAR",
-                              "observacao":obs.strip()})
-                            if concluir:
-                                _st_email=str(resposta.get("email_status") or "")
-                                st.session_state["_mrp_avulsas_operador_retorno"]=(
-                                    "Separação registrada. E-mail aceito pelo serviço."
-                                    if _st_email=="ACEITO" else
-                                    "Separação registrada. Notificação por e-mail: "+
-                                    ("ainda não configurada" if _st_email=="NAO_CONFIGURADO"
-                                     else "pendente de envio ou reenvio")+"."
-                                )
-                            elif recusar:
-                                st.session_state["_mrp_avulsas_operador_retorno"]="Recusa registrada."
-                            st.rerun()
-                        except Exception as exc:st.error(str(exc))
+            _mostrar_pedidos(_pendentes+_legados_pendentes,
+                            "Nenhuma solicitação aguardando separação.")
         with tab_pendentes:
             _ids_legado={str(p["id"]) for p in pedidos if p.get("estado")=="LEGADO"}
             _antigos=[i for i in itens if not i.get("pedido_id") or str(i.get("pedido_id")) in _ids_legado]
@@ -449,74 +510,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                                     st.rerun()
                                 except Exception as exc:st.error(str(exc))
         with tab_separadas:
-            _mostrar_pedidos(_separados+_legados_separados,"Nenhum material aguardando entrega.")
-            if _separados:
-                st.markdown("#### Confirmar entrega da solicitação")
-                st.caption("A confirmação registra a entrega dos materiais da S.A. selecionada. "
-                           "Os dados da finalidade são necessários para a comunicação à gestão.")
-                # Seleção FORA do formulário: ao trocar de S.A., os campos por finalidade
-                # devem mudar imediatamente, antes da confirmação.
-                _choices={_protocolo(p)+" · "+str(p.get("solicitante")):p["id"] for p in _separados}
-                alvo=st.selectbox("SOLICITAÇÃO PARA ENTREGA",list(_choices),
-                                  key="mrp_operador_sa_entrega")
-                _pedido_entrega=next(p for p in _separados if p["id"]==_choices[alvo])
-                _psys_entrega=str(_pedido_entrega.get("psys") or "")
-                _cr_entrega=str(_pedido_entrega.get("cr") or "")
-                _aprovador_entrega=str(_pedido_entrega.get("aprovador") or "")
-                with st.form("mrp_avulsa_entregar",enter_to_submit=False):
-                    if _pedido_entrega.get("finalidade")=="GARANTIA":
-                        _psys_entrega=st.text_area(
-                            "PSY OU PSYs DA GARANTIA",
-                            value=_psys_entrega,
-                            max_chars=1000,
-                            help="Obrigatório na entrega. Informe os PSYs que serão citados no e-mail.",
-                        )
-                    elif _pedido_entrega.get("finalidade")=="ACERTO_GERENCIAL":
-                        _cr_entrega=st.text_input(
-                            "CR DO ACERTO GERENCIAL",value=_cr_entrega,max_chars=150,
-                        )
-                        _aprovador_entrega=st.text_input(
-                            "APROVADOR DO ACERTO",value=_aprovador_entrega,max_chars=180,
-                        )
-                    elif _pedido_entrega.get("finalidade")=="TRANSFERENCIA":
-                        st.caption("Destino da transferência: ASTEC.")
-                    else:
-                        st.error("Esta solicitação está sem finalidade cadastrada. "
-                                 "Regularize antes de confirmar a entrega.")
-                    confirmar=st.checkbox(
-                        "Confirmo a entrega física de todos os materiais desta S.A.",
-                    )
-                    entregar=st.form_submit_button(
-                        "CONFIRMAR ENTREGA",type="primary",use_container_width=True,
-                    )
-                if entregar:
-                    if not confirmar:
-                        st.error("Confirme a entrega física antes de registrar.")
-                    elif _pedido_entrega.get("finalidade")=="GARANTIA" and len(_psys_entrega.strip())<2:
-                        st.error("Informe os PSYs da garantia para concluir a entrega.")
-                    elif _pedido_entrega.get("finalidade")=="ACERTO_GERENCIAL" and (
-                        not _cr_entrega.strip() or len(_aprovador_entrega.strip())<2
-                    ):
-                        st.error("Informe o CR e o aprovador para concluir a entrega.")
-                    else:
-                        try:
-                            resultado=_mrp_avulsas_call("pedido_tratar",{
-                                "pedido_id":_choices[alvo],"acao":"ENTREGAR",
-                                "psys":_psys_entrega.strip(),
-                                "cr":_cr_entrega.strip(),
-                                "aprovador":_aprovador_entrega.strip(),
-                            })
-                            _status_envio=str(resultado.get("email_status") or "")
-                            st.session_state["_mrp_avulsas_operador_retorno"]=(
-                                "Entrega registrada. E-mail à gestão aceito pelo serviço."
-                                if _status_envio=="ACEITO" else
-                                "Entrega registrada. Notificação por e-mail: "+
-                                ("ainda não configurada" if _status_envio=="NAO_CONFIGURADO"
-                                 else "pendente de envio ou reenvio")+"."
-                            )
-                            st.rerun()
-                        except Exception as exc:
-                            st.error("Entrega não registrada: "+str(exc))
+            _mostrar_pedidos(_separados+_legados_separados,
+                            "Nenhum material aguardando entrega.")
         with tab_entregues:_mostrar_pedidos(_entregues,"Nenhum pedido entregue.")
         with tab_recusadas:_mostrar_pedidos(_recusados+_legados_recusados,"Nenhuma solicitação recusada.")
     else:

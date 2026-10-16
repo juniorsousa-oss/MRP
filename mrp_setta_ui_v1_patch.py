@@ -267,8 +267,20 @@ section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has(div[d
   padding:0!important;
 }
 section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"]{
+  display:block!important;
+  align-self:stretch!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
   margin:0 0 2px 0!important;
   padding:0!important;
+}
+section[data-testid="stSidebar"] div[data-testid="stElementContainer"]:has([class*="st-key-mrp_nav_btn_"]){
+  display:block!important;
+  align-self:stretch!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
 }
 section[data-testid="stSidebar"] .st-key-mrp_nav_btn_0{
   margin-top:8px!important;

@@ -107,7 +107,16 @@ section.main{
   padding-bottom:3rem!important;
   box-sizing:border-box!important;
 }
-[data-testid="stToolbar"],[data-testid="stDecoration"]{
+/* Não ocultar stToolbar: ele contém o controle nativo que reabre
+   o menu lateral na versão 1.55 do Streamlit. */
+[data-testid="stToolbar"]{
+  display:flex!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+}
+[data-testid="stDecoration"],
+[data-testid="stToolbarActions"],
+[data-testid="stAppDeployButton"]{
   display:none!important;
 }
 /* O controle que reabre a sidebar pertence ao cabeçalho nativo.

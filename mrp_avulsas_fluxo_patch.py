@@ -89,12 +89,13 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         finalidade=str(p.get("finalidade") or "")
         return {
             "OP(s)":(str(p.get("psys") or "").strip() or "A PREENCHER NA ENTREGA")
-                if finalidade=="GARANTIA" else "",
+                if finalidade=="GARANTIA" else "NA",
             "CR":(str(p.get("cr") or "").strip() or "A PREENCHER NA ENTREGA")
-                if finalidade=="ACERTO_GERENCIAL" else "",
+                if finalidade=="ACERTO_GERENCIAL" else "NA",
             "APROVADOR":(str(p.get("aprovador") or "").strip() or "A PREENCHER NA ENTREGA")
-                if finalidade=="ACERTO_GERENCIAL" else "",
-            "FILIAL":str(p.get("destino") or "ASTEC").strip() if finalidade=="TRANSFERENCIA" else "",
+                if finalidade=="ACERTO_GERENCIAL" else "NA",
+            "FILIAL":(str(p.get("destino") or "").strip() or "ASTEC")
+                if finalidade=="TRANSFERENCIA" else "NA",
         }
     def _situacao_pedido(p,filhos):
         estado=str(p.get("estado") or "")
@@ -515,7 +516,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 "SOLICITADO EM":_hora(_item.get("criado_em")),
                 "SOLICITANTE":str(_item.get("solicitante") or "—"),
                 "FINALIDADE":"NÃO INFORMADA",
-                "OP(s)":"","CR":"","APROVADOR":"","FILIAL":"",
+                "OP(s)":"NA","CR":"NA","APROVADOR":"NA","FILIAL":"NA",
                 "CÓDIGO":str(_item.get("codigo") or ""),
                 "DESCRIÇÃO":str(_item.get("descricao") or ""),
                 "QUANTIDADE":float(_item.get("quantidade") or 0),
@@ -528,8 +529,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             })
         return pd.DataFrame(_linhas,columns=[
             "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
-            "OP(s)","CR","APROVADOR","FILIAL",
             "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","CONDIÇÃO GARANTIA",
+            "OP(s)","CR","APROVADOR","FILIAL",
         ])
     def _agrupar_garantias_entregues(entregas):
         # Cada protocolo pode surgir nos dois grupos, porém apenas seus próprios
@@ -684,15 +685,15 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         "SOLICITADO EM":st.column_config.TextColumn("SOLICITADO EM"),
                         "SOLICITANTE":st.column_config.TextColumn("SOLICITANTE"),
                         "FINALIDADE":st.column_config.TextColumn("FINALIDADE"),
-                        "OP(s)":st.column_config.TextColumn("OP(s)"),
-                        "CR":st.column_config.TextColumn("CR"),
-                        "APROVADOR":st.column_config.TextColumn("APROVADOR"),
-                        "FILIAL":st.column_config.TextColumn("FILIAL"),
                         "CÓDIGO":st.column_config.TextColumn("CÓDIGO"),
                         "DESCRIÇÃO":st.column_config.TextColumn("DESCRIÇÃO",width="large"),
                         "QUANTIDADE":st.column_config.NumberColumn("QUANTIDADE",format="%.3f"),
                         "SITUAÇÃO":st.column_config.TextColumn("SITUAÇÃO"),
                         "CONDIÇÃO GARANTIA":st.column_config.TextColumn("CONDIÇÃO GARANTIA"),
+                        "OP(s)":st.column_config.TextColumn("OP(s)"),
+                        "CR":st.column_config.TextColumn("CR"),
+                        "APROVADOR":st.column_config.TextColumn("APROVADOR"),
+                        "FILIAL":st.column_config.TextColumn("FILIAL"),
                     },
                 )
             else:

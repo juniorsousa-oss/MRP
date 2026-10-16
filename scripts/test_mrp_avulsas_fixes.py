@@ -120,7 +120,8 @@ assert sorted(mapa_abas)==["tabs[0]","tabs[1]","tabs[2]","tabs[3]","tabs[4]"],ma
 assert "st.dataframe" in mapa_abas["tabs[0]"]
 assert "_tabela_geral_solicitacoes" in mapa_abas["tabs[0]"]
 assert "_mostrar_pedidos" not in mapa_abas["tabs[0]"]
-for i in range(1,5): assert "_mostrar_pedidos" in mapa_abas[f"tabs[{i}]"]
+for i in (1,2,4): assert "_mostrar_pedidos" in mapa_abas[f"tabs[{i}]"]
+assert "_exibir_entregas" in mapa_abas["tabs[3]"]
 assert 'metric("SEPARADAS · NÃO ENTREGUES",len(_separados)+len(_legados_separados))' in src
 assert "Separadas: materiais com separação confirmada" in src
 assert "AGUARDANDO SEPARAÇÃO (" in src

@@ -115,7 +115,7 @@ class MotorPuroTests(unittest.TestCase):
         })
         saidas = calcular_mrp(*args)
         self.assertEqual(float(saidas["macro"].iloc[0]["Produzindo"]), 1.0)
-        self.assertEqual(len(saidas["fabricacao"]), 1)
+        self.assertEqual(len(saidas["fab_det"]), 1)
 
     def test_calculo_repetido_e_deterministico_sem_modificar_entrada(self):
         args = self._entradas()

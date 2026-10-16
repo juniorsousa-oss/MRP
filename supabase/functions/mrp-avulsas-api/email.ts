@@ -39,7 +39,7 @@ export function montarEmail(pedido: PedidoMail,itens: ItemMail[],tipo:TipoEmail)
   if(tipo==="ENTREGUE"){
     if(pedido.finalidade==="GARANTIA"){
       orientacao = "GARANTIA, FAVOR TRANSFERIR OS MATERIAIS INFORMADOS PARA O ENDEREÇO ASTEC."
-        +"\nOPS: "+String(pedido.psys||"");
+        +"\nOP(s): "+String(pedido.psys||"");
     }else if(pedido.finalidade==="ACERTO_GERENCIAL"){
       orientacao = "ACERTO, FAVOR REALIZAR O ACERTO GERENCIAL PARA:"
         +"\nCR: "+String(pedido.cr||"")

@@ -25,7 +25,10 @@ assert "'RECUSADA'" in sql and "'ENTREGUE'" in sql
 assert "pg_advisory_xact_lock(hashtext('mrp_avulsas:reservas'))" in sql
 assert "status='RECUSADA'" in sql
 assert "status='ATENDIDA'" in sql
-assert "VALOR_ULTIMA_COMPRA_AUSENTE" in sql
+assert "VALOR_ULTIMA_COMPRA_AUSENTE" in sql  # regra antiga, substituida pela nova
+nova_migracao=(root/"supabase/migrations/20261016_mrp_custo_coluna_m_zero.sql").read_text("utf-8")
+assert "valor_unitario_ref=0" in nova_migracao
+assert "VALOR_ULTIMA_COMPRA_AUSENTE" not in nova_migracao
 api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text("utf-8")
 assert 'if (role !== "OPERADOR") return fail("OPERADOR_REQUIRED",403);' in api
 assert 'if (role !== "OPERADOR") return fail("OPERADOR_REQUIRED", 403);' in api

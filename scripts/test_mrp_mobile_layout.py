@@ -38,8 +38,9 @@ assert "padding:76px 14px 28px!important" in mobile
 
 # O botão do menu não pode se sobrepor à logo nem desaparecer no scroll.
 assert ".st-key-setta_top_controls{" in mobile
+assert ".st-key-setta_drawer_toggle_mobile" in mobile
 assert "position:fixed!important" in mobile
-assert "z-index:280!important" in mobile
+assert "z-index:10010!important" in mobile
 assert ".setta-logo-card,.setta-brand{" in mobile
 assert "min-height:96px!important" in mobile
 

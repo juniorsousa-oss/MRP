@@ -120,7 +120,8 @@ jobs:
           assert '[data-testid="stMainBlockContainer"]' in env["_source"]
           assert "max-width:none!important" in env["_source"]
           assert 'height:150px!important' in env["_source"]
-          assert 'st.button(\n        "☰",' in env["_source"]
+          assert 'with st.popover("☰", width=56,' in env["_source"]
+          assert 'on_change="ignore"' in env["_source"]
           # Round trip do formato compactado, sem conexão nem escrita no banco.
           import ast, json, re, gzip, base64
           parsed = ast.parse(env["_source"])

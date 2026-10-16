@@ -34,19 +34,22 @@ APP = (
     'st.set_page_config(layout="wide", initial_sidebar_state="collapsed")\n'
     'st.markdown('+repr(CSS)+', unsafe_allow_html=True)\n'
     'st.html('+repr(NAV_JS)+', unsafe_allow_javascript=True)\n'
+    'def navegar(page): st.session_state["pagina_atual"]=page\n'
     'with st.sidebar:\n'
     '    st.markdown(\'<div class="sidebar-brand"><div class="sidebar-brand-title">MRP</div>'
     '<div class="sidebar-brand-sub">Planejamento de Materiais SETTA</div></div>\', '
     'unsafe_allow_html=True)\n'
     '    st.markdown(\'<div class="sidebar-section-label">NAVEGAÇÃO</div>\', '
     'unsafe_allow_html=True)\n'
-    '    st.button("MRP ATUAL", key="mrp_nav_btn_0", type="primary", use_container_width=True)\n'
-    '    st.button("SOLICITAÇÕES AVULSAS", key="mrp_nav_btn_1", use_container_width=True)\n'
+    '    st.button("MRP ATUAL", key="mrp_nav_btn_0", type="primary", use_container_width=True, on_click=navegar, args=("MRP ATUAL",))\n'
+    '    st.button("SOLICITAÇÕES AVULSAS", key="mrp_nav_btn_1", use_container_width=True, on_click=navegar, args=("SOLICITAÇÕES AVULSAS",))\n'
+    '    st.button("CONFIGURAÇÕES", key="mrp_nav_btn_2", use_container_width=True, on_click=navegar, args=("CONFIGURAÇÕES",))\n'
     '    st.markdown(\'<div class="sidebar-divider"></div><div class="sidebar-status-card">'
     'RELATÓRIO MRP</div>\', unsafe_allow_html=True)\n'
     'st.markdown(\'<div class="setta-logo-card">Setta</div>\', unsafe_allow_html=True)\n'
     'st.title("MRP | SETTA — TESTE VISUAL")\n'
     'st.write("Corpo do relatório MRP")\n'
+    'st.write("Página atual: "+st.session_state.get("pagina_atual","MRP ATUAL"))\n'
 )
 
 SELECTORS = (
@@ -105,8 +108,9 @@ def check(browser,width,height,name):
         assert bound["x"]+bound["width"]<=width+12,bound
         # Navegação pelo botão próprio deve fechar o menu nativo automaticamente,
         # sem escondê-lo via CSS e sem perder o botão de reabrir.
-        page.get_by_role("button",name="SOLICITAÇÕES AVULSAS").click(timeout=8000)
-        page.wait_for_timeout(1400)
+        page.get_by_role("button",name="CONFIGURAÇÕES").click(timeout=8000)
+        page.get_by_text("Página atual: CONFIGURAÇÕES").wait_for(state="visible",timeout=12000)
+        page.wait_for_timeout(700)
         close_state=page.locator('section[data-testid="stSidebar"]').bounding_box()
         collapsed_button=button(page)
         collapsed_rect=collapsed_button.bounding_box()
@@ -118,7 +122,11 @@ def check(browser,width,height,name):
             ),
         )
         page.screenshot(path=str(ARTIFACTS/f"{name}-navegacao-fechou.png"),full_page=True)
-        print(f"{name}: botão, layout e fechamento após navegação OK")
+        collapsed_button.click(timeout=8000)
+        page.get_by_role("button",name="SOLICITAÇÕES AVULSAS").wait_for(state="visible",timeout=10000)
+        page.wait_for_timeout(700)
+        page.screenshot(path=str(ARTIFACTS/f"{name}-reaberto.png"),full_page=True)
+        print(f"{name}: botão, layout, navegação, fechamento e reabertura OK")
     except Exception:
         page.screenshot(path=str(ARTIFACTS/f"{name}-ERRO.png"),full_page=True)
         raise

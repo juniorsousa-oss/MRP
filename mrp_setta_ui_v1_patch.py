@@ -21,16 +21,14 @@ if _old_nav_fn in _source:
 
 # 3) Drawer SETTA. A injeção no runtime acontece junto com o CSS,
 # antes da sidebar e do cabeçalho, para eliminar layout shift.
-_drawer_runtime = """# O modo AUTO não depende do cache/sessão do navegador:
-# desktop: sidebar aberta; celular: sidebar fechada com botão fixo.
-# Evita esconder o menu por padrão, especialmente após navegar entre páginas.
+_drawer_runtime = """# Drawer SETTA: fechado no primeiro acesso (desktop e mobile).
+# O CSS controla apenas a visibilidade; manter sidebar montada no Streamlit.
 def _setta_sidebar_mode() -> str:
-    modo=st.session_state.get("_setta_sidebar_mode", "auto")
-    return modo if modo in {"auto","open","closed"} else "auto"
+    return "open" if st.session_state.get("_setta_sidebar_mode")=="open" else "closed"
 
 def _setta_toggle_sidebar_desktop() -> None:
     st.session_state["_setta_sidebar_mode"]=(
-        "closed" if _setta_sidebar_mode() in {"auto","open"} else "open"
+        "closed" if _setta_sidebar_mode()=="open" else "open"
     )
 
 def _setta_toggle_sidebar_mobile() -> None:
@@ -39,22 +37,15 @@ def _setta_toggle_sidebar_mobile() -> None:
     )
 
 def _setta_close_sidebar() -> None:
-    # Após navegar: desktop continua visível, mobile fecha o drawer.
-    st.session_state["_setta_sidebar_mode"]="auto"
+    # Selecionar qualquer página fecha o drawer em TODAS as larguras.
+    st.session_state["_setta_sidebar_mode"]="closed"
 
 _setta_sidebar_mode_current=_setta_sidebar_mode()
 if _setta_sidebar_mode_current=="closed":
     st.markdown(
         '<style>'
         'section[data-testid="stSidebar"]{display:none!important;}'
-        '@media(min-width:901px){.st-key-setta_top_controls{left:14px!important;}}'
-        '</style>',
-        unsafe_allow_html=True,
-    )
-elif _setta_sidebar_mode_current=="auto":
-    st.markdown(
-        '<style>'
-        '@media(max-width:900px){section[data-testid="stSidebar"]{display:none!important;}}'
+        '.st-key-setta_top_controls{left:14px!important;}'
         '</style>',
         unsafe_allow_html=True,
     )
@@ -64,13 +55,12 @@ else:
         unsafe_allow_html=True,
     )
 
-# Os controles não dependem da rolagem da página. Oculte apenas a
-# variante que não corresponde à largura do navegador.
+# Controles permanentemente acessíveis durante a rolagem.
 with st.container(key="setta_top_controls"):
     st.button(
         "☰",
         key="setta_drawer_toggle",
-        help="Ocultar ou exibir menu (computador)",
+        help="Abrir ou fechar menu (computador)",
         use_container_width=True,
         on_click=_setta_toggle_sidebar_desktop,
     )

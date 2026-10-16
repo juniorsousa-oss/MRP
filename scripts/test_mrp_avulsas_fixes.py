@@ -32,7 +32,7 @@ assert 'len(_pendentes)+len(_legados_pendentes)' in src
 assert 'len(_separados)+len(_legados_separados)' in src
 assert 'valor_ultima_compra_atual' in src
 assert 'Não registrado neste pedido' not in src # novas mensagens explicitas
-assert '_situacao_pedido(p,_itens_pedido(p))' in src
+assert '_situacao_pedido(_pedido,_filhos)' in src
 assert 'REGISTROS ANTERIORES · CONFERÊNCIA POR MATERIAL' in src
 sql=(root/"supabase/migrations/20261016_mrp_avulsas_protocolos_000001.sql").read_text("utf-8")
 assert 'row_number() over(order by criado_em,id)' in sql

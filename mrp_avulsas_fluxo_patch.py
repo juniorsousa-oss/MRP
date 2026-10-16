@@ -16,6 +16,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
     email_eventos=list(dados.get("email_eventos") or [])
     itens=list(dados.get("rows") or [])
     materiais=list(dados.get("materials") or [])
+    fonte_custo=dados.get("custo_referencia") or {}
     _titulos={
         "CONSULTA":"Solicitações de materiais",
         "OPERADOR":"Separação e entrega de materiais",
@@ -134,9 +135,14 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 _linhas=[]
                 _total=0.0
                 _sem_preco=False
+                _preco_atual_utilizado=False
                 for filho in filhos:
                     _valor=filho.get("valor_unitario_ref")
+                    _referencia_atual=filho.get("valor_ultima_compra_atual")
                     _preco=float(_valor) if _valor is not None else None
+                    if _preco is None and p.get("estado")=="LEGADO" and _referencia_atual is not None:
+                        _preco=float(_referencia_atual)
+                        _preco_atual_utilizado=True
                     if _preco is None:_sem_preco=True
                     _subtotal=round(float(filho.get("quantidade") or 0)*_preco,2) if _preco is not None else None
                     if _subtotal is not None:_total+=_subtotal
@@ -158,8 +164,12 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     if not _sem_preco:
                         st.markdown("**Valor total de referência: R$ "+
                             f"{_total:,.2f}".replace(",","X").replace(".",",").replace("X",".")+"**")
-                    else:
-                        st.caption("Valor unitário não registrado neste pedido. Solicitações anteriores à implantação do custo não possuem preço histórico.")
+                    if _preco_atual_utilizado:
+                        st.info("Valores da última compra atual utilizados apenas como REFERÊNCIA. "
+                                "Esses valores não foram registrados na data da solicitação antiga.")
+                    if _sem_preco:
+                        st.caption("Alguns materiais continuam sem custo identificado no CADASTROS. "
+                                   "Não será exibido um total completo até obter todos os valores.")
                 if perfil=="CONSULTA" and p.get("estado")=="ENTREGUE" and p.get("finalidade")=="GARANTIA" and filhos:
                     st.markdown("**Destinação dos materiais de garantia**")
                     _choices={str(i["codigo"])+" · "+str(i.get("descricao") or "")+
@@ -191,9 +201,14 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         _etapa("01","Selecionar materiais","Escolha um material e informe quanto deseja solicitar.")
         with st.container(key="mrp_avulsa_area_selecao",border=True):
             _available={str(i["codigo"]):i for i in materiais}
-            if materiais and not any(i.get("valor_unitario") is not None for i in materiais):
-                st.warning("Valores de última compra ainda não disponíveis neste MRP. "
-                           "Reprocesse a base CADASTROS antes de confirmar entregas.")
+            if fonte_custo.get("status")=="SEM_COLUNA":
+                st.warning("CADASTROS atualizado, mas a coluna de valor da última compra não foi localizada. "
+                           "Confirme o nome do cabeçalho na Central de Dados.")
+            elif fonte_custo.get("status")=="FONTE_INDISPONIVEL" and not any(
+                i.get("valor_unitario") is not None for i in materiais
+            ):
+                st.warning("A fonte de valores da última compra está indisponível. "
+                           "O saldo e o registro de solicitação continuam disponíveis, mas a entrega requer custo.")
             if not materiais:
                 st.info("Nenhum material disponível para solicitar neste momento.")
             else:
@@ -418,6 +433,12 @@ _pedido_nova_view = """def _mrp_avulsas_view():
            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
            use_container_width=True)
     if perfil=="ADMIN":
+        with st.expander("ADMINISTRAÇÃO · DIAGNÓSTICO DE CUSTOS",expanded=False):
+            st.write("Situação CADASTROS: "+str(fonte_custo.get("status") or "—"))
+            st.write("Campo encontrado: "+str(fonte_custo.get("coluna") or "Não identificado"))
+            st.write("Versão de referência: "+str(fonte_custo.get("versao") or "—"))
+            st.write("Códigos com valor da última compra: "+
+                     str(fonte_custo.get("codigos_com_valor") or 0))
         with st.expander("ADMINISTRAÇÃO · TESTAR CONEXÃO COM O TEAMS",expanded=False):
             if st.button("ENVIAR MENSAGEM DE TESTE AO TEAMS",key="mrp_teams_connection_test"):
                 try:

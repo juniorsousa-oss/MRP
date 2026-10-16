@@ -241,8 +241,7 @@ Deno.serve(async (req) => {
       // Sem custo, preserva-se a solicitacao. O valor nulo bloqueia a entrega.
     }
     for(const material of available.values()){
-      const atual=custos.valorPorCodigo.get(material.codigo);
-      if(atual!==undefined)material.valor_unitario=atual;
+      material.valor_unitario=custos.valorPorCodigo.get(material.codigo) ?? 0;
     }
     if (action === "create_batch") {
       const requested = input.itens;
@@ -346,7 +345,7 @@ Deno.serve(async (req) => {
       .filter(x => x.disponivel > 0 && x.saldo > 0 && x.div > 0);
     const visibleRows = (rows || []).map((r:any) => ({
       ...r, status_exibicao: displayStatus(r.status),
-      valor_ultima_compra_atual: custos.valorPorCodigo.get(String(r.codigo)) ?? null,
+      valor_ultima_compra_atual: custos.valorPorCodigo.get(String(r.codigo)) ?? 0,
     }));
     // Cabeçalho de pedidos: número único, finalidade, separação e entrega.
     let pedidosQuery=admin.from("mrp_avulsas_pedidos").select(

@@ -31,6 +31,14 @@ class MotorASTTests(unittest.TestCase):
             ):
                 break
         print("MAPEAMENTO MOTOR AST", result)
+        outer = next(n for n in t.body if getattr(n, "lineno", None) == 4121)
+        inner = []
+        for item in ast.walk(outer):
+            if isinstance(item, (ast.If, ast.Try, ast.With, ast.FunctionDef)):
+                src = ast.get_source_segment(s, item)
+                first = (src or "").splitlines()[0][:140]
+                inner.append((item.lineno, item.end_lineno, type(item).__name__, first))
+        print("ESTRUTURA INTERNA DO CÁLCULO", inner[:120])
         self.assertTrue(any("fab_det" in x[3] for x in result))
         self.assertGreater(len(result), 4)
 

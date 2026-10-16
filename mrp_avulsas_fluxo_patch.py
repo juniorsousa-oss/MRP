@@ -454,13 +454,16 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 st.markdown("#### Confirmar entrega da solicitação")
                 st.caption("A confirmação registra a entrega dos materiais da S.A. selecionada. "
                            "Os dados da finalidade são necessários para a comunicação à gestão.")
+                # Seleção FORA do formulário: ao trocar de S.A., os campos por finalidade
+                # devem mudar imediatamente, antes da confirmação.
+                _choices={_protocolo(p)+" · "+str(p.get("solicitante")):p["id"] for p in _separados}
+                alvo=st.selectbox("SOLICITAÇÃO PARA ENTREGA",list(_choices),
+                                  key="mrp_operador_sa_entrega")
+                _pedido_entrega=next(p for p in _separados if p["id"]==_choices[alvo])
+                _psys_entrega=str(_pedido_entrega.get("psys") or "")
+                _cr_entrega=str(_pedido_entrega.get("cr") or "")
+                _aprovador_entrega=str(_pedido_entrega.get("aprovador") or "")
                 with st.form("mrp_avulsa_entregar",enter_to_submit=False):
-                    _choices={_protocolo(p)+" · "+str(p.get("solicitante")):p["id"] for p in _separados}
-                    alvo=st.selectbox("SOLICITAÇÃO PARA ENTREGA",list(_choices))
-                    _pedido_entrega=next(p for p in _separados if p["id"]==_choices[alvo])
-                    _psys_entrega=str(_pedido_entrega.get("psys") or "")
-                    _cr_entrega=str(_pedido_entrega.get("cr") or "")
-                    _aprovador_entrega=str(_pedido_entrega.get("aprovador") or "")
                     if _pedido_entrega.get("finalidade")=="GARANTIA":
                         _psys_entrega=st.text_area(
                             "PSY OU PSYs DA GARANTIA",

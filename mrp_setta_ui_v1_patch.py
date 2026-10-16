@@ -21,8 +21,8 @@ if _old_nav_fn in _source:
 
 # 3) Drawer SETTA. A injeção no runtime acontece junto com o CSS,
 # antes da sidebar e do cabeçalho, para eliminar layout shift.
-_drawer_runtime = """# Drawer SETTA: fechado no primeiro acesso (desktop e mobile).
-# O CSS controla apenas a visibilidade; manter sidebar montada no Streamlit.
+_drawer_runtime = """# Menu SETTA independente do painel interno do Streamlit:
+# apenas a navegação própria (st.container) é exibida quando o usuário abre.
 def _setta_sidebar_mode() -> str:
     return "open" if st.session_state.get("_setta_sidebar_mode")=="open" else "closed"
 
@@ -37,25 +37,12 @@ def _setta_toggle_sidebar_mobile() -> None:
     )
 
 def _setta_close_sidebar() -> None:
-    # Selecionar qualquer página fecha o drawer em TODAS as larguras.
     st.session_state["_setta_sidebar_mode"]="closed"
 
 _setta_sidebar_mode_current=_setta_sidebar_mode()
-if _setta_sidebar_mode_current=="closed":
-    st.markdown(
-        '<style>'
-        'section[data-testid="stSidebar"]{display:none!important;}'
-        '.st-key-setta_top_controls{left:14px!important;}'
-        '</style>',
-        unsafe_allow_html=True,
-    )
-else:
-    st.markdown(
-        '<style>section[data-testid="stSidebar"]{display:flex!important;}</style>',
-        unsafe_allow_html=True,
-    )
 
-# Controles permanentemente acessíveis durante a rolagem.
+# O botão é renderizado sempre, inclusive com a navegação fechada.
+# Os links, status e semana são renderizados posteriormente em painel próprio.
 with st.container(key="setta_top_controls"):
     st.button(
         "☰",
@@ -188,7 +175,7 @@ header[data-testid="stHeader"]{
 .st-key-setta_top_controls{
   position:fixed!important;
   top:calc(12px + env(safe-area-inset-top,0px))!important;
-  left:274px!important;
+  left:14px!important;
   z-index:10010!important;
   width:58px!important;
   max-width:58px!important;
@@ -220,6 +207,79 @@ header[data-testid="stHeader"]{
   padding:0!important;
   background:rgba(255,255,255,.98)!important;
   box-shadow:0 2px 10px rgba(15,23,42,.14)!important;
+}
+
+/* Menu SETTA independente: nunca depender do DOM da sidebar do Streamlit. */
+section[data-testid="stSidebar"]{
+  display:none!important;
+  visibility:hidden!important;
+}
+.st-key-setta_custom_navigation{
+  position:fixed!important;
+  top:0!important;
+  left:0!important;
+  right:auto!important;
+  box-sizing:border-box!important;
+  width:min(86vw,280px)!important;
+  min-width:0!important;
+  max-width:280px!important;
+  height:100dvh!important;
+  min-height:0!important;
+  max-height:100dvh!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain!important;
+  padding:88px 16px 30px!important;
+  margin:0!important;
+  z-index:500!important;
+  border-right:1px solid #e8ebf0!important;
+  background:#fff!important;
+  box-shadow:5px 0 30px rgba(15,23,42,.15)!important;
+}
+.st-key-setta_custom_navigation [data-testid="stVerticalBlock"]{
+  gap:0!important;
+  row-gap:0!important;
+  min-width:0!important;
+}
+.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"]{
+  margin:0 0 2px!important;
+  padding:0!important;
+  width:100%!important;
+}
+.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"] button{
+  display:flex!important;
+  position:relative!important;
+  justify-content:flex-start!important;
+  width:100%!important;
+  min-height:42px!important;
+  padding:0 12px 0 24px!important;
+  border-radius:10px!important;
+  text-align:left!important;
+}
+.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"] button p{
+  width:100%!important;
+  font-size:13px!important;
+  text-align:left!important;
+}
+.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]{
+  background:transparent!important;
+  border:1px solid transparent!important;
+  color:#374151!important;
+}
+.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]{
+  background:#111827!important;
+  border:1px solid #111827!important;
+  color:#fff!important;
+}
+.st-key-setta_custom_navigation [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]::before{
+  content:""!important;
+  position:absolute!important;
+  top:50%!important;
+  left:7px!important;
+  width:4px!important;
+  height:20px!important;
+  background:#ef4444!important;
+  border-radius:999px!important;
+  transform:translateY(-50%)!important;
 }
 
 /* SETTA UI — Sidebar no layout padrão */
@@ -726,6 +786,36 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
 }
 
 </style>"""
+
+# O menu montado pelo st.sidebar pode ser desmontado pelo Streamlit,
+# dependendo da largura, zoom, estado nativo ou versão do navegador.
+# Montamos os MESMOS controles e cards em st.container, diretamente no
+# conteúdo principal. O painel é aberto/recolhido apenas pela sessão.
+_menu_original_anchor = (
+    'with st.sidebar:\n'
+    '    st.markdown(\n'
+    '        \'<div class="sidebar-brand">\''
+)
+_menu_block_start = _source.find(_menu_original_anchor)
+_menu_block_end = _source.find('\ndef _mrp_source_card_html(', _menu_block_start)
+if _menu_block_start < 0 or _menu_block_end < 0:
+    raise RuntimeError("Navegação SETTA não localizada para painel independente.")
+_menu_original = _source[_menu_block_start:_menu_block_end]
+_menu_personalizado = _menu_original.replace(
+    'with st.sidebar:',
+    'with st.container(key="setta_custom_navigation"):',
+    1,
+)
+_menu_personalizado = (
+    'if _setta_sidebar_mode_current=="open":\n'
+    + ''.join('    '+_line if _line.strip() else _line
+              for _line in _menu_personalizado.splitlines(keepends=True))
+)
+_source = (
+    _source[:_menu_block_start]
+    + _menu_personalizado
+    + _source[_menu_block_end:]
+)
 
 _shell_anchor = '_mrp_role=st.session_state.get("auth_role")\n'
 if _shell_anchor not in _source:

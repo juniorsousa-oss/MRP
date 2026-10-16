@@ -21,45 +21,66 @@ if _old_nav_fn in _source:
 
 # 3) Drawer SETTA. A injeção no runtime acontece junto com o CSS,
 # antes da sidebar e do cabeçalho, para eliminar layout shift.
-_drawer_runtime = """def _setta_sidebar_is_open() -> bool:
-    return bool(st.session_state.get("_setta_sidebar_open", False))
+_drawer_runtime = """# O modo AUTO não depende do cache/sessão do navegador:
+# desktop: sidebar aberta; celular: sidebar fechada com botão fixo.
+# Evita esconder o menu por padrão, especialmente após navegar entre páginas.
+def _setta_sidebar_mode() -> str:
+    modo=st.session_state.get("_setta_sidebar_mode", "auto")
+    return modo if modo in {"auto","open","closed"} else "auto"
 
-def _setta_toggle_sidebar() -> None:
-    st.session_state["_setta_sidebar_open"] = not _setta_sidebar_is_open()
+def _setta_toggle_sidebar_desktop() -> None:
+    st.session_state["_setta_sidebar_mode"]=(
+        "closed" if _setta_sidebar_mode() in {"auto","open"} else "open"
+    )
+
+def _setta_toggle_sidebar_mobile() -> None:
+    st.session_state["_setta_sidebar_mode"]=(
+        "closed" if _setta_sidebar_mode()=="open" else "open"
+    )
 
 def _setta_close_sidebar() -> None:
-    st.session_state["_setta_sidebar_open"] = False
+    # Após navegar: desktop continua visível, mobile fecha o drawer.
+    st.session_state["_setta_sidebar_mode"]="auto"
 
-_setta_sidebar_open = _setta_sidebar_is_open()
-if not _setta_sidebar_open:
+_setta_sidebar_mode_current=_setta_sidebar_mode()
+if _setta_sidebar_mode_current=="closed":
     st.markdown(
         '<style>'
         'section[data-testid="stSidebar"]{display:none!important;}'
-        '[data-testid="stSidebarCollapseButton"],'
-        '[data-testid="stSidebarCollapsedControl"],'
-        'button[data-testid="stSidebarCollapseButton"]{display:none!important;}'
+        '@media(min-width:901px){.st-key-setta_top_controls{left:14px!important;}}'
+        '</style>',
+        unsafe_allow_html=True,
+    )
+elif _setta_sidebar_mode_current=="auto":
+    st.markdown(
+        '<style>'
+        '@media(max-width:900px){section[data-testid="stSidebar"]{display:none!important;}}'
         '</style>',
         unsafe_allow_html=True,
     )
 else:
     st.markdown(
-        '<style>'
-        '[data-testid="stSidebarCollapseButton"],'
-        '[data-testid="stSidebarCollapsedControl"],'
-        'button[data-testid="stSidebarCollapseButton"]{display:none!important;}'
-        '</style>',
+        '<style>section[data-testid="stSidebar"]{display:flex!important;}</style>',
         unsafe_allow_html=True,
     )
 
+# Os controles não dependem da rolagem da página. Oculte apenas a
+# variante que não corresponde à largura do navegador.
 with st.container(key="setta_top_controls"):
     st.button(
         "☰",
         key="setta_drawer_toggle",
-        help="Abrir/fechar menu",
+        help="Ocultar ou exibir menu (computador)",
         use_container_width=True,
-        on_click=_setta_toggle_sidebar,
+        on_click=_setta_toggle_sidebar_desktop,
     )
-
+    st.button(
+        "☰",
+        key="setta_drawer_toggle_mobile",
+        help="Abrir ou fechar menu (celular)",
+        use_container_width=True,
+        on_click=_setta_toggle_sidebar_mobile,
+    )
 """
 
 # 4) CSS canônico do shell SETTA.
@@ -175,28 +196,40 @@ header[data-testid="stHeader"]{
 
 /* SETTA UI — Top Controls V1: medidas idênticas ao Conversor MRP */
 .st-key-setta_top_controls{
-  position:absolute!important;
-  top:18px!important;
-  left:44px!important;
-  z-index:120!important;
-  width:82px!important;
+  position:fixed!important;
+  top:calc(12px + env(safe-area-inset-top,0px))!important;
+  left:274px!important;
+  z-index:10010!important;
+  width:58px!important;
+  max-width:58px!important;
   margin:0!important;
   padding:0!important;
+}
+.st-key-setta_drawer_toggle_mobile{
+  display:none!important;
+}
+@media(max-width:900px){
+  .st-key-setta_drawer_toggle{display:none!important;}
+  .st-key-setta_drawer_toggle_mobile{display:block!important;}
 }
 .st-key-setta_top_controls [data-testid="stVerticalBlock"]{gap:0!important}
-.st-key-setta_drawer_toggle{
-  width:82px!important;
+.st-key-setta_drawer_toggle,
+.st-key-setta_drawer_toggle_mobile{
+  width:58px!important;
+  max-width:58px!important;
   margin:0!important;
   padding:0!important;
 }
-.st-key-setta_drawer_toggle button{
-  width:82px!important;
-  min-height:42px!important;
-  height:42px!important;
+.st-key-setta_drawer_toggle button,
+.st-key-setta_drawer_toggle_mobile button{
+  width:58px!important;
+  min-width:58px!important;
+  min-height:44px!important;
+  height:44px!important;
   border-radius:10px!important;
   padding:0!important;
-  background:rgba(255,255,255,.96)!important;
-  box-shadow:0 2px 8px rgba(15,23,42,.06)!important;
+  background:rgba(255,255,255,.98)!important;
+  box-shadow:0 2px 10px rgba(15,23,42,.14)!important;
 }
 
 /* SETTA UI — Sidebar no layout padrão */
@@ -576,7 +609,7 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
     top:calc(12px + env(safe-area-inset-top,0px))!important;
     left:14px!important;
     right:auto!important;
-    z-index:280!important;
+    z-index:10010!important;
     width:58px!important;
     max-width:58px!important;
     margin:0!important;
@@ -584,6 +617,15 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   .st-key-setta_drawer_toggle{
     width:58px!important;
     max-width:58px!important;
+  }
+  .st-key-setta_drawer_toggle_mobile,
+  .st-key-setta_drawer_toggle_mobile button{
+    width:58px!important;
+    min-width:58px!important;
+    max-width:58px!important;
+    height:44px!important;
+    min-height:44px!important;
+    border-radius:12px!important;
   }
   .st-key-setta_drawer_toggle button{
     width:58px!important;

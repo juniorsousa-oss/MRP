@@ -371,36 +371,36 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                             st.rerun()
                         except Exception as exc:st.error(str(exc))
         with tab_pendentes:
-        _ids_legado={str(p["id"]) for p in pedidos if p.get("estado")=="LEGADO"}
-        _antigos=[i for i in itens if not i.get("pedido_id") or str(i.get("pedido_id")) in _ids_legado]
-        if _antigos:
-            with st.expander("REGISTROS ANTERIORES · CONFERÊNCIA POR MATERIAL",expanded=False):
-                st.caption("Registros anteriores preservados. Seus números originais continuam disponíveis.")
-                st.dataframe(pd.DataFrame(_antigos),use_container_width=True,hide_index=True)
-                _abertos=[i for i in _antigos if i.get("status")=="ABERTA"]
-                if perfil=="OPERADOR" and _abertos:
-                    st.markdown("**Tratativa de pendências anteriores**")
-                    with st.form("mrp_avulsa_legado_tratar",enter_to_submit=False):
-                        chaves={
-                           "#"+str(i["id"])+" · "+str(i.get("codigo"))+" · "+str(i.get("solicitante")):i["id"]
-                           for i in _abertos
-                        }
-                        alvo=st.selectbox("SOLICITAÇÃO LEGADA",list(chaves))
-                        obs=st.text_input("OBSERVAÇÃO / MOTIVO DA RECUSA",key="mrp_obs_legado")
-                        sep,rec=st.columns(2)
-                        separar=sep.form_submit_button("CONFIRMAR SEPARAÇÃO",type="primary")
-                        recusar=rec.form_submit_button("RECUSAR ITEM")
-                    if separar or recusar:
-                        if recusar and len(obs.strip())<5:
-                            st.error("Informe o motivo da recusa.")
-                        else:
-                            try:
-                                if recusar:
-                                    _mrp_avulsas_call("reject",{"id":chaves[alvo],"motivo":obs.strip()})
-                                else:
-                                    _mrp_avulsas_call("attend",{"id":chaves[alvo],"observacao":obs.strip()})
-                                st.rerun()
-                            except Exception as exc:st.error(str(exc))
+            _ids_legado={str(p["id"]) for p in pedidos if p.get("estado")=="LEGADO"}
+            _antigos=[i for i in itens if not i.get("pedido_id") or str(i.get("pedido_id")) in _ids_legado]
+            if _antigos:
+                with st.expander("REGISTROS ANTERIORES · CONFERÊNCIA POR MATERIAL",expanded=False):
+                    st.caption("Registros anteriores preservados. Seus números originais continuam disponíveis.")
+                    st.dataframe(pd.DataFrame(_antigos),use_container_width=True,hide_index=True)
+                    _abertos=[i for i in _antigos if i.get("status")=="ABERTA"]
+                    if perfil=="OPERADOR" and _abertos:
+                        st.markdown("**Tratativa de pendências anteriores**")
+                        with st.form("mrp_avulsa_legado_tratar",enter_to_submit=False):
+                            chaves={
+                               "#"+str(i["id"])+" · "+str(i.get("codigo"))+" · "+str(i.get("solicitante")):i["id"]
+                               for i in _abertos
+                            }
+                            alvo=st.selectbox("SOLICITAÇÃO LEGADA",list(chaves))
+                            obs=st.text_input("OBSERVAÇÃO / MOTIVO DA RECUSA",key="mrp_obs_legado")
+                            sep,rec=st.columns(2)
+                            separar=sep.form_submit_button("CONFIRMAR SEPARAÇÃO",type="primary")
+                            recusar=rec.form_submit_button("RECUSAR ITEM")
+                        if separar or recusar:
+                            if recusar and len(obs.strip())<5:
+                                st.error("Informe o motivo da recusa.")
+                            else:
+                                try:
+                                    if recusar:
+                                        _mrp_avulsas_call("reject",{"id":chaves[alvo],"motivo":obs.strip()})
+                                    else:
+                                        _mrp_avulsas_call("attend",{"id":chaves[alvo],"observacao":obs.strip()})
+                                    st.rerun()
+                                except Exception as exc:st.error(str(exc))
         with tab_separadas:
             _mostrar_pedidos(_separados+_legados_separados,"Nenhum material aguardando entrega.")
             if _separados:

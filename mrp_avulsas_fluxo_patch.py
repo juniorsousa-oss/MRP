@@ -202,14 +202,10 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         _etapa("01","Selecionar materiais","Escolha um material e informe quanto deseja solicitar.")
         with st.container(key="mrp_avulsa_area_selecao",border=True):
             _available={str(i["codigo"]):i for i in materiais}
-            if fonte_custo.get("status")=="SEM_COLUNA":
-                st.warning("CADASTROS atualizado, mas a coluna de valor da última compra não foi localizada. "
-                           "Confirme o nome do cabeçalho na Central de Dados.")
-            elif fonte_custo.get("status")=="FONTE_INDISPONIVEL" and not any(
-                i.get("valor_unitario") is not None for i in materiais
-            ):
-                st.warning("A fonte de valores da última compra está indisponível. "
-                           "O saldo e o registro de solicitação continuam disponíveis, mas a entrega requer custo.")
+            if fonte_custo.get("status")=="FONTE_INDISPONIVEL":
+                st.warning("CADASTROS indisponível para consulta do preço da coluna M. "
+                           "Enquanto não houver leitura da fonte, o valor unitário será considerado R$ 0,00, "
+                           "sem impedir a solicitação ou a entrega.")
             if not materiais:
                 st.info("Nenhum material disponível para solicitar neste momento.")
             else:
@@ -438,7 +434,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             st.write("Situação CADASTROS: "+str(fonte_custo.get("status") or "—"))
             st.write("Campo encontrado: "+str(fonte_custo.get("coluna") or "Não identificado"))
             st.write("Versão de referência: "+str(fonte_custo.get("versao") or "—"))
-            st.write("Códigos com valor da última compra: "+
+            st.write("Códigos processados na coluna M (incluindo valores zero): "+
                      str(fonte_custo.get("codigos_com_valor") or 0))
         with st.expander("ADMINISTRAÇÃO · TESTAR CONEXÃO COM O TEAMS",expanded=False):
             if st.button("ENVIAR MENSAGEM DE TESTE AO TEAMS",key="mrp_teams_connection_test"):

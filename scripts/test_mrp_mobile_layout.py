@@ -36,11 +36,13 @@ assert "max-width:100%!important" in mobile
 assert "min-width:0!important" in mobile
 assert "padding:76px 14px 28px!important" in mobile
 
-# O botão do menu não pode se sobrepor à logo nem desaparecer no scroll.
-assert ".st-key-setta_top_controls{" in mobile
-assert ".st-key-setta_drawer_toggle_mobile" in mobile
-assert "position:fixed!important" in mobile
-assert "z-index:10010!important" in mobile
+# O novo gatilho do popover permanece fixo, acessível e independente
+# da largura/estado do sidebar nativo do Streamlit.
+assert '[class*="st-key-setta_menu_popover_"]' in shell
+assert 'div[data-baseweb="popover"]:has(.sidebar-brand)' in shell
+assert "position:fixed!important" in shell
+assert "z-index:10010!important" in shell
+assert "width:280px!important" in shell
 assert ".setta-logo-card,.setta-brand{" in mobile
 assert "min-height:96px!important" in mobile
 
@@ -61,6 +63,6 @@ assert "padding-bottom:calc(32px + env(safe-area-inset-bottom,0px))!important" i
 
 # A montagem global injeta este shell no runtime produzido.
 assert "SETTA_UI_V1_PATCH" in (root/"app_mrp.py").read_text("utf-8")
-assert ".st-key-setta_top_controls" in generated
+assert "st-key-setta_menu_popover_" in generated
 assert "/* SETTA MRP — RESPONSIVIDADE MOBILE" in generated
 print("MRP_MOBILE_SIDEBAR_VIEWPORT_CARDS_OK")

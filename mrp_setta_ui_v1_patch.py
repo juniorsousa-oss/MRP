@@ -677,6 +677,20 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
     max-width:100%!important;
     overflow-x:auto!important;
   }
+  [data-testid="stMainBlockContainer"],
+  [data-testid="stAppViewBlockContainer"],
+  .block-container:not(section[data-testid="stSidebar"] .block-container){
+    padding-bottom:calc(32px + env(safe-area-inset-bottom,0px))!important;
+  }
+}
+/* Tabletes: dois indicadores por linha. Celulares: um por linha. */
+@media (min-width:601px) and (max-width:900px){
+  div[data-testid="stColumn"]{
+    flex:1 1 calc(50% - .4rem)!important;
+    width:calc(50% - .4rem)!important;
+    max-width:calc(50% - .4rem)!important;
+  }
+  .mrp-source-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 
 </style>"""

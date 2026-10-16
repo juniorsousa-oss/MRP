@@ -30,4 +30,44 @@ assert '[data-testid="stSidebar"]{' in SETTA_UI_V1_PATCH
 assert 'div[data-baseweb="popover"]:has(.sidebar-brand)' not in SETTA_UI_V1_PATCH
 assert 'width:260px!important' not in SETTA_UI_V1_PATCH
 assert 'flex-basis:260px!important' not in SETTA_UI_V1_PATCH
-print("MRP_SIDEBAR_NATIVA_DESKTOP_MOBILE_OK")
+# Conta acessível no menu nativo, sem limitar a ADMIN/CONSULTA/OPERADOR.
+assert generated.count('key="mrp_logout_sidebar"') == 1
+assert '<div class="sidebar-section-label">MINHA CONTA</div>' in generated
+assert "USUÁRIO CONECTADO" in generated
+assert 'st.session_state.get("auth_nome")' in generated
+assert 'st.session_state.get("auth_role")' in generated
+assert 'st.session_state.get("auth_email")' in generated
+assert "_mrp_escape_html(_mrp_account_name)" in generated
+assert "_mrp_escape_html(_mrp_account_email)" in generated
+assert "sidebar-account-card" in SETTA_UI_V1_PATCH
+assert ".st-key-mrp_logout_sidebar button" in SETTA_UI_V1_PATCH
+logout_buttons = [n for n in ast.walk(tree) if isinstance(n, ast.If)
+    and isinstance(n.test, ast.Call)
+    and isinstance(n.test.func, ast.Attribute)
+    and n.test.func.attr == "button"
+    and any(kw.arg == "key" and isinstance(kw.value, ast.Constant)
+        and kw.value.value == "mrp_logout_sidebar" for kw in n.test.keywords)]
+assert len(logout_buttons) == 1
+assert any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+    and n.func.id == "_logout" for n in ast.walk(logout_buttons[0]))
+assert "_logout" in functions
+
+# Logout deve apagar dados de autenticação e forçar retorno ao login.
+class FakeStreamlit:
+    def __init__(self):
+        self.session_state = {key:"teste" for key in
+            ("auth_access_token","auth_refresh_token","auth_user_id",
+             "auth_email","auth_nome","auth_role")}
+        self.session_state["outro_estado"] = "preservado"
+        self.rerun_called = False
+    def rerun(self):
+        self.rerun_called = True
+
+st = FakeStreamlit()
+logout_module = ast.Module(body=[functions["_logout"]], type_ignores=[])
+scope = {"st": st}
+exec(compile(ast.fix_missing_locations(logout_module), "<logout>", "exec"), scope)
+scope["_logout"]()
+assert st.rerun_called
+assert st.session_state == {"outro_estado":"preservado"}
+print("MRP_SIDEBAR_NATIVA_CONTA_E_LOGOUT_OK")

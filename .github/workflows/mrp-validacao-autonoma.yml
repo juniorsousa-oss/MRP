@@ -1,0 +1,38 @@
+name: SETTA - Validar Automacao MRP (sem publicar)
+
+on:
+  pull_request:
+    paths:
+      - "mrp_worker_estado.py"
+      - "tests/test_mrp_worker_estado.py"
+      - ".github/workflows/mrp-validacao-autonoma.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Testar decisões de atualização do MRP
+        run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_worker_estado.py' -v
+
+  consultar-central:
+    if: github.event_name == 'workflow_dispatch'
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Instalar dependências do MRP
+        run: python -m pip install -r requirements.txt
+      - name: Consultar estado real na Central SETTA sem publicar
+        run: python mrp_worker_estado.py --check-only

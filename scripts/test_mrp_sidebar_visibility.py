@@ -1,80 +1,48 @@
-"""Regressão da visibilidade do menu em desktop/mobile e após navegar."""
-import ast
-import runpy
+"""Menu MRP: abertura/fechamento sem rerun, navegação e estilos originais."""
+import ast,runpy
 from pathlib import Path
 
 root=Path(__file__).resolve().parents[1]
-codigo=runpy.run_path(str(root/"scripts"/"validate_generated_mrp.py"))["final"]
-tree=ast.parse(codigo)
+generated=runpy.run_path(str(root/"scripts"/"validate_generated_mrp.py"))["final"]
+tree=ast.parse(generated)
 functions={n.name:n for n in tree.body if isinstance(n,ast.FunctionDef)}
-for name in (
-    "_setta_sidebar_mode",
-    "_setta_toggle_sidebar_desktop",
-    "_setta_toggle_sidebar_mobile",
-    "_setta_close_sidebar",
-    "_mrp_set_sidebar_page",
-):
-    assert name in functions,name
-# Navegação não deve depender de st.sidebar nem da detecção do navegador.
-assert 'if _setta_sidebar_mode_current=="open":' in codigo
-assert 'with st.container(key="setta_custom_navigation"):' in codigo
-assert 'section[data-testid="stSidebar"]{' in codigo
-assert 'display:none!important' in codigo
-assert 'section[data-testid="stSidebar"]{display:flex!important;}' not in codigo
-assert 'key="setta_drawer_toggle"' in codigo
-assert 'key="setta_drawer_toggle_mobile"' in codigo
-assert 'on_click=_setta_toggle_sidebar_desktop' in codigo
-assert 'on_click=_setta_toggle_sidebar_mobile' in codigo
-assert 'st.session_state["_setta_sidebar_mode"]="closed"' in codigo
+assert "_setta_close_sidebar" in functions
+assert "_mrp_set_sidebar_page" in functions
 assert '_setta_close_sidebar()' in ast.get_source_segment(
-    codigo,functions["_mrp_set_sidebar_page"]
+    generated,functions["_mrp_set_sidebar_page"]
 )
-# A sidebar interna foi substituída, com os controles/status preservados.
-assert 'with st.container(key="setta_custom_navigation"):' in codigo
-assert 'key=f"mrp_nav_btn_{_nav_index}"' in codigo
-assert 'RELATÓRIO MRP' in codigo
-assert 'SEMANA ATUAL' in codigo
-assert "position:fixed!important" in codigo
-assert "z-index:500!important" in codigo
-assert "z-index:10010!important" in codigo
+# Popover nativo abre e fecha no cliente; sem reexecução ao clicar no ☰.
+assert 'with st.popover("☰", width=56,' in generated
+assert 'on_change="ignore"' in generated
+assert 'key=f"setta_menu_popover_{_setta_menu_revision}"' in generated
+assert "with st.container(key=\"setta_custom_navigation\"):" not in generated
+assert 'with st.sidebar:' not in ast.get_source_segment(
+    generated,functions["_mrp_set_sidebar_page"]
+)
+assert "key=f\"mrp_nav_btn_{_nav_index}\"" in generated
+assert "RELATÓRIO MRP" in generated and "SEMANA ATUAL" in generated
 
-class St:
+# Alternar a revisão ao mudar página força novo widget/popover recolhido.
+class MockST:
     session_state={}
-st=St()
+st=MockST()
 ns={"st":st}
-code=ast.Module(body=[functions[name] for name in (
-    "_setta_sidebar_mode",
-    "_setta_toggle_sidebar_desktop",
-    "_setta_toggle_sidebar_mobile",
-    "_setta_close_sidebar",
-)],type_ignores=[])
-exec(compile(ast.fix_missing_locations(code),"<sidebar>","exec"),ns)
+code=ast.Module(body=[functions["_setta_close_sidebar"]],type_ignores=[])
+exec(compile(ast.fix_missing_locations(code),"<menu>","exec"),ns)
+close=ns["_setta_close_sidebar"]
+close()
+assert st.session_state["_setta_menu_revision"]==1
+close()
+assert st.session_state["_setta_menu_revision"]==2
 
-mode=ns["_setta_sidebar_mode"]
-desktop=ns["_setta_toggle_sidebar_desktop"]
-mobile=ns["_setta_toggle_sidebar_mobile"]
-reset=ns["_setta_close_sidebar"]
-assert mode()=="closed" # Primeiro acesso SEMPRE fechado.
-desktop()
-assert mode()=="open" # O botão abre no computador.
-desktop()
-assert mode()=="closed" # O botão também fecha.
-mobile()
-assert mode()=="open" # O botão abre no celular.
-reset()
-assert mode()=="closed" # A navegação fecha também no celular.
-desktop()
-assert mode()=="open"
-reset()
-assert mode()=="closed" # A navegação fecha também no desktop.
-mobile()
-assert mode()=="open"
-mobile()
-assert mode()=="closed"
-# Sessões antigas em "auto" precisam iniciar recolhidas após o upgrade.
-st.session_state["_setta_sidebar_mode"]="auto"
-assert mode()=="closed"
-assert "position:fixed!important" in codigo
-assert "z-index:10010!important" in codigo
-
-print("MRP_SIDEBAR_AUTO_DESKTOP_MOBILE_NAVIGATION_OK")
+# Estrutura CSS fixa somente o gatilho (o portal fica sob controle do browser).
+from mrp_setta_ui_v1_patch import SETTA_UI_V1_PATCH
+assert "position:fixed!important" in SETTA_UI_V1_PATCH
+assert '[class*="st-key-setta_menu_popover_"]' in SETTA_UI_V1_PATCH
+assert "div[data-baseweb=\"popover\"]:has(.sidebar-brand)" in SETTA_UI_V1_PATCH
+assert "width:280px!important" in SETTA_UI_V1_PATCH
+assert "min-height:42px!important" in SETTA_UI_V1_PATCH
+assert "justify-content:flex-start!important" in SETTA_UI_V1_PATCH
+assert "background:#111827!important" in SETTA_UI_V1_PATCH
+assert "z-index:10010!important" in SETTA_UI_V1_PATCH
+print("MRP_MENU_POPOVER_SEM_RERUN_DESKTOP_MOBILE_OK")

@@ -20,6 +20,7 @@ class MotorPuroTests(unittest.TestCase):
             "Projeto": ["20260123456"],
             "Código": [10000001],
             "Pendência": [2.0],
+            "Quantidade Solicitada": [2.0],
             "Data Solicitação": [pd.Timestamp("2026-10-10")],
             "Data CM": [pd.Timestamp("2026-10-25")],
             "Condição": ["NORMAL"],

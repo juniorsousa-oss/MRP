@@ -55,11 +55,10 @@ export function montarEmail(pedido: PedidoMail,itens: ItemMail[],tipo:TipoEmail)
   const rows=itens.map((item)=>{
     const q=Number(item.quantidade);
     if(!Number.isFinite(q)||q<=0)throw Error("QUANTIDADE_DO_ITEM_INVALIDA");
-    const u=item.valor_unitario_ref===null||item.valor_unitario_ref===undefined
-      ? null:Number(item.valor_unitario_ref);
-    if(tipo==="ENTREGUE" && (u===null||!Number.isFinite(u)||u<0))
-      throw Error("VALOR_ULTIMA_COMPRA_AUSENTE_PARA_"+item.codigo);
-    const subtotal=u===null?null:Math.round(q*u*100)/100;
+    // Regra SETTA: coluna M vazia, nao numerica ou nao encontrada = R$ 0,00.
+    const raw=Number(item.valor_unitario_ref??0);
+    const u=Number.isFinite(raw)&&raw>=0?raw:0;
+    const subtotal=Math.round(q*u*100)/100;
     if(subtotal!==null)total+=subtotal;
     lines.push([item.codigo,item.descricao,numero(q),
       u===null?"—":brl(u),subtotal===null?"—":brl(subtotal)].join(" | "));

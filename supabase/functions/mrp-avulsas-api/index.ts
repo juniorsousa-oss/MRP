@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
       if(role!=="CONSULTA")return fail("CONSULTA_REQUIRED",403);
       const itemId=Number(input.id);
       const resultado=String(input.resultado||"");
-      if(!Number.isSafeInteger(itemId)||itemId<1 || !["UTILIZADO","DEVOLVIDO"].includes(resultado))
+      if(!Number.isSafeInteger(itemId)||itemId<1 || !["AGUARDANDO_RETORNO","UTILIZADO","DEVOLVIDO"].includes(resultado))
         return fail("DADOS_DA_GARANTIA_INVALIDOS");
       const {data,error}=await admin.rpc("mrp_avulsa_garantia_resultado_seguro",{
         p_item:itemId,p_actor:userId,p_resultado:resultado,

@@ -88,9 +88,12 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         # psys/cr/aprovador/destino para preservar dados ja registrados.
         finalidade=str(p.get("finalidade") or "")
         return {
-            "OP(s)":str(p.get("psys") or "").strip() if finalidade=="GARANTIA" else "",
-            "CR":str(p.get("cr") or "").strip() if finalidade=="ACERTO_GERENCIAL" else "",
-            "APROVADOR":str(p.get("aprovador") or "").strip() if finalidade=="ACERTO_GERENCIAL" else "",
+            "OP(s)":(str(p.get("psys") or "").strip() or "A PREENCHER NA ENTREGA")
+                if finalidade=="GARANTIA" else "",
+            "CR":(str(p.get("cr") or "").strip() or "A PREENCHER NA ENTREGA")
+                if finalidade=="ACERTO_GERENCIAL" else "",
+            "APROVADOR":(str(p.get("aprovador") or "").strip() or "A PREENCHER NA ENTREGA")
+                if finalidade=="ACERTO_GERENCIAL" else "",
             "FILIAL":str(p.get("destino") or "ASTEC").strip() if finalidade=="TRANSFERENCIA" else "",
         }
     def _situacao_pedido(p,filhos):
@@ -148,10 +151,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     st.markdown("**DADOS DA SOLICITAÇÃO**")
                     for _campo in _campos_da_finalidade:
                         _valor_identificacao=_identificacao[_campo]
-                        st.write("**"+_campo+":** "+(
-                            _valor_identificacao if _valor_identificacao else
-                            "Pendente de preenchimento na entrega"
-                        ))
+                        st.write("**"+_campo+":** "+_valor_identificacao)
                 if p.get("observacao_operador"):st.caption("Operador: "+str(p["observacao_operador"]))
                 if perfil in {"OPERADOR","ADMIN"}:
                     _status_eventos=[e for e in email_eventos if str(e.get("pedido_id"))==str(p["id"])]

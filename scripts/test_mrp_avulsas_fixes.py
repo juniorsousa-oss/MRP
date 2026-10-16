@@ -42,6 +42,7 @@ assert 'carregarCustos(admin)' in api
 assert 'valor_ultima_compra_atual' in api
 # Na aba principal cada MATERIAL aparece em uma linha, repetindo seu protocolo.
 tabelar=helpers["_tabela_geral_solicitacoes"]
+metadata=helpers["_dados_complementares"]
 import pandas as pd
 ids=[
     {"id":"pedido-3","numero":3,"estado":"LEGADO","solicitante":"consulta@gruposetta.com",
@@ -65,6 +66,7 @@ todos_itens=[item for rows in filhos_por_id.values() for item in rows]
 ns.update({
     "pd":pd,
     "_labels":{"GARANTIA":"GARANTIA","ACERTO_GERENCIAL":"ACERTO GERENCIAL"},
+    "_dados_complementares":None,
     "_itens_pedido":lambda pedido:filhos_por_id[pedido["id"]],
     "_situacao_pedido":status,
     "_condicao_garantia":lambda pedido,item: (
@@ -74,7 +76,7 @@ ns.update({
     "_hora":lambda dt:dt,
     "itens":todos_itens,
 })
-exec(compile(ast.fix_missing_locations(ast.Module(body=[tabelar],type_ignores=[])),
+exec(compile(ast.fix_missing_locations(ast.Module(body=[metadata,tabelar],type_ignores=[])),
              "<mrp-tabela-solicitacoes>","exec"),ns)
 tabela=ns["_tabela_geral_solicitacoes"](ids)
 assert len(tabela)==6,tabela
@@ -85,6 +87,21 @@ assert list(tabela["CÓDIGO"])==[
     "00000001","00000002","00000003","00000004","00000005","00000006"
 ],tabela
 assert list(tabela["QUANTIDADE"])==[1.,1.,2.,3.,4.,5.],tabela
+assert tabela.iloc[0]["OP(s)"]=="" # Exemplo sem dados ainda, coluna permanece no relatório.
+assert set(["OP(s)","CR","APROVADOR","FILIAL"]).issubset(tabela.columns)
+assert ns["_dados_complementares"]({
+    "finalidade":"GARANTIA","psys":"25078201001",
+})=={"OP(s)":"25078201001","CR":"","APROVADOR":"","FILIAL":""}
+assert ns["_dados_complementares"]({
+    "finalidade":"ACERTO_GERENCIAL","cr":"600307","aprovador":"Gestão",
+})=={"OP(s)":"","CR":"600307","APROVADOR":"Gestão","FILIAL":""}
+assert ns["_dados_complementares"]({
+    "finalidade":"TRANSFERENCIA","destino":"ASTEC",
+})=={"OP(s)":"","CR":"","APROVADOR":"","FILIAL":"ASTEC"}
+assert ns["_dados_complementares"]({
+    "finalidade":"TRANSFERENCIA","destino":None,
+})["FILIAL"]=="ASTEC"
+
 assert list(tabela["SITUAÇÃO"])==[
     "AGUARDANDO SEPARAÇÃO","AGUARDANDO SEPARAÇÃO",
     "AGUARDANDO SEPARAÇÃO","AGUARDANDO SEPARAÇÃO","SEPARADA","SEPARADA",
@@ -94,6 +111,7 @@ assert list(tabela["FINALIDADE"])==[
 ],tabela
 assert list(tabela.columns)==[
     "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
+    "OP(s)","CR","APROVADOR","FILIAL",
     "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","CONDIÇÃO GARANTIA",
 ]
 # Historico sem pedido_id continua aparecendo, sem desaparecer.

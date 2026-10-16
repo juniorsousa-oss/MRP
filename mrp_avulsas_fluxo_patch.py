@@ -92,6 +92,15 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         if statuses and all(i=="RECUSADA" for i in statuses):return "RECUSADA"
         if statuses:return "TRATATIVA PARCIAL"
         return "SEM STATUS"
+    def _condicao_garantia(pedido,material):
+        if pedido.get("finalidade")!="GARANTIA" or pedido.get("estado")!="ENTREGUE":
+            return ""
+        _codigo=str(material.get("destino_garantia") or "AGUARDANDO_RETORNO").upper()
+        return {
+            "AGUARDANDO_RETORNO":"AGUARDANDO RETORNO",
+            "UTILIZADO":"UTILIZADO",
+            "DEVOLVIDO":"DEVOLVIDO",
+        }.get(_codigo,"AGUARDANDO RETORNO")
     def _mostrar_pedidos(lista,vazio):
         if not lista:
             st.info(vazio)
@@ -151,7 +160,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         "QTD":float(filho.get("quantidade") or 0),
                         "UNITÁRIO R$":_preco,
                         "TOTAL R$":_subtotal,
-                        "SITUAÇÃO GARANTIA":str(filho.get("destino_garantia") or ""),
+                        "CONDIÇÃO GARANTIA":_condicao_garantia(p,filho),
                     })
                 if _linhas:
                     _planilha_pedido=pd.DataFrame(_linhas)
@@ -258,19 +267,45 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                             except Exception as exc:
                                 st.error("Não foi possível confirmar a entrega: "+str(exc))
                 if perfil=="CONSULTA" and p.get("estado")=="ENTREGUE" and p.get("finalidade")=="GARANTIA" and filhos:
-                    st.markdown("**Destinação dos materiais de garantia**")
+                    st.markdown("**CONDIÇÃO DOS MATERIAIS DE GARANTIA**")
+                    st.caption("Cada material inicia como AGUARDANDO RETORNO. "
+                               "Registre quando ele for UTILIZADO ou DEVOLVIDO; "
+                               "a solicitação permanece no histórico.")
                     _choices={str(i["codigo"])+" · "+str(i.get("descricao") or "")+
                       " (#"+str(i["id"])+")":int(i["id"]) for i in filhos}
                     _alvo=st.selectbox("MATERIAL",list(_choices),key="garantia_item_"+str(p["id"]))
-                    _resultado=st.selectbox("RESULTADO",["UTILIZADO","DEVOLVIDO"],key="garantia_status_"+str(p["id"]))
-                    if st.button("SALVAR SITUAÇÃO DO MATERIAL",key="garantia_salvar_"+str(p["id"])):
-                        try:
-                            _mrp_avulsas_call("garantia_resultado",{
-                                "id":_choices[_alvo],"resultado":_resultado})
-                            st.success("Resultado registrado sem apagar o histórico.")
-                            st.rerun()
-                        except Exception as exc:st.error(str(exc))
+                    _id_escolhido=_choices[_alvo]
+                    _item_escolhido=next(i for i in filhos if int(i["id"])==_id_escolhido)
+                    _opcoes=[
+                        ("AGUARDANDO RETORNO","AGUARDANDO_RETORNO"),
+                        ("UTILIZADO","UTILIZADO"),
+                        ("DEVOLVIDO","DEVOLVIDO"),
+                    ]
+                    _rotulos=[o[0] for o in _opcoes]
+                    _valor_atual=str(_item_escolhido.get("destino_garantia") or "AGUARDANDO_RETORNO")
+                    _indice=next((i for i,o in enumerate(_opcoes) if o[1]==_valor_atual),0)
+                    _resultado=st.selectbox(
+                        "CONDIÇÃO DA GARANTIA",_rotulos,index=_indice,
+                        key="garantia_status_"+str(p["id"])+"_"+str(_id_escolhido),
+                    )
+                    _codigo_resultado=dict(_opcoes)[_resultado]
+                    if st.button("SALVAR CONDIÇÃO DO MATERIAL",
+                                 key="garantia_salvar_"+str(p["id"])):
+                        if _codigo_resultado==_valor_atual:
+                            st.toast("A condição deste material já está atualizada.",icon="ℹ️")
+                        else:
+                            try:
+                                _mrp_avulsas_call("garantia_resultado",{
+                                    "id":_id_escolhido,"resultado":_codigo_resultado})
+                                st.session_state["_mrp_garantia_notificacao"]=(
+                                    "Condição da garantia atualizada para "+_resultado+"."
+                                )
+                                st.rerun()
+                            except Exception as exc:st.error(str(exc))
 
+    _garantia_aviso=st.session_state.pop("_mrp_garantia_notificacao",None)
+    if _garantia_aviso:
+        st.toast(_garantia_aviso,icon="✅")
     if perfil=="CONSULTA":
         _snapshot=str(dados.get("snapshot_id") or "")
         _cart=st.session_state.setdefault("_mrp_cart",{})
@@ -439,6 +474,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     "DESCRIÇÃO":str(_item.get("descricao") or ""),
                     "QUANTIDADE":float(_item.get("quantidade") or 0),
                     "SITUAÇÃO":_situacao,
+                    "CONDIÇÃO GARANTIA":_condicao_garantia(_pedido,_item),
                 })
         # Manter itens históricos não associados a um protocolo, se existirem.
         for _item in itens:
@@ -460,15 +496,18 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     "ATENDIDA":"SEPARADA",
                     "RECUSADA":"RECUSADA",
                 }.get(_estado_item,_estado_item or "SEM STATUS"),
+                "CONDIÇÃO GARANTIA":"",
             })
         return pd.DataFrame(_linhas,columns=[
             "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
-            "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO",
+            "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","CONDIÇÃO GARANTIA",
         ])
     if perfil=="OPERADOR":
         _retorno_operador=st.session_state.pop("_mrp_avulsas_operador_retorno",None)
         if _retorno_operador:
-            st.success(_retorno_operador)
+            _aviso_email=("não configurado" in _retorno_operador.lower()
+                         or "pendente" in _retorno_operador.lower())
+            st.toast(_retorno_operador,icon="⚠️" if _aviso_email else "✅")
         tab_pendentes,tab_separadas,tab_entregues,tab_recusadas=st.tabs([
             "PENDENTES ("+str(len(_pendentes)+len(_legados_pendentes))+")",
             "SEPARADAS ("+str(len(_separados)+len(_legados_separados))+")",
@@ -542,6 +581,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         "DESCRIÇÃO":st.column_config.TextColumn("DESCRIÇÃO",width="large"),
                         "QUANTIDADE":st.column_config.NumberColumn("QUANTIDADE",format="%.3f"),
                         "SITUAÇÃO":st.column_config.TextColumn("SITUAÇÃO"),
+                        "CONDIÇÃO GARANTIA":st.column_config.TextColumn("CONDIÇÃO GARANTIA"),
                     },
                 )
             else:

@@ -195,7 +195,9 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             st.session_state["_mrp_cart_id"]=str(_av_uuid.uuid4())
         _last=st.session_state.get("_mrp_last_batch")
         if _last:
-            st.success("Solicitação registrada · "+str(_last.get("numero") or str(_last.get("pedido_id") or "")[:8]))
+            _num_criado=_last.get("numero")
+            _id_criado=("SA-"+str(int(_num_criado)).zfill(6)) if _num_criado is not None else str(_last.get("pedido_id") or "")[:8]
+            st.success("Solicitação registrada · "+_id_criado)
             if _last.get("teams_status")!="ENVIADO":
                 st.warning("Solicitação registrada; confirme a notificação no Teams.")
         _etapa("01","Selecionar materiais","Escolha um material e informe quanto deseja solicitar.")

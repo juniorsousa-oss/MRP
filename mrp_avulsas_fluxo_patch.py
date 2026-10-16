@@ -83,6 +83,16 @@ _pedido_nova_view = """def _mrp_avulsas_view():
              "TRANSFERENCIA":"TRANSFERÊNCIA ENTRE FILIAL"}
     def _itens_pedido(p):
         return [i for i in itens if str(i.get("pedido_id") or "")==str(p.get("id") or "")]
+    def _dados_complementares(p):
+        # Rotulos da interface e Excel; chaves de persistencia permanecem
+        # psys/cr/aprovador/destino para preservar dados ja registrados.
+        finalidade=str(p.get("finalidade") or "")
+        return {
+            "OP(s)":str(p.get("psys") or "").strip() if finalidade=="GARANTIA" else "",
+            "CR":str(p.get("cr") or "").strip() if finalidade=="ACERTO_GERENCIAL" else "",
+            "APROVADOR":str(p.get("aprovador") or "").strip() if finalidade=="ACERTO_GERENCIAL" else "",
+            "FILIAL":str(p.get("destino") or "ASTEC").strip() if finalidade=="TRANSFERENCIA" else "",
+        }
     def _situacao_pedido(p,filhos):
         estado=str(p.get("estado") or "")
         if estado!="LEGADO":return estado or "SEM STATUS"
@@ -126,10 +136,22 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 with _situacao_col:
                     st.caption("SITUAÇÃO")
                     st.write(_estado_tela)
-                if p.get("psys"):st.write("**PSYs:** "+str(p["psys"]))
-                if p.get("cr"):st.write("**CR:** "+str(p["cr"]))
-                if p.get("aprovador"):st.write("**Aprovador:** "+str(p["aprovador"]))
-                if p.get("destino"):st.write("**Destino:** "+str(p["destino"]))
+                # Identificadores operacionais visiveis na separacao, entrega,
+                # historico e acompanhamento, mesmo quando ainda pendentes.
+                _identificacao=_dados_complementares(p)
+                _campos_da_finalidade={
+                    "GARANTIA":["OP(s)"],
+                    "ACERTO_GERENCIAL":["CR","APROVADOR"],
+                    "TRANSFERENCIA":["FILIAL"],
+                }.get(str(p.get("finalidade") or ""),[])
+                if _campos_da_finalidade:
+                    st.markdown("**DADOS DA SOLICITAÇÃO**")
+                    for _campo in _campos_da_finalidade:
+                        _valor_identificacao=_identificacao[_campo]
+                        st.write("**"+_campo+":** "+(
+                            _valor_identificacao if _valor_identificacao else
+                            "Pendente de preenchimento na entrega"
+                        ))
                 if p.get("observacao_operador"):st.caption("Operador: "+str(p["observacao_operador"]))
                 if perfil in {"OPERADOR","ADMIN"}:
                     _status_eventos=[e for e in email_eventos if str(e.get("pedido_id"))==str(p["id"])]
@@ -222,7 +244,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         _cr=str(p.get("cr") or "")
                         _aprovador=str(p.get("aprovador") or "")
                         if p.get("finalidade")=="GARANTIA":
-                            _psys=st.text_area("PSY OU PSYs DA GARANTIA",
+                            _psys=st.text_area("OP(s) DA GARANTIA",
                                 value=_psys,max_chars=1000,
                                 key="psys_entrega_"+str(p["id"]),
                                 help="Identificação obrigatória para o comunicado da entrega.")
@@ -247,7 +269,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         if not _confirmar:
                             st.error("Confirme a entrega física antes de registrar.")
                         elif p.get("finalidade")=="GARANTIA" and len(_psys.strip())<2:
-                            st.error("Informe o(s) PSY(s) desta garantia.")
+                            st.error("Informe a(s) OP(s) desta garantia.")
                         elif p.get("finalidade")=="ACERTO_GERENCIAL" and (
                             not _cr.strip() or len(_aprovador.strip())<2
                         ):
@@ -410,7 +432,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         placeholder="Selecione a finalidade")
                     psys=cr=aprovador=""
                     if finalidade=="GARANTIA":
-                        psys=st.text_area("PSY OU PSYs",placeholder="Informe os PSYs separados por vírgula",
+                        psys=st.text_area("OP(s) DA GARANTIA",placeholder="Informe as OP(s) separadas por vírgula",
                             max_chars=1000)
                     elif finalidade=="ACERTO GERENCIAL":
                         cr=st.text_input("CR",max_chars=150)
@@ -426,7 +448,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     elif not finalidade:
                         st.error("Selecione a finalidade da solicitação.")
                     elif finalidade=="GARANTIA" and len(psys.strip())<2:
-                        st.error("Informe pelo menos um PSY para garantia.")
+                        st.error("Informe pelo menos uma OP para garantia.")
                     elif finalidade=="ACERTO GERENCIAL" and (not cr.strip() or not aprovador.strip()):
                         st.error("Informe o CR e o aprovador.")
                     else:
@@ -474,6 +496,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     "SOLICITADO EM":_hora(_item.get("criado_em") or _pedido.get("criado_em")),
                     "SOLICITANTE":str(_pedido.get("solicitante") or "—"),
                     "FINALIDADE":_labels.get(str(_pedido.get("finalidade") or ""), "NÃO INFORMADA"),
+                    **_dados_complementares(_pedido),
                     "CÓDIGO":str(_item.get("codigo") or ""),
                     "DESCRIÇÃO":str(_item.get("descricao") or ""),
                     "QUANTIDADE":float(_item.get("quantidade") or 0),
@@ -492,6 +515,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 "SOLICITADO EM":_hora(_item.get("criado_em")),
                 "SOLICITANTE":str(_item.get("solicitante") or "—"),
                 "FINALIDADE":"NÃO INFORMADA",
+                "OP(s)":"","CR":"","APROVADOR":"","FILIAL":"",
                 "CÓDIGO":str(_item.get("codigo") or ""),
                 "DESCRIÇÃO":str(_item.get("descricao") or ""),
                 "QUANTIDADE":float(_item.get("quantidade") or 0),
@@ -504,6 +528,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             })
         return pd.DataFrame(_linhas,columns=[
             "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
+            "OP(s)","CR","APROVADOR","FILIAL",
             "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","CONDIÇÃO GARANTIA",
         ])
     def _agrupar_garantias_entregues(entregas):
@@ -659,6 +684,10 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         "SOLICITADO EM":st.column_config.TextColumn("SOLICITADO EM"),
                         "SOLICITANTE":st.column_config.TextColumn("SOLICITANTE"),
                         "FINALIDADE":st.column_config.TextColumn("FINALIDADE"),
+                        "OP(s)":st.column_config.TextColumn("OP(s)"),
+                        "CR":st.column_config.TextColumn("CR"),
+                        "APROVADOR":st.column_config.TextColumn("APROVADOR"),
+                        "FILIAL":st.column_config.TextColumn("FILIAL"),
                         "CÓDIGO":st.column_config.TextColumn("CÓDIGO"),
                         "DESCRIÇÃO":st.column_config.TextColumn("DESCRIÇÃO",width="large"),
                         "QUANTIDADE":st.column_config.NumberColumn("QUANTIDADE",format="%.3f"),

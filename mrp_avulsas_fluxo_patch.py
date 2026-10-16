@@ -101,12 +101,16 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             "UTILIZADO":"UTILIZADO",
             "DEVOLVIDO":"DEVOLVIDO",
         }.get(_codigo,"AGUARDANDO RETORNO")
-    def _mostrar_pedidos(lista,vazio):
+    def _mostrar_pedidos(lista,vazio,filtrar_itens=None,grupo="geral"):
         if not lista:
             st.info(vazio)
             return
         for p in lista:
             filhos=_itens_pedido(p)
+            if filtrar_itens is not None:
+                filhos=[i for i in filhos if filtrar_itens(i)]
+            if not filhos:
+                continue
             proto=_protocolo(p)
             titulo=proto+" · "+_labels.get(str(p.get("finalidade")), "SOLICITAÇÃO ANTERIOR")
             _estado_tela=_situacao_pedido(p,filhos)
@@ -135,7 +139,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         st.caption("E-mail "+_tipo.lower()+": "+_situacao)
                         if _situacao not in {"ACEITO","ENVIANDO"} and st.button(
                             "TENTAR REENVIAR E-MAIL · "+_tipo,
-                            key="email_retry_"+str(p["id"])+"_"+_tipo,
+                            key="email_retry_"+str(p["id"])+"_"+_tipo+"_"+grupo,
                         ):
                             try:
                                 _r=_mrp_avulsas_call("email_retry",{
@@ -273,7 +277,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                                "a solicitação permanece no histórico.")
                     _choices={str(i["codigo"])+" · "+str(i.get("descricao") or "")+
                       " (#"+str(i["id"])+")":int(i["id"]) for i in filhos}
-                    _alvo=st.selectbox("MATERIAL",list(_choices),key="garantia_item_"+str(p["id"]))
+                    _alvo=st.selectbox("MATERIAL",list(_choices),key="garantia_item_"+str(p["id"])+"_"+grupo)
                     _id_escolhido=_choices[_alvo]
                     _item_escolhido=next(i for i in filhos if int(i["id"])==_id_escolhido)
                     _opcoes=[
@@ -286,11 +290,11 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     _indice=next((i for i,o in enumerate(_opcoes) if o[1]==_valor_atual),0)
                     _resultado=st.selectbox(
                         "CONDIÇÃO DA GARANTIA",_rotulos,index=_indice,
-                        key="garantia_status_"+str(p["id"])+"_"+str(_id_escolhido),
+                        key="garantia_status_"+str(p["id"])+"_"+str(_id_escolhido)+"_"+grupo,
                     )
                     _codigo_resultado=dict(_opcoes)[_resultado]
                     if st.button("SALVAR CONDIÇÃO DO MATERIAL",
-                                 key="garantia_salvar_"+str(p["id"])):
+                                 key="garantia_salvar_"+str(p["id"])+"_"+grupo):
                         if _codigo_resultado==_valor_atual:
                             st.toast("A condição deste material já está atualizada.",icon="ℹ️")
                         else:
@@ -502,6 +506,84 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
             "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","CONDIÇÃO GARANTIA",
         ])
+    def _agrupar_garantias_entregues(entregas):
+        # Cada protocolo pode surgir nos dois grupos, porém apenas seus próprios
+        # materiais pertinentes aparecem em cada um. Não altera o estado da S.A.
+        _garantias=[]
+        _aguardando=[]
+        _confirmadas=[]
+        _demais=[]
+        _n_aguardando=0
+        _n_confirmadas=0
+        _n_utilizados=0
+        _n_devolvidos=0
+        for _pedido in entregas:
+            if _pedido.get("finalidade")!="GARANTIA":
+                _demais.append(_pedido)
+                continue
+            _garantias.append(_pedido)
+            _filhos=_itens_pedido(_pedido)
+            _pend=[i for i in _filhos if str(i.get("destino_garantia") or
+                    "AGUARDANDO_RETORNO").upper() not in {"UTILIZADO","DEVOLVIDO"}]
+            _con=[i for i in _filhos if str(i.get("destino_garantia") or "").upper()
+                  in {"UTILIZADO","DEVOLVIDO"}]
+            if _pend:
+                _aguardando.append(_pedido)
+                _n_aguardando+=len(_pend)
+            if _con:
+                _confirmadas.append(_pedido)
+                _n_confirmadas+=len(_con)
+                _n_utilizados+=sum(str(i.get("destino_garantia")).upper()=="UTILIZADO"
+                                   for i in _con)
+                _n_devolvidos+=sum(str(i.get("destino_garantia")).upper()=="DEVOLVIDO"
+                                   for i in _con)
+        return {
+            "garantias":_garantias,"aguardando":_aguardando,
+            "confirmadas":_confirmadas,"demais":_demais,
+            "itens_aguardando":_n_aguardando,
+            "itens_confirmados":_n_confirmadas,
+            "itens_utilizados":_n_utilizados,
+            "itens_devolvidos":_n_devolvidos,
+        }
+    def _exibir_entregas():
+        _grupos=_agrupar_garantias_entregues(_entregues)
+        _tot_garantias=(_grupos["itens_aguardando"]+_grupos["itens_confirmados"])
+        _tab_garantias,_tab_demais=st.tabs([
+            "GARANTIAS ("+str(_tot_garantias)+" materiais)",
+            "DEMAIS ENTREGAS ("+str(len(_grupos["demais"]))+" S.A.s)",
+        ])
+        with _tab_garantias:
+            _aba_aguardando,_aba_confirmadas=st.tabs([
+                "AGUARDANDO CONFIRMAÇÃO ("+str(_grupos["itens_aguardando"])+")",
+                "CONFIRMADAS ("+str(_grupos["itens_confirmados"])+")",
+            ])
+            with _aba_aguardando:
+                st.caption("Garantias entregues que ainda aguardam a confirmação "
+                           "de utilização ou devolução, por material.")
+                _mostrar_pedidos(
+                    _grupos["aguardando"],
+                    "Nenhum material de garantia aguardando confirmação.",
+                    filtrar_itens=lambda item: str(item.get("destino_garantia") or
+                        "AGUARDANDO_RETORNO").upper() not in {"UTILIZADO","DEVOLVIDO"},
+                    grupo="garantia_pendente",
+                )
+            with _aba_confirmadas:
+                st.caption("Utilizados: "+str(_grupos["itens_utilizados"])+
+                           " · Devolvidos: "+str(_grupos["itens_devolvidos"])+
+                           ". O histórico permanece disponível.")
+                _mostrar_pedidos(
+                    _grupos["confirmadas"],
+                    "Nenhum material de garantia confirmado.",
+                    filtrar_itens=lambda item: str(item.get("destino_garantia") or "").upper()
+                        in {"UTILIZADO","DEVOLVIDO"},
+                    grupo="garantia_confirmada",
+                )
+        with _tab_demais:
+            _mostrar_pedidos(
+                _grupos["demais"],
+                "Nenhuma entrega de outras finalidades registrada.",
+                grupo="outras_entregas",
+            )
     if perfil=="OPERADOR":
         _retorno_operador=st.session_state.pop("_mrp_avulsas_operador_retorno",None)
         if _retorno_operador:
@@ -551,7 +633,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         with tab_separadas:
             _mostrar_pedidos(_separados+_legados_separados,
                             "Nenhum material aguardando entrega.")
-        with tab_entregues:_mostrar_pedidos(_entregues,"Nenhum pedido entregue.")
+        with tab_entregues:_exibir_entregas()
         with tab_recusadas:_mostrar_pedidos(_recusados+_legados_recusados,"Nenhuma solicitação recusada.")
     else:
         # CONSULTA e ADMIN: aba geral somente com tabela, detalhes nas abas de status.
@@ -597,7 +679,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 "Nenhuma solicitação separada.",
             )
         with tabs[3]:
-            _mostrar_pedidos(_entregues,"Nenhuma solicitação entregue.")
+            _exibir_entregas()
         with tabs[4]:
             _mostrar_pedidos(
                 _recusados+_legados_recusados,

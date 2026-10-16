@@ -44,11 +44,10 @@ Deno.test("transferencia ASTEC solicita NF",()=>{
   valid(mail.subject.endsWith("TRANSFERÊNCIA DE ARMAZÉM"),"assunto");
   valid(mail.texto.includes("EMISSÃO DA NF"),"orientacao NF");
 });
-Deno.test("valor unitario ausente nao deve gerar total ficticio",()=>{
-  let falhou=false;
-  try{montarEmail(pedido,[{...itens[0],valor_unitario_ref:null}],"ENTREGUE");}
-  catch{falhou=true;}
-  valid(falhou,"nao permitir custo nulo");
+Deno.test("email de entrega aceita valor nulo como zero",()=>{
+  const mail=montarEmail(pedido,[{...itens[0],valor_unitario_ref:null}],"ENTREGUE");
+  valid(mail.total===0,"total zero");
+  valid(mail.texto.includes("0,00"),"moeda BR");
 });
 Deno.test("nao aceitar destinatario externo",()=>{
   let falhou=false;

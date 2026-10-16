@@ -115,6 +115,12 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             "UTILIZADO":"UTILIZADO",
             "DEVOLVIDO":"DEVOLVIDO",
         }.get(_codigo,"AGUARDANDO RETORNO")
+    def _condicao_garantia_relatorio(pedido,material):
+        # "NA" para finalidades fora da garantia. Para garantia não entregue,
+        # o retorno ainda não pode ser classificado (não é campo inaplicável).
+        if pedido.get("finalidade")!="GARANTIA":
+            return "NA"
+        return _condicao_garantia(pedido,material) or "AGUARDANDO ENTREGA"
     def _mostrar_pedidos(lista,vazio,filtrar_itens=None,grupo="geral"):
         if not lista:
             st.info(vazio)
@@ -187,7 +193,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         "QTD":float(filho.get("quantidade") or 0),
                         "UNITÁRIO R$":_preco,
                         "TOTAL R$":_subtotal,
-                        "CONDIÇÃO GARANTIA":_condicao_garantia(p,filho),
+                        "CONDIÇÃO GARANTIA":_condicao_garantia_relatorio(p,filho),
                     })
                 if _linhas:
                     _planilha_pedido=pd.DataFrame(_linhas)
@@ -502,7 +508,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     "DESCRIÇÃO":str(_item.get("descricao") or ""),
                     "QUANTIDADE":float(_item.get("quantidade") or 0),
                     "SITUAÇÃO":_situacao,
-                    "CONDIÇÃO GARANTIA":_condicao_garantia(_pedido,_item),
+                    "CONDIÇÃO GARANTIA":_condicao_garantia_relatorio(_pedido,_item),
                 })
         # Manter itens históricos não associados a um protocolo, se existirem.
         for _item in itens:
@@ -525,7 +531,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     "ATENDIDA":"SEPARADA",
                     "RECUSADA":"RECUSADA",
                 }.get(_estado_item,_estado_item or "SEM STATUS"),
-                "CONDIÇÃO GARANTIA":"",
+                "CONDIÇÃO GARANTIA":"NA",
             })
         return pd.DataFrame(_linhas,columns=[
             "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",

@@ -84,14 +84,21 @@ def identificar_bloco_calculo(source: str) -> dict[str, Any]:
         i for i, node in enumerate(tree.body)
         if "rg_semanas" in _assigned_names(node)
     ]
+    # Alguns patches inserem a fabricação dentro de blocos condicionais.
+    # Identificamos o primeiro ponto real de atribuição na AST completa.
     ends = [
         i for i, node in enumerate(tree.body)
-        if "fab_det" in _assigned_names(node)
+        if any(
+            isinstance(item, ast.Name)
+            and isinstance(item.ctx, ast.Store)
+            and item.id == "fab_det"
+            for item in ast.walk(node)
+        )
     ]
-    if len(starts) != 1 or len(ends) != 1 or ends[0] <= starts[0]:
+    if not starts or not ends or ends[0] <= starts[0]:
         raise RuntimeError(
             "O bloco de cálculo MRP mudou; revisão da montagem necessária: "
-            f"início={starts}, fim={ends}"
+            f"início={starts}, fim={ends}, texto_fab_det={source.count('fab_det')}"
         )
 
     block = tree.body[starts[0]:ends[0] + 1]
@@ -118,7 +125,11 @@ def identificar_bloco_calculo(source: str) -> dict[str, Any]:
             name for name in (
                 "macro", "proj", "demanda_projeto", "compras_mrp", "cp", "fab_det"
             )
-            if any(name in _assigned_names(stmt) for stmt in block)
+            if any(
+                isinstance(item, ast.Name) and isinstance(item.ctx, ast.Store)
+                and item.id == name
+                for stmt in block for item in ast.walk(stmt)
+            )
         ],
     }
 

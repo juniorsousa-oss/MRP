@@ -1,0 +1,35 @@
+name: SETTA MRP - Monitor de Dependencias
+
+on:
+  schedule:
+    # Verifica a Central a cada 10 minutos. Nenhum processamento/publicação.
+    - cron: "4-59/10 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "mrp_worker_estado.py"
+      - "central_mrp_data.py"
+      - ".github/workflows/mrp-monitor-dependencias.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: setta-mrp-monitor-readonly
+  cancel-in-progress: false
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+      - name: Checar o estado do MRP sem gravacoes
+        run: python mrp_worker_estado.py --check-only

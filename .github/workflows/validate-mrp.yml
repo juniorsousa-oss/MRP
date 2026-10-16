@@ -34,6 +34,8 @@ jobs:
           deno-version: v2.x
       - name: Testar regras de saldo, sobra, reservas e status
         run: deno test supabase/functions/mrp-avulsas-api/catalog_test.ts
+      - name: Testar separacao e entrega do operador por S.A.
+        run: python -m scripts.test_mrp_operador_fluxo
       - name: Testar numeracao, status e custos nas solicitacoes
         run: python -m scripts.test_mrp_avulsas_fixes
       - name: Testar referencia de custos no CADASTROS

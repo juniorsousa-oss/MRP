@@ -36,8 +36,8 @@ APP = (
     'unsafe_allow_html=True)\n'
     '    st.markdown(\'<div class="sidebar-section-label">NAVEGAÇÃO</div>\', '
     'unsafe_allow_html=True)\n'
-    '    st.button("MRP ATUAL", key="mrp_nav_btn_0", type="primary")\n'
-    '    st.button("SOLICITAÇÕES AVULSAS", key="mrp_nav_btn_1")\n'
+    '    st.button("MRP ATUAL", key="mrp_nav_btn_0", type="primary", use_container_width=True)\n'
+    '    st.button("SOLICITAÇÕES AVULSAS", key="mrp_nav_btn_1", use_container_width=True)\n'
     '    st.markdown(\'<div class="sidebar-divider"></div><div class="sidebar-status-card">'
     'RELATÓRIO MRP</div>\', unsafe_allow_html=True)\n'
     'st.markdown(\'<div class="setta-logo-card">Setta</div>\', unsafe_allow_html=True)\n'
@@ -92,6 +92,8 @@ def check(browser,width,height,name):
         page.wait_for_timeout(700)
         page.screenshot(path=str(ARTIFACTS/f"{name}-aberto.png"),full_page=True)
         assert page.get_by_role("button",name="SOLICITAÇÕES AVULSAS").is_visible()
+        nav_box=page.get_by_role("button",name="MRP ATUAL").bounding_box()
+        assert nav_box and nav_box["width"]>=190,nav_box
         # O painel de controle deve permanecer na viewport, sem cortes laterais.
         sidebar=page.locator('section[data-testid="stSidebar"]')
         bound=sidebar.bounding_box()

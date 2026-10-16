@@ -7,29 +7,34 @@ source=runpy.run_path(str(root/"scripts"/"validate_generated_mrp.py"))["final"]
 view=next(node for node in ast.parse(source).body
           if isinstance(node,ast.FunctionDef) and node.name=="_mrp_avulsas_view")
 s=ast.get_source_segment(source,view)
+# Os botoes ficam dentro do proprio expansor da SA, sem formularios ocultos ao final.
 for required in (
-    'if _pendentes:',
-    'if _separados:',
-    '"mrp_avulsa_atender"',
-    '"mrp_avulsa_entregar"',
-    '"mrp_operador_sa_entrega"',
+    'if perfil=="OPERADOR" and p.get("estado")=="PENDENTE":',
+    'if perfil=="OPERADOR" and p.get("estado")=="SEPARADA":',
+    '"mrp_avulsa_atender_"+str(p["id"])',
+    '"mrp_avulsa_entregar_"+str(p["id"])',
     '"CONFIRMAR MATERIAL SEPARADO"',
+    '"RECUSAR SOLICITAÇÃO"',
     '"CONFIRMAR ENTREGA"',
-    '"psys":_psys_entrega.strip()',
-    '"cr":_cr_entrega.strip()',
-    '"aprovador":_aprovador_entrega.strip()',
+    '"psys":_psys.strip()',
+    '"cr":_cr.strip()',
+    '"aprovador":_aprovador.strip()',
     'st.session_state["_mrp_avulsas_operador_retorno"]',
 ):
     assert required in s,required
-# O pedido é escolhido FORA do form, para atualizar CR/PSY a cada S.A. selecionada.
-start=s.index('st.selectbox("SOLICITAÇÃO PARA ENTREGA"')
-form=s.index('with st.form("mrp_avulsa_entregar"',start)
-assert start<form
-assert 'if _pedido_entrega.get("finalidade")=="GARANTIA":' in s
-assert 'elif _pedido_entrega.get("finalidade")=="ACERTO_GERENCIAL":' in s
-assert 'len(_psys_entrega.strip())<2' in s
-assert 'not _cr_entrega.strip()' in s
+assert 'if p.get("finalidade")=="GARANTIA":' in s
+assert 'elif p.get("finalidade")=="ACERTO_GERENCIAL":' in s
+assert 'len(_psys.strip())<2' in s
+assert 'not _cr.strip()' in s
 
+# Verificar que cada formulario foi colocado na funcao que renderiza os detalhes,
+# e não na barra de acompanhamento da fila.
+mostrar=next(n for n in view.body
+    if isinstance(n,ast.FunctionDef) and n.name=="_mostrar_pedidos")
+ms=ast.get_source_segment(source,mostrar)
+assert '"mrp_avulsa_atender_"+str(p["id"])' in ms
+assert '"mrp_avulsa_entregar_"+str(p["id"])' in ms
+assert 'if perfil=="OPERADOR"' in ms
 api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text("utf-8")
 assert 'if (role !== "OPERADOR") return fail("OPERADOR_REQUIRED",403)' in api
 assert '"mrp_avulsa_entregar_com_custos_seguro"' in api

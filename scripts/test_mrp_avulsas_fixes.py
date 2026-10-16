@@ -87,7 +87,7 @@ assert list(tabela["CÓDIGO"])==[
     "00000001","00000002","00000003","00000004","00000005","00000006"
 ],tabela
 assert list(tabela["QUANTIDADE"])==[1.,1.,2.,3.,4.,5.],tabela
-assert tabela.iloc[0]["OP(s)"]=="" # Exemplo sem dados ainda, coluna permanece no relatório.
+assert tabela.iloc[0]["OP(s)"]=="A PREENCHER NA ENTREGA" # Evidencia dado faltante.
 assert set(["OP(s)","CR","APROVADOR","FILIAL"]).issubset(tabela.columns)
 assert ns["_dados_complementares"]({
     "finalidade":"GARANTIA","psys":"25078201001",

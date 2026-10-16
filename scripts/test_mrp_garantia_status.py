@@ -11,6 +11,7 @@ view=next(n for n in tree.body
 src=ast.get_source_segment(source,view)
 helpers={n.name:n for n in view.body if isinstance(n,ast.FunctionDef)}
 assert "_condicao_garantia" in helpers
+assert "_condicao_garantia_relatorio" in helpers
 ns={}
 exec(compile(ast.fix_missing_locations(ast.Module(
     body=[helpers["_condicao_garantia"]],type_ignores=[]
@@ -28,8 +29,16 @@ assert status({"estado":"SEPARADA","finalidade":"GARANTIA"},
               {"destino_garantia":None})==""
 assert status({"estado":"ENTREGUE","finalidade":"ACERTO_GERENCIAL"},
               {"destino_garantia":None})==""
-assert '\"CONDIÇÃO GARANTIA\":_condicao_garantia(p,filho)' in src
-assert '"CONDIÇÃO GARANTIA":_condicao_garantia(_pedido,_item)' in src
+exec(compile(ast.fix_missing_locations(ast.Module(
+    body=[helpers["_condicao_garantia_relatorio"]],type_ignores=[]
+)),"<test-garantia-relatorio>","exec"),ns)
+report_status=ns["_condicao_garantia_relatorio"]
+assert report_status(entregue,{"destino_garantia":None})=="AGUARDANDO RETORNO"
+assert report_status({"finalidade":"GARANTIA","estado":"SEPARADA"},{} )=="AGUARDANDO ENTREGA"
+assert report_status({"finalidade":"ACERTO_GERENCIAL","estado":"ENTREGUE"},{} )=="NA"
+
+assert '\"CONDIÇÃO GARANTIA\":_condicao_garantia_relatorio(p,filho)' in src
+assert '"CONDIÇÃO GARANTIA":_condicao_garantia_relatorio(_pedido,_item)' in src
 assert '\"AGUARDANDO RETORNO\",\"AGUARDANDO_RETORNO\"' in src
 assert '\"UTILIZADO\",\"UTILIZADO\"' in src
 assert '\"DEVOLVIDO\",\"DEVOLVIDO\"' in src

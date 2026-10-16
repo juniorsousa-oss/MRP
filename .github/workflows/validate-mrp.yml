@@ -15,6 +15,8 @@ jobs:
         run: python -m compileall -q .
       - name: Montar aplicação final
         run: python scripts/validate_generated_mrp.py
+      - name: Validar responsividade mobile SETTA
+        run: python -m scripts.test_mrp_mobile_layout
       - name: Validar status ATENÇÃO e reprocessamento do Relatório MRP
         run: python -m scripts.test_mrp_status_geral
       - name: Preparar pandas para validar compras

@@ -168,9 +168,18 @@ Deno.serve(async (req) => {
         return fail("PEDIDO_INVALIDO");
       if(!["SEPARAR","RECUSAR","ENTREGAR"].includes(acao))
         return fail("ACAO_INVALIDA");
-      const {data,error}=await admin.rpc("mrp_avulsa_pedido_tratar_seguro",{
-        p_pedido_id:pedidoId,p_actor:userId,p_acao:acao,p_obs:observacao,
-      });
+      // A entrega exige os dados obrigatorios da finalidade (inclusive em S.A.s antigas).
+      // A RPC valida e registra os complementos na mesma transacao da entrega.
+      const {data,error}=acao==="ENTREGAR"
+        ? await admin.rpc("mrp_avulsa_entregar_com_dados_seguro",{
+            p_pedido_id:pedidoId,p_actor:userId,
+            p_psys:String(input.psys||"").trim(),
+            p_cr:String(input.cr||"").trim(),
+            p_aprovador:String(input.aprovador||"").trim(),
+          })
+        : await admin.rpc("mrp_avulsa_pedido_tratar_seguro",{
+            p_pedido_id:pedidoId,p_actor:userId,p_acao:acao,p_obs:observacao,
+          });
       if(error)return fail(error.message,409);
       let emailStatus:string|null=null;
       if(acao==="SEPARAR"||acao==="ENTREGAR"){

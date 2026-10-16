@@ -117,6 +117,8 @@ assert "st.dataframe" in mapa_abas["tabs[0]"]
 assert "_tabela_geral_solicitacoes" in mapa_abas["tabs[0]"]
 assert "_mostrar_pedidos" not in mapa_abas["tabs[0]"]
 for i in range(1,5): assert "_mostrar_pedidos" in mapa_abas[f"tabs[{i}]"]
+assert 'metric("SEPARADAS · NÃO ENTREGUES",len(_separados)+len(_legados_separados))' in src
+assert "Separadas: materiais com separação confirmada" in src
 assert "AGUARDANDO SEPARAÇÃO (" in src
 assert "SEPARADAS (" in src and "ENTREGUES (" in src and "RECUSADAS (" in src
 assert "with tab_pendentes:" in src and "mrp_avulsa_legado_tratar" in src

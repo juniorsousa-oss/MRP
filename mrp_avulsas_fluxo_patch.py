@@ -80,6 +80,15 @@ _pedido_nova_view = """def _mrp_avulsas_view():
              "TRANSFERENCIA":"TRANSFERÊNCIA ENTRE FILIAL"}
     def _itens_pedido(p):
         return [i for i in itens if str(i.get("pedido_id") or "")==str(p.get("id") or "")]
+    def _situacao_pedido(p,filhos):
+        estado=str(p.get("estado") or "")
+        if estado!="LEGADO":return estado or "SEM STATUS"
+        statuses=[str(i.get("status") or "") for i in filhos]
+        if "ABERTA" in statuses:return "AGUARDANDO SEPARAÇÃO"
+        if statuses and all(i=="ATENDIDA" for i in statuses):return "SEPARADA"
+        if statuses and all(i=="RECUSADA" for i in statuses):return "RECUSADA"
+        if statuses:return "TRATATIVA PARCIAL"
+        return "SEM STATUS"
     def _mostrar_pedidos(lista,vazio):
         if not lista:
             st.info(vazio)
@@ -88,17 +97,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             filhos=_itens_pedido(p)
             proto=_protocolo(p)
             titulo=proto+" · "+_labels.get(str(p.get("finalidade")), "SOLICITAÇÃO ANTERIOR")
-            _estado_tela=str(p.get("estado") or "")
-            if _estado_tela=="LEGADO" and filhos:
-                _statuses=[str(i.get("status") or "") for i in filhos]
-                if "ABERTA" in _statuses:
-                    _estado_tela="AGUARDANDO SEPARAÇÃO"
-                elif all(i=="ATENDIDA" for i in _statuses):
-                    _estado_tela="SEPARADA"
-                elif all(i=="RECUSADA" for i in _statuses):
-                    _estado_tela="RECUSADA"
-                else:
-                    _estado_tela="TRATATIVA PARCIAL"
+            _estado_tela=_situacao_pedido(p,filhos)
             titulo+=" · "+_estado_tela+" · "+str(len(filhos))+" material(is)"
             with st.expander(titulo,expanded=False):
                 _nome_col,_data_col,_situacao_col=st.columns([5,2.4,2.2],gap="medium")
@@ -394,7 +393,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
     _ids_legado={str(p["id"]) for p in pedidos if p.get("estado")=="LEGADO"}
     _antigos=[i for i in itens if not i.get("pedido_id") or str(i.get("pedido_id")) in _ids_legado]
     if _antigos:
-        with st.expander("HISTÓRICO LEGADO · REQUISIÇÕES POR ITEM",expanded=False):
+        with st.expander("REGISTROS ANTERIORES · CONFERÊNCIA POR MATERIAL",expanded=False):
             st.caption("Registros anteriores preservados. Seus números originais continuam disponíveis.")
             st.dataframe(pd.DataFrame(_antigos),use_container_width=True,hide_index=True)
             _abertos=[i for i in _antigos if i.get("status")=="ABERTA"]
@@ -423,8 +422,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         except Exception as exc:st.error(str(exc))
     if pedidos:
         _exportar=pd.DataFrame([{
-            "PROTOCOLO":_protocolo(p),"FINALIDADE":_labels.get(p.get("finalidade"),"LEGADO"),
-            "SOLICITANTE":p.get("solicitante"),"SITUAÇÃO":p.get("estado"),
+            "PROTOCOLO":_protocolo(p),"FINALIDADE":_labels.get(p.get("finalidade"),"NÃO INFORMADA (ANTERIOR)"),
+            "SOLICITANTE":p.get("solicitante"),"SITUAÇÃO":_situacao_pedido(p,_itens_pedido(p)),
             "CRIADO EM":_hora(p.get("criado_em")),
             "SEPARADO EM":_hora(p.get("separado_em")),
             "ENTREGUE EM":_hora(p.get("entregue_em")),

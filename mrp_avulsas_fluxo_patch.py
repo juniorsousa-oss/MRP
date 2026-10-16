@@ -323,21 +323,58 @@ _pedido_nova_view = """def _mrp_avulsas_view():
     if _c2.button("ATUALIZAR STATUS",key="mrp_avulsas_atualizar_status",use_container_width=True):
         st.rerun()
     def _tabela_geral_solicitacoes(_lista):
-        # Uma linha por protocolo, inclusive pedidos anteriores vinculados por UUID.
-        _resumo=[]
+        # Visao analitica: uma linha por MATERIAL, repetindo a S.A. para cada item.
+        # O detalhamento expansivel permanece exclusivamente nas abas de situacao.
+        _linhas=[]
+        _pedidos_ids={str(p.get("id") or "") for p in _lista}
         for _pedido in _lista:
             _filhos=_itens_pedido(_pedido)
-            _resumo.append({
-                "S.A.":_protocolo(_pedido),
-                "SOLICITADO EM":_hora(_pedido.get("criado_em")),
-                "SOLICITANTE":str(_pedido.get("solicitante") or "—"),
-                "FINALIDADE":_labels.get(str(_pedido.get("finalidade") or ""), "NÃO INFORMADA"),
-                "MATERIAIS":len(_filhos),
-                "SITUAÇÃO":_situacao_pedido(_pedido,_filhos),
+            for _item in _filhos:
+                _estado_item=str(_item.get("status") or "").upper()
+                if str(_pedido.get("estado") or "")=="ENTREGUE":
+                    _situacao="ENTREGUE"
+                elif _estado_item=="ABERTA":
+                    _situacao="AGUARDANDO SEPARAÇÃO"
+                elif _estado_item=="ATENDIDA":
+                    _situacao="SEPARADA"
+                elif _estado_item=="RECUSADA":
+                    _situacao="RECUSADA"
+                else:
+                    _situacao=_situacao_pedido(_pedido,_filhos)
+                _linhas.append({
+                    "S.A.":_protocolo(_pedido),
+                    "SOLICITADO EM":_hora(_item.get("criado_em") or _pedido.get("criado_em")),
+                    "SOLICITANTE":str(_pedido.get("solicitante") or "—"),
+                    "FINALIDADE":_labels.get(str(_pedido.get("finalidade") or ""), "NÃO INFORMADA"),
+                    "CÓDIGO":str(_item.get("codigo") or ""),
+                    "DESCRIÇÃO":str(_item.get("descricao") or ""),
+                    "QUANTIDADE":float(_item.get("quantidade") or 0),
+                    "SITUAÇÃO":_situacao,
+                })
+        # Manter itens históricos não associados a um protocolo, se existirem.
+        for _item in itens:
+            if _item.get("pedido_id") and str(_item.get("pedido_id")) in _pedidos_ids:
+                continue
+            if _item.get("pedido_id"):
+                continue
+            _estado_item=str(_item.get("status") or "").upper()
+            _linhas.append({
+                "S.A.":"REGISTRO #"+str(_item.get("id") or "—"),
+                "SOLICITADO EM":_hora(_item.get("criado_em")),
+                "SOLICITANTE":str(_item.get("solicitante") or "—"),
+                "FINALIDADE":"NÃO INFORMADA",
+                "CÓDIGO":str(_item.get("codigo") or ""),
+                "DESCRIÇÃO":str(_item.get("descricao") or ""),
+                "QUANTIDADE":float(_item.get("quantidade") or 0),
+                "SITUAÇÃO":{
+                    "ABERTA":"AGUARDANDO SEPARAÇÃO",
+                    "ATENDIDA":"SEPARADA",
+                    "RECUSADA":"RECUSADA",
+                }.get(_estado_item,_estado_item or "SEM STATUS"),
             })
-        return pd.DataFrame(_resumo,columns=[
+        return pd.DataFrame(_linhas,columns=[
             "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
-            "MATERIAIS","SITUAÇÃO",
+            "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO",
         ])
     if perfil=="OPERADOR":
         tab_pendentes,tab_separadas,tab_entregues,tab_recusadas=st.tabs([
@@ -433,16 +470,22 @@ _pedido_nova_view = """def _mrp_avulsas_view():
           "RECUSADAS ("+str(len(_recusados)+len(_legados_recusados))+")",
         ])
         with tabs[0]:
-            if pedidos:
+            _tabela_itens=_tabela_geral_solicitacoes(pedidos)
+            if not _tabela_itens.empty:
+                st.caption(str(len(pedidos))+" solicitação(ões) · "+
+                           str(len(_tabela_itens))+" linha(s) de materiais")
                 st.dataframe(
-                    _tabela_geral_solicitacoes(pedidos),
+                    _tabela_itens,
                     use_container_width=True,hide_index=True,
+                    height=min(640,40+len(_tabela_itens)*36),
                     column_config={
                         "S.A.":st.column_config.TextColumn("S.A."),
                         "SOLICITADO EM":st.column_config.TextColumn("SOLICITADO EM"),
                         "SOLICITANTE":st.column_config.TextColumn("SOLICITANTE"),
                         "FINALIDADE":st.column_config.TextColumn("FINALIDADE"),
-                        "MATERIAIS":st.column_config.NumberColumn("MATERIAIS",format="%d"),
+                        "CÓDIGO":st.column_config.TextColumn("CÓDIGO"),
+                        "DESCRIÇÃO":st.column_config.TextColumn("DESCRIÇÃO",width="large"),
+                        "QUANTIDADE":st.column_config.NumberColumn("QUANTIDADE",format="%.3f"),
                         "SITUAÇÃO":st.column_config.TextColumn("SITUAÇÃO"),
                     },
                 )
@@ -465,16 +508,10 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 _recusados+_legados_recusados,
                 "Nenhuma solicitação recusada.",
             )
-    if pedidos:
-        _exportar=pd.DataFrame([{
-            "PROTOCOLO":_protocolo(p),"FINALIDADE":_labels.get(p.get("finalidade"),"NÃO INFORMADA (ANTERIOR)"),
-            "SOLICITANTE":p.get("solicitante"),"SITUAÇÃO":_situacao_pedido(p,_itens_pedido(p)),
-            "CRIADO EM":_hora(p.get("criado_em")),
-            "SEPARADO EM":_hora(p.get("separado_em")),
-            "ENTREGUE EM":_hora(p.get("entregue_em")),
-        } for p in pedidos])
+    _exportar=_tabela_geral_solicitacoes(pedidos)
+    if not _exportar.empty:
         st.download_button("EXPORTAR SOLICITAÇÕES · EXCEL",
-           excel_bytes({"Solicitacoes":_exportar}),
+           excel_bytes({"Materiais_por_SA":_exportar}),
            "mrp_solicitacoes_avulsas.xlsx",
            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
            use_container_width=True)

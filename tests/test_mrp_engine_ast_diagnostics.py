@@ -39,6 +39,8 @@ class MotorASTTests(unittest.TestCase):
                 first = (src or "").splitlines()[0][:140]
                 inner.append((item.lineno, item.end_lineno, type(item).__name__, first))
         print("ESTRUTURA INTERNA DO CÁLCULO", inner[:120])
+        print("BLOCO_MRP_PART1", "\\n".join(s.splitlines()[4078:4215]))
+        print("BLOCO_MRP_PART2", "\\n".join(s.splitlines()[4440:4512]))
         self.assertTrue(any("fab_det" in x[3] for x in result))
         self.assertGreater(len(result), 4)
 

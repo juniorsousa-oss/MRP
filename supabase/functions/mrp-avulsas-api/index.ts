@@ -168,14 +168,38 @@ Deno.serve(async (req) => {
         return fail("PEDIDO_INVALIDO");
       if(!["SEPARAR","RECUSAR","ENTREGAR"].includes(acao))
         return fail("ACAO_INVALIDA");
-      // A entrega exige os dados obrigatorios da finalidade (inclusive em S.A.s antigas).
-      // A RPC valida e registra os complementos na mesma transacao da entrega.
+      // Para pedidos antigos, recuperar o preco da coluna M e gravar no item
+      // NA MESMA transacao da entrega; para novos, preservar o preco ja registrado.
+      let precosEntrega:Record<string,number>={};
+      if(acao==="ENTREGAR"){
+        const {data:preItens,error:preErro}=await admin.from("mrp_solicitacoes_avulsas")
+          .select("codigo").eq("pedido_id",pedidoId);
+        if(preErro)return fail("ITENS_DA_ENTREGA_INDISPONIVEIS",500);
+        if(!preItens?.length)return fail("PEDIDO_SEM_MATERIAIS",409);
+        try{
+          const custosEntrega=await carregarCustos(admin);
+          precosEntrega=Object.fromEntries(
+            preItens.map((item:{codigo:string})=>[
+              String(item.codigo),
+              custosEntrega.valorPorCodigo.get(String(item.codigo)) ?? 0,
+            ])
+          );
+        }catch{
+          // Regra aprovada: CADASTROS indisponivel / preco nao encontrado = zero.
+          precosEntrega=Object.fromEntries(
+            preItens.map((item:{codigo:string})=>[String(item.codigo),0])
+          );
+        }
+      }
+      // A RPC registra dados da finalidade, custos de itens legados e entrega,
+      // tudo atomicamente. Separacao/recusa continuam na RPC operacional.
       const {data,error}=acao==="ENTREGAR"
-        ? await admin.rpc("mrp_avulsa_entregar_com_dados_seguro",{
+        ? await admin.rpc("mrp_avulsa_entregar_com_custos_seguro",{
             p_pedido_id:pedidoId,p_actor:userId,
             p_psys:String(input.psys||"").trim(),
             p_cr:String(input.cr||"").trim(),
             p_aprovador:String(input.aprovador||"").trim(),
+            p_precos:precosEntrega,
           })
         : await admin.rpc("mrp_avulsa_pedido_tratar_seguro",{
             p_pedido_id:pedidoId,p_actor:userId,p_acao:acao,p_obs:observacao,

@@ -121,7 +121,7 @@ jobs:
           assert "max-width:none!important" in env["_source"]
           assert 'height:150px!important' in env["_source"]
           assert 'with st.sidebar:' in env["_source"]
-          assert 'initial_sidebar_state="auto"' in env["_source"]
+          assert 'initial_sidebar_state="collapsed"' in env["_source"]
           assert 'with st.popover("☰"' not in env["_source"]
           # Round trip do formato compactado, sem conexão nem escrita no banco.
           import ast, json, re, gzip, base64

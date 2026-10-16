@@ -12,7 +12,7 @@ for token in (
     '_etapa("01"','_etapa("02"','_etapa("03"',
     'st.form("mrp_avulsa_criar"','st.form("mrp_avulsas_enviar_lote"',
     '"GARANTIA"','"ACERTO GERENCIAL"','"TRANSFERÊNCIA ENTRE FILIAL"',
-    '"E-MAIL DO SOLICITANTE"','"CR"','"APROVADOR"','"PSY OU PSYs"',
+    '"E-MAIL DO SOLICITANTE"','"CR"','"APROVADOR"','"OP(s) DA GARANTIA"',
     "ASTEC",'"REGISTRAR SOLICITAÇÃO"',
     '"✕"','"LIMPAR LISTA"','"create_batch"',
     '"pedido_tratar"','"SEPARAR"','"RECUSAR"','"ENTREGAR"',

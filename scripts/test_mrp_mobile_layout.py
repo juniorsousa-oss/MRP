@@ -17,11 +17,9 @@ mobile=shell[shell.index("/* SETTA MRP — RESPONSIVIDADE MOBILE"):]
 
 # Nenhuma reserva horizontal permanente para o menu no celular.
 assert 'section[data-testid="stSidebar"]{' in mobile
-assert "position:fixed!important" in mobile
-assert "flex:none!important" in mobile
-assert "flex-basis:auto!important" in mobile
-assert "width:min(86vw,300px)!important" in mobile
-assert "z-index:225!important" in mobile
+assert "max-width:min(86vw,300px)!important" in mobile
+assert "z-index:1001!important" in mobile
+assert "overflow-y:auto!important" in mobile
 
 # A página e os blocos devem ocupar 100% do viewport.
 for selector in (
@@ -36,13 +34,10 @@ assert "max-width:100%!important" in mobile
 assert "min-width:0!important" in mobile
 assert "padding:76px 14px 28px!important" in mobile
 
-# O novo gatilho do popover permanece fixo, acessível e independente
-# da largura/estado do sidebar nativo do Streamlit.
-assert '[class*="st-key-setta_menu_popover_"]' in shell
-assert 'div[data-baseweb="popover"]:has(.sidebar-brand)' in shell
-assert "position:fixed!important" in shell
-assert "z-index:10010!important" in shell
-assert "width:280px!important" in shell
+# A barra nativa não flutua sobre os indicadores nem suprime o controle do header.
+assert '[data-testid="stHeader"],header[data-testid="stHeader"]{' in shell
+assert 'div[data-baseweb="popover"]:has(.sidebar-brand)' not in shell
+assert 'with st.sidebar:' in generated
 assert ".setta-logo-card,.setta-brand{" in mobile
 assert "min-height:96px!important" in mobile
 
@@ -63,6 +58,6 @@ assert "padding-bottom:calc(32px + env(safe-area-inset-bottom,0px))!important" i
 
 # A montagem global injeta este shell no runtime produzido.
 assert "SETTA_UI_V1_PATCH" in (root/"app_mrp.py").read_text("utf-8")
-assert "st-key-setta_menu_popover_" in generated
+assert "st-key-setta_menu_popover_" not in generated
 assert "/* SETTA MRP — RESPONSIVIDADE MOBILE" in generated
 print("MRP_MOBILE_SIDEBAR_VIEWPORT_CARDS_OK")

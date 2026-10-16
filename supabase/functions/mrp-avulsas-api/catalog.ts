@@ -1,5 +1,5 @@
 /** Regras puras de seleção de materiais para solicitações avulsas. */
-export type MrpMaterial = {codigo:string;descricao:string;saldo:number;div:number;limite:number;valor_unitario:number|null};
+export type MrpMaterial = {codigo:string;descricao:string;saldo:number;div:number;limite:number;valor_unitario:number};
 export function numeric(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : NaN;
   const raw = String(value ?? "").trim().replace(/\s/g,"");
@@ -20,9 +20,8 @@ export function selectMaterial(row: Record<string, unknown>): MrpMaterial | null
   if (!Number.isFinite(saldo) || !Number.isFinite(div) || saldo <= 0 || div <= 0) return null;
   const limite = round3(Math.min(saldo, div));
   if (limite <= 0) return null;
-  const preco = numeric(row["Valor Última Compra"] ?? row["Valor Ultima Compra"]);
   return {
-    valor_unitario: Number.isFinite(preco) && preco >= 0 ? Math.round(preco*10000)/10000 : null,
+    valor_unitario: 0, // a API aplica apenas o CADASTROS coluna M.
     codigo:rawCode.padStart(8,"0"),
     descricao:String(row["Descrição"] ?? "").slice(0,500),
     saldo:round3(saldo),div:round3(div),limite,

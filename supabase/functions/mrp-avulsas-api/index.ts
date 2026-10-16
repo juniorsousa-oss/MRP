@@ -2,6 +2,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { selectMaterial, availableAfterReservations, displayStatus, type MrpMaterial } from "./catalog.ts";
 import { notifyTeams, notifyTeamsTest, type TeamsItem } from "./teams.ts";
 import { notificarEmail } from "./email.ts";
+import { carregarCustos, type CustoCadastro } from "./custos.ts";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
@@ -233,6 +234,16 @@ Deno.serve(async (req) => {
     if (latestError) return fail(latestError.message, 500);
     if (!latest) return fail("MRP_AINDA_NAO_SALVO", 409);
     const available = await unpackMrp(latest);
+    // O CADASTROS e a referencia de custo; nunca substituir o saldo do MRP.
+    let custos:CustoCadastro={valorPorCodigo:new Map(),coluna:null,referencia:"",
+      status:"FONTE_INDISPONIVEL"};
+    try{custos=await carregarCustos(admin);}catch{
+      // Sem custo, preserva-se a solicitacao. O valor nulo bloqueia a entrega.
+    }
+    for(const material of available.values()){
+      const atual=custos.valorPorCodigo.get(material.codigo);
+      if(atual!==undefined)material.valor_unitario=atual;
+    }
     if (action === "create_batch") {
       const requested = input.itens;
       const solicitante = String(input.solicitante || "").trim().toLowerCase();
@@ -335,6 +346,7 @@ Deno.serve(async (req) => {
       .filter(x => x.disponivel > 0 && x.saldo > 0 && x.div > 0);
     const visibleRows = (rows || []).map((r:any) => ({
       ...r, status_exibicao: displayStatus(r.status),
+      valor_ultima_compra_atual: custos.valorPorCodigo.get(String(r.codigo)) ?? null,
     }));
     // Cabeçalho de pedidos: número único, finalidade, separação e entrega.
     let pedidosQuery=admin.from("mrp_avulsas_pedidos").select(
@@ -357,6 +369,8 @@ Deno.serve(async (req) => {
     }
     return json({ ok: true, data: {
       pedidos:pedidos||[], email_eventos:avisos,
+      custo_referencia:{status:custos.status,coluna:custos.coluna,
+        versao:custos.referencia,codigos_com_valor:custos.valorPorCodigo.size},
       snapshot_id: latest.id, materials: role === "CONSULTA" ? materials : [],
       rows: visibleRows, role, user_id:userId,
     }});

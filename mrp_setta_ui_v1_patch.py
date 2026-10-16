@@ -493,6 +493,192 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
     max-height:72px!important;
   }
 }
+
+/* SETTA MRP — RESPONSIVIDADE MOBILE (somente viewport <= 900px).
+   O menu é sobreposto, nunca reserva 260px no fluxo da página. */
+@media (max-width:900px){
+  html,body,#root{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100vw!important;
+    margin:0!important;
+    overflow-x:clip!important;
+  }
+  .stApp,[data-testid="stApp"]{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100vw!important;
+    margin:0!important;
+    overflow-x:clip!important;
+  }
+  [data-testid="stAppViewContainer"]{
+    position:relative!important;
+    display:block!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    margin:0!important;
+    overflow-x:clip!important;
+  }
+  [data-testid="stMain"],.stMain,section.main{
+    position:relative!important;
+    left:auto!important;
+    right:auto!important;
+    transform:none!important;
+    flex:1 1 auto!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    box-sizing:border-box!important;
+    overflow-x:clip!important;
+  }
+  [data-testid="stMainBlockContainer"],
+  [data-testid="stAppViewBlockContainer"],
+  .block-container:not(section[data-testid="stSidebar"] .block-container){
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:76px 14px 28px!important;
+    overflow:visible!important;
+  }
+  section[data-testid="stSidebar"]{
+    position:fixed!important;
+    inset:0 auto 0 0!important;
+    display:flex;
+    flex:none!important;
+    flex-basis:auto!important;
+    width:min(86vw,300px)!important;
+    min-width:0!important;
+    max-width:min(86vw,300px)!important;
+    height:100dvh!important;
+    max-height:100dvh!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain;
+    z-index:225!important;
+    box-shadow:7px 0 32px rgba(12,32,50,.15)!important;
+  }
+  section[data-testid="stSidebar"]>div,
+  section[data-testid="stSidebar"] .block-container{
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  section[data-testid="stSidebar"] .block-container{
+    padding:76px 14px 28px!important;
+  }
+  .st-key-setta_top_controls{
+    position:fixed!important;
+    top:calc(12px + env(safe-area-inset-top,0px))!important;
+    left:14px!important;
+    right:auto!important;
+    z-index:280!important;
+    width:58px!important;
+    max-width:58px!important;
+    margin:0!important;
+  }
+  .st-key-setta_drawer_toggle{
+    width:58px!important;
+    max-width:58px!important;
+  }
+  .st-key-setta_drawer_toggle button{
+    width:58px!important;
+    min-width:58px!important;
+    height:44px!important;
+    min-height:44px!important;
+    max-height:44px!important;
+    border-radius:12px!important;
+  }
+  .setta-logo-card,.setta-brand{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    min-height:96px!important;
+    height:auto!important;
+    margin:0 0 18px!important;
+    padding:15px 12px!important;
+    border-radius:16px!important;
+  }
+  .setta-logo-card img,.setta-brand-logo img{
+    max-width:min(65vw,175px)!important;
+    max-height:64px!important;
+    object-fit:contain!important;
+  }
+  .app-title{
+    margin:0!important;
+    font-size:clamp(1.75rem,7vw,2.1rem)!important;
+    line-height:1.12!important;
+    overflow-wrap:normal!important;
+  }
+  .app-subtitle,.app-sub{
+    font-size:.81rem!important;
+    line-height:1.55!important;
+    margin-bottom:1.15rem!important;
+    overflow-wrap:anywhere!important;
+  }
+  .section-band{
+    padding:12px 14px!important;
+    border-radius:13px!important;
+  }
+  .section-band-title{
+    font-size:1rem!important;
+    line-height:1.28!important;
+    overflow-wrap:anywhere!important;
+  }
+  div[data-testid="stHorizontalBlock"]{
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    flex-wrap:wrap!important;
+    gap:.8rem!important;
+  }
+  div[data-testid="stColumn"]{
+    box-sizing:border-box!important;
+    flex:1 1 100%!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  div[data-testid="stMetric"]{
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    padding:14px 16px!important;
+  }
+  .mrp-source-grid{
+    width:100%!important;
+    min-width:0!important;
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  .mrp-source-card,.mrp-output-card,.mrp-ped-hero,.mrp-av-hero{
+    box-sizing:border-box!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+  }
+  [data-testid="stTabs"]{
+    max-width:100%!important;
+    min-width:0!important;
+  }
+  [data-testid="stTabs"] [data-baseweb="tab-list"]{
+    overflow-x:auto!important;
+    max-width:100%!important;
+    scrollbar-width:thin;
+  }
+  [data-testid="stDataFrame"]{
+    width:100%!important;
+    min-width:0!important;
+    max-width:100%!important;
+    overflow-x:auto!important;
+  }
+}
+
 </style>"""
 
 _shell_anchor = '_mrp_role=st.session_state.get("auth_role")\n'

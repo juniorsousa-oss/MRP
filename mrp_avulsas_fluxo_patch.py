@@ -56,8 +56,11 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         _counters[3].metric("ENTREGUES",len(_entregues))
     else:
         _counters[0].metric("AGUARDANDO SEPARAÇÃO",len(_pendentes)+len(_legados_pendentes))
-        _counters[1].metric("AGUARDANDO ENTREGA",len(_separados))
+        _counters[1].metric("SEPARADAS · NÃO ENTREGUES",len(_separados)+len(_legados_separados))
         _counters[2].metric("ENTREGUES",len(_entregues))
+    if perfil in {"ADMIN","OPERADOR"}:
+        st.caption("Separadas: materiais com separação confirmada, mas sem registro de entrega. "
+                   "Entregues: solicitações cuja entrega já foi confirmada pelo operador.")
     st.markdown(
         '<div class="mrp-ped-meta"><b>MRP de referência #'
         +str(dados.get("snapshot_id") or "—")

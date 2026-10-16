@@ -134,14 +134,12 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 _linhas=[]
                 _total=0.0
                 _sem_preco=False
-                _preco_atual_utilizado=False
                 for filho in filhos:
                     _valor=filho.get("valor_unitario_ref")
                     _referencia_atual=filho.get("valor_ultima_compra_atual")
                     _preco=float(_valor) if _valor is not None else None
                     if _preco is None:
                         _preco=float(_referencia_atual) if _referencia_atual is not None else 0.0
-                        _preco_atual_utilizado=True
                     _subtotal=round(float(filho.get("quantidade") or 0)*_preco,2) if _preco is not None else None
                     if _subtotal is not None:_total+=_subtotal
                     _linhas.append({
@@ -162,9 +160,6 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     if not _sem_preco:
                         st.markdown("**Valor total de referência: R$ "+
                             f"{_total:,.2f}".replace(",","X").replace(".",",").replace("X",".")+"**")
-                    if _preco_atual_utilizado:
-                        st.info("Itens sem preço gravado utilizam a coluna M (Ult. Preco) do CADASTROS atual "
-                                "como referência; se não houver valor numérico, considera-se R$ 0,00.")
                     if _sem_preco:
                         st.caption("Alguns materiais continuam sem custo identificado no CADASTROS. "
                                    "Não será exibido um total completo até obter todos os valores.")

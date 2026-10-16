@@ -43,6 +43,7 @@ assert 'valor_ultima_compra_atual' in api
 # Na aba principal cada MATERIAL aparece em uma linha, repetindo seu protocolo.
 tabelar=helpers["_tabela_geral_solicitacoes"]
 metadata=helpers["_dados_complementares"]
+condicao_relatorio=helpers["_condicao_garantia_relatorio"]
 import pandas as pd
 ids=[
     {"id":"pedido-3","numero":3,"estado":"LEGADO","solicitante":"consulta@gruposetta.com",
@@ -76,7 +77,7 @@ ns.update({
     "_hora":lambda dt:dt,
     "itens":todos_itens,
 })
-exec(compile(ast.fix_missing_locations(ast.Module(body=[metadata,tabelar],type_ignores=[])),
+exec(compile(ast.fix_missing_locations(ast.Module(body=[metadata,condicao_relatorio,tabelar],type_ignores=[])),
              "<mrp-tabela-solicitacoes>","exec"),ns)
 tabela=ns["_tabela_geral_solicitacoes"](ids)
 assert len(tabela)==6,tabela
@@ -87,17 +88,29 @@ assert list(tabela["CÓDIGO"])==[
     "00000001","00000002","00000003","00000004","00000005","00000006"
 ],tabela
 assert list(tabela["QUANTIDADE"])==[1.,1.,2.,3.,4.,5.],tabela
-assert tabela.iloc[0]["OP(s)"]=="A PREENCHER NA ENTREGA" # Evidencia dado faltante.
+assert tabela.iloc[0]["OP(s)"]=="A PREENCHER NA ENTREGA" # Campo obrigatorio faltante.
+assert tabela.iloc[0]["CR"]=="NA"
+assert tabela.iloc[0]["APROVADOR"]=="NA"
+assert tabela.iloc[0]["FILIAL"]=="NA"
+assert tabela.iloc[0]["CONDIÇÃO GARANTIA"]=="AGUARDANDO ENTREGA"
+assert tabela.iloc[-1]["OP(s)"]=="NA"
+assert tabela.iloc[-1]["CR"]=="A PREENCHER NA ENTREGA"
+assert tabela.iloc[-1]["APROVADOR"]=="A PREENCHER NA ENTREGA"
+assert tabela.iloc[-1]["FILIAL"]=="NA"
+assert tabela.iloc[-1]["CONDIÇÃO GARANTIA"]=="NA"
+assert not tabela[["OP(s)","CR","APROVADOR","FILIAL","CONDIÇÃO GARANTIA"]].isin([""]).any().any()
+assert '_exportar=_tabela_geral_solicitacoes(pedidos)' in src
+
 assert set(["OP(s)","CR","APROVADOR","FILIAL"]).issubset(tabela.columns)
 assert ns["_dados_complementares"]({
     "finalidade":"GARANTIA","psys":"25078201001",
-})=={"OP(s)":"25078201001","CR":"","APROVADOR":"","FILIAL":""}
+})=={"OP(s)":"25078201001","CR":"NA","APROVADOR":"NA","FILIAL":"NA"}
 assert ns["_dados_complementares"]({
     "finalidade":"ACERTO_GERENCIAL","cr":"600307","aprovador":"Gestão",
-})=={"OP(s)":"","CR":"600307","APROVADOR":"Gestão","FILIAL":""}
+})=={"OP(s)":"NA","CR":"600307","APROVADOR":"Gestão","FILIAL":"NA"}
 assert ns["_dados_complementares"]({
     "finalidade":"TRANSFERENCIA","destino":"ASTEC",
-})=={"OP(s)":"","CR":"","APROVADOR":"","FILIAL":"ASTEC"}
+})=={"OP(s)":"NA","CR":"NA","APROVADOR":"NA","FILIAL":"ASTEC"}
 assert ns["_dados_complementares"]({
     "finalidade":"TRANSFERENCIA","destino":None,
 })["FILIAL"]=="ASTEC"
@@ -111,8 +124,8 @@ assert list(tabela["FINALIDADE"])==[
 ],tabela
 assert list(tabela.columns)==[
     "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
-    "OP(s)","CR","APROVADOR","FILIAL",
     "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","CONDIÇÃO GARANTIA",
+    "OP(s)","CR","APROVADOR","FILIAL",
 ]
 # Historico sem pedido_id continua aparecendo, sem desaparecer.
 ns["itens"]=todos_itens+[{
@@ -123,6 +136,11 @@ tabela_legado=ns["_tabela_geral_solicitacoes"](ids)
 assert len(tabela_legado)==7
 assert tabela_legado.iloc[-1]["S.A."]=="REGISTRO #44"
 assert tabela_legado.iloc[-1]["SITUAÇÃO"]=="RECUSADA"
+for c in ("OP(s)","CR","APROVADOR","FILIAL","CONDIÇÃO GARANTIA"):
+    assert tabela_legado.iloc[-1][c]=="NA",c
+assert ns["_dados_complementares"]({
+    "finalidade":"TRANSFERENCIA","destino":"  ",
+})["FILIAL"]=="ASTEC"
 # A aba principal nunca exibe cartões de S.A. nem comandos de tratativa.
 abas=[
     x for x in ast.walk(view)

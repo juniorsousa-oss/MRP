@@ -254,6 +254,41 @@ with st.sidebar:
         '</div>',
         unsafe_allow_html=True,
     )
+
+    # Conta do usuário autenticado: disponível para ADMIN, CONSULTA e OPERADOR.
+    from html import escape as _mrp_escape_html
+    _mrp_account_name=str(
+        st.session_state.get("auth_nome")
+        or st.session_state.get("auth_email")
+        or "Usuário"
+    ).strip()
+    _mrp_account_role=str(st.session_state.get("auth_role") or "").strip()
+    _mrp_account_email=str(st.session_state.get("auth_email") or "").strip()
+    _mrp_email_detail=(
+        '<div class="sidebar-account-email">'
+        +_mrp_escape_html(_mrp_account_email)+'</div>'
+        if _mrp_account_email and _mrp_account_email.lower()!=_mrp_account_name.lower()
+        else ""
+    )
+    st.markdown(
+        '<div class="sidebar-divider sidebar-account-divider"></div>'
+        '<div class="sidebar-section-label">MINHA CONTA</div>'
+        '<div class="sidebar-account-card">'
+        '<div class="sidebar-account-label">USUÁRIO CONECTADO</div>'
+        '<div class="sidebar-account-name">'
+        +_mrp_escape_html(_mrp_account_name)+'</div>'
+        '<div class="sidebar-account-role">'
+        +_mrp_escape_html(_mrp_account_role)+'</div>'
+        +_mrp_email_detail
+        +'</div>',
+        unsafe_allow_html=True,
+    )
+    if st.button(
+        "SAIR",
+        key="mrp_logout_sidebar",
+        use_container_width=True,
+    ):
+        _logout()
 """
 _source = _source[:_sidebar_start] + _new_sidebar + "\n" + _source[_sidebar_end:]
 

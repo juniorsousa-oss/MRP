@@ -20,7 +20,7 @@ from mrp_engine_extract import montar_fonte_atual, _assigned_names
 
 HELPERS = (
     "num", "semana_id", "_inicio_semana", "periodo_semana", "ultimo_dia_util_semana",
-    "formatar_data_br", "_texto_normalizado", "_projeto_key",
+    "formatar_data_br", "normalizar_compra_mrp", "_texto_normalizado", "_projeto_key",
     "_produto_key", "_preparar_compra_prioridades",
 )
 OUTPUTS = ("macro", "proj", "demanda_projeto", "compras_mrp", "cp", "fab_det")

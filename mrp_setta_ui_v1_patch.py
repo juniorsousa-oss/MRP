@@ -733,7 +733,36 @@ _shell_anchor = '_mrp_role=st.session_state.get("auth_role")\n'
 if _shell_anchor not in _source:
     raise RuntimeError("Ponto de montagem da sidebar não encontrado para SETTA UI.")
 
-_shell_bootstrap = 'st.markdown(' + repr(_setta_css) + ', unsafe_allow_html=True)\n'
+# O clique em botão de página executa rerun do Streamlit, mas NÃO altera
+# automaticamente o estado aberto da sidebar. Fechar pelo controle nativo no
+# navegador antes do rerun evita CSS que esconderia também o botão de reabrir.
+# Script estático, sem receber texto dos usuários ou das bases MRP.
+_setta_close_on_navigation = r"""<script>
+(() => {
+  if (window.__settaMenuCloseOnNavV1) return;
+  window.__settaMenuCloseOnNavV1 = true;
+  document.addEventListener("click", (event) => {
+    const clicked = event.target instanceof Element ? event.target : null;
+    if (!clicked || !clicked.closest('[class*="st-key-mrp_nav_btn_"] button')) return;
+    queueMicrotask(() => {
+      const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+      if (!sidebar) return;
+      const collapse = sidebar.querySelector(
+        'button[data-testid="stSidebarCollapseButton"],' +
+        '[data-testid="stSidebarCollapseButton"] button,' +
+        '[data-testid="stSidebarHeader"] button'
+      );
+      if (collapse && collapse.getClientRects().length) collapse.click();
+    });
+  }, true);
+})();
+</script>"""
+
+_shell_bootstrap = (
+    'st.markdown(' + repr(_setta_css) + ', unsafe_allow_html=True)\n'
+    + 'st.html(' + repr(_setta_close_on_navigation)
+    + ', unsafe_allow_javascript=True)\n'
+)
 _source = _source.replace(
     _shell_anchor,
     _shell_bootstrap + _shell_anchor,

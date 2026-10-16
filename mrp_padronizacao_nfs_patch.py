@@ -197,6 +197,15 @@ for _mrp_base_key in (
     if _mrp_base_meta.get("available") and _mrp_base_key not in _mrp_stale_keys:
         _mrp_base_ok+=1
 _mrp_meta_text += f"<br>QNT DE BASES: {_mrp_base_ok}/{_mrp_base_total}"
+# As 5 fontes disponíveis não significam que a publicação do MRP já foi refeita.
+if _mrp_central_error:
+    _mrp_meta_text += "<br>CENTRAL INDISPONÍVEL"
+elif _mrp_stale_inputs:
+    _mrp_meta_text += "<br>BASES EM ATUALIZAÇÃO"
+elif _mrp_output_stale and _mrp_base_ok == _mrp_base_total:
+    _mrp_meta_text += "<br>MRP DESATUALIZADO · REPROCESSAR"
+elif _mrp_output_stale:
+    _mrp_meta_text += "<br>MRP AGUARDA BASES ATUALIZADAS"
 
 _mrp_sidebar_week="—"
 try:
@@ -342,6 +351,43 @@ if st.session_state.get("auth_role")=="ADMIN" and _mrp_page=="CONFIGURAÇÕES":
             '<div class="mrp-source-grid">'+"".join(_api_cards)+'</div>',
             unsafe_allow_html=True,
         )
+
+        # Mostrar a diferença entre fontes atualizadas e relatório ainda publicado.
+        # O botão apenas leva ao processamento funcional existente; não inventa status.
+        if _mrp_output_stale and _central_bundle.get("ready") and not _mrp_stale_inputs:
+            _versoes_reais=_central_bundle.get("dependency_versions") or {}
+            _versoes_publicadas=(_initial_output_meta.get("source_versions") or {})
+            _fontes_mudadas=[
+                _key.upper().replace("_"," ")
+                for _key,_version in _versoes_reais.items()
+                if str(_versoes_publicadas.get(_key) or "")!=str(_version)
+            ]
+            _explicacao_fontes=(
+                "Fontes alteradas desde a publicação: "+", ".join(_fontes_mudadas)+"."
+                if _fontes_mudadas else
+                "Ainda não há publicação do MRP compatível com as fontes atuais."
+            )
+            st.warning(
+                "As cinco bases estão disponíveis, mas o RELATÓRIO MRP publicado "
+                "ainda não foi reprocessado com essas versões. "
+                +_explicacao_fontes
+                +" O indicador ATENÇÃO é mantido para não indicar uma atualização inexistente."
+            )
+            if st.button(
+                "REPROCESSAR RELATÓRIO MRP COM AS BASES ATUAIS",
+                key="mrp_reprocess_stale_report",
+                type="primary",
+                use_container_width=True,
+            ):
+                st.session_state["_mrp_sidebar_page"]="MRP ATUAL"
+                st.session_state["_mrp_force_central_refresh"]=True
+                st.session_state.pop("_mrp_output_meta",None)
+                st.rerun()
+        elif _mrp_stale_inputs:
+            st.warning(
+                "Existem bases tratadas aguardando atualização. "
+                "O Relatório MRP só poderá ser reprocessado quando a Central estiver pronta."
+            )
 
         st.markdown(
             '<div class="topic-divider"></div>',

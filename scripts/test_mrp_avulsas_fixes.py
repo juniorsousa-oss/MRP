@@ -67,6 +67,10 @@ ns.update({
     "_labels":{"GARANTIA":"GARANTIA","ACERTO_GERENCIAL":"ACERTO GERENCIAL"},
     "_itens_pedido":lambda pedido:filhos_por_id[pedido["id"]],
     "_situacao_pedido":status,
+    "_condicao_garantia":lambda pedido,item: (
+        "AGUARDANDO RETORNO" if pedido.get("finalidade")=="GARANTIA"
+        and pedido.get("estado")=="ENTREGUE" else ""
+    ),
     "_hora":lambda dt:dt,
     "itens":todos_itens,
 })
@@ -90,7 +94,7 @@ assert list(tabela["FINALIDADE"])==[
 ],tabela
 assert list(tabela.columns)==[
     "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
-    "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO",
+    "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","CONDIÇÃO GARANTIA",
 ]
 # Historico sem pedido_id continua aparecendo, sem desaparecer.
 ns["itens"]=todos_itens+[{

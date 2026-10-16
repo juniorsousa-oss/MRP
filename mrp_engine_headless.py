@@ -19,7 +19,7 @@ from mrp_engine_extract import montar_fonte_atual, _assigned_names
 
 
 HELPERS = (
-    "num", "semana_id", "periodo_semana", "ultimo_dia_util_semana",
+    "num", "semana_id", "_inicio_semana", "periodo_semana", "ultimo_dia_util_semana",
     "formatar_data_br", "_texto_normalizado", "_projeto_key",
     "_produto_key", "_preparar_compra_prioridades",
 )

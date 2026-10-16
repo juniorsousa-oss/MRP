@@ -38,6 +38,8 @@ jobs:
         run: deno test supabase/functions/mrp-avulsas-api/catalog_test.ts
       - name: Validar condicao de garantia e avisos temporarios
         run: python -m scripts.test_mrp_garantia_status
+      - name: Validar subtabs de garantias pendentes e confirmadas
+        run: python -m scripts.test_mrp_garantia_abas
       - name: Testar separacao e entrega do operador por S.A.
         run: python -m scripts.test_mrp_operador_fluxo
       - name: Testar numeracao, status e custos nas solicitacoes

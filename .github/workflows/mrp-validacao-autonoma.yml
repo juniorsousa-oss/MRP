@@ -5,6 +5,8 @@ on:
     paths:
       - "mrp_worker_estado.py"
       - "tests/test_mrp_worker_estado.py"
+      - "mrp_engine_extract.py"
+      - "tests/test_mrp_engine_extract.py"
       - ".github/workflows/mrp-validacao-autonoma.yml"
   workflow_dispatch:
 
@@ -20,7 +22,9 @@ jobs:
         with:
           python-version: "3.11"
       - name: Testar decisões de atualização do MRP
-        run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_worker_estado.py' -v
+        run: |
+          PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_worker_estado.py' -v
+          PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_engine_extract.py' -v
 
   consultar-central:
     if: github.event_name == 'workflow_dispatch'

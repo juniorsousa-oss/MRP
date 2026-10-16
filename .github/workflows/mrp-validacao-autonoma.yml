@@ -24,6 +24,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Instalar dependências para teste do motor
+        run: python -m pip install -r requirements.txt
       - name: Testar decisões de atualização do MRP
         run: |
           PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_worker_estado.py' -v

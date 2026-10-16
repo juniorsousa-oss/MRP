@@ -11,7 +11,7 @@ SETTA_UI_V1_PATCH = r'''
 # O tema SETTA já substitui set_page_config pela versão com favicon
 # global. Corrigir o estado diretamente nessa configuração final.
 _page_cfg_old = '    initial_sidebar_state="expanded",'
-_page_cfg_new = '    initial_sidebar_state="auto",'
+_page_cfg_new = '    initial_sidebar_state="collapsed",'
 if _source.count(_page_cfg_old) != 1:
     raise RuntimeError("Configuração de sidebar da página MRP não localizada.")
 _source = _source.replace(_page_cfg_old, _page_cfg_new, 1)
@@ -123,8 +123,8 @@ section.main{
   background:transparent!important;
   border:0!important;
   box-shadow:none!important;
-  pointer-events:none!important;
-  z-index:1000!important;
+  pointer-events:auto!important;
+  z-index:2000!important;
 }
 [data-testid="stHeader"] button,
 [data-testid="stSidebar"] button{
@@ -141,9 +141,47 @@ section.main{
   box-sizing:border-box!important;
 }
 
-/* A navegação usa a sidebar nativa e não um popover posicionado sobre os KPIs. */
-[data-testid="stHeader"] [data-testid="stExpandSidebarButton"]{
+/* Os controles nativos de expansão variam de nome entre as versões
+   do Streamlit. Não suprimir o cabeçalho nem o botão ao recolher o menu. */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"],
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapseButton"]{
+  visibility:visible!important;
+  opacity:1!important;
   pointer-events:auto!important;
+  z-index:3000!important;
+}
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"]{
+  display:flex!important;
+  position:fixed!important;
+  top:12px!important;
+  left:14px!important;
+  width:48px!important;
+  min-width:48px!important;
+  min-height:42px!important;
+}
+[data-testid="stSidebarCollapsedControl"] button,
+[data-testid="collapsedControl"] button,
+[data-testid="stExpandSidebarButton"] button,
+[data-testid="stSidebarCollapseButton"] button{
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  min-width:42px!important;
+  min-height:40px!important;
+  background:#fff!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:10px!important;
+  box-shadow:0 2px 9px rgba(15,23,42,.12)!important;
+}
+@media(max-width:900px){
+  [data-testid="stSidebarCollapsedControl"],
+  [data-testid="collapsedControl"]{
+    top:calc(12px + env(safe-area-inset-top,0px))!important;
+    left:12px!important;
+  }
 }
 
 /* SETTA UI — Sidebar no layout padrão */

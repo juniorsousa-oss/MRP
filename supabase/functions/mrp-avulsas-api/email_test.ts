@@ -22,7 +22,7 @@ Deno.test("garantia entrega para gestao, cc solicitante, tabela e total",()=>{
   valid(mail.to==="almoxarifado.energy@gruposetta.com","gestao");
   valid(mail.cc.length===1&&mail.cc[0]===pedido.solicitante,"copia");
   valid(mail.subject==="ENTREGA DE PEÇAS AVULSAS - GARANTIA","titulo");
-  valid(mail.texto.includes("OPS: 26012301001"),"OPS de origem");
+  valid(mail.texto.includes("OP(s): 26012301001"),"OP(s) de origem");
   valid(mail.total===36.25,"total (2*15,50 + 3*1,75)");
   valid(mail.html.includes("R$"),"moeda");
   valid(mail.html.includes("RELE &lt;TESTE&gt;"),"escape html");

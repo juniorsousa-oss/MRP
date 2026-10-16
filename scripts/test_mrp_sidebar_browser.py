@@ -22,6 +22,9 @@ css_node = next(
     and any(isinstance(t, ast.Name) and t.id == "_setta_css" for t in n.targets)
 )
 CSS = ast.literal_eval(css_node)
+js_node=next(n.value for n in tree.body if isinstance(n,ast.Assign)
+    and any(isinstance(t,ast.Name) and t.id=="_setta_close_on_navigation" for t in n.targets))
+NAV_JS=ast.literal_eval(js_node)
 URL = "http://127.0.0.1:8515"
 ARTIFACTS = ROOT / "artifacts" / "sidebar-browser"
 ARTIFACTS.mkdir(parents=True, exist_ok=True)
@@ -30,6 +33,7 @@ APP = (
     'import streamlit as st\n'
     'st.set_page_config(layout="wide", initial_sidebar_state="collapsed")\n'
     'st.markdown('+repr(CSS)+', unsafe_allow_html=True)\n'
+    'st.html('+repr(NAV_JS)+', unsafe_allow_javascript=True)\n'
     'with st.sidebar:\n'
     '    st.markdown(\'<div class="sidebar-brand"><div class="sidebar-brand-title">MRP</div>'
     '<div class="sidebar-brand-sub">Planejamento de Materiais SETTA</div></div>\', '
@@ -99,7 +103,22 @@ def check(browser,width,height,name):
         bound=sidebar.bounding_box()
         assert bound and bound["width"]>160 and bound["x"]>=-6,bound
         assert bound["x"]+bound["width"]<=width+12,bound
-        print(f"{name}: botão visível, clique funcional, opções e layout OK")
+        # Navegação pelo botão próprio deve fechar o menu nativo automaticamente,
+        # sem escondê-lo via CSS e sem perder o botão de reabrir.
+        page.get_by_role("button",name="SOLICITAÇÕES AVULSAS").click(timeout=8000)
+        page.wait_for_timeout(1400)
+        close_state=page.locator('section[data-testid="stSidebar"]').bounding_box()
+        collapsed_button=button(page)
+        collapsed_rect=collapsed_button.bounding_box()
+        assert collapsed_rect and collapsed_rect["width"]>=20,collapsed_rect
+        assert close_state is None or close_state["x"]+close_state["width"]<40,(
+            "Sidebar ainda aberta após selecionar aba",close_state,
+            page.locator('section[data-testid="stSidebar"] button').evaluate_all(
+                "(nodes)=>nodes.map(b=>({aria:b.ariaLabel,html:b.outerHTML.slice(0,400)}))"
+            ),
+        )
+        page.screenshot(path=str(ARTIFACTS/f"{name}-navegacao-fechou.png"),full_page=True)
+        print(f"{name}: botão, layout e fechamento após navegação OK")
     except Exception:
         page.screenshot(path=str(ARTIFACTS/f"{name}-ERRO.png"),full_page=True)
         raise

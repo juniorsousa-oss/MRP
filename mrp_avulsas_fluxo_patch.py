@@ -31,23 +31,30 @@ _pedido_nova_view = """def _mrp_avulsas_view():
     _separados=[p for p in pedidos if p.get("estado")=="SEPARADA"]
     _entregues=[p for p in pedidos if p.get("estado")=="ENTREGUE"]
     _recusados=[p for p in pedidos if p.get("estado")=="RECUSADA"]
+    _legados_pendentes=[]
     _legados_separados=[]
     _legados_recusados=[]
     for _pedido_antigo in pedidos:
         if _pedido_antigo.get("estado")!="LEGADO":continue
         _filhos=[i for i in itens if str(i.get("pedido_id") or "")==str(_pedido_antigo.get("id") or "")]
-        if _filhos and all(i.get("status")=="ATENDIDA" for i in _filhos):
+        if not _filhos:continue
+        if any(i.get("status")=="ABERTA" for i in _filhos):
+            _legados_pendentes.append(_pedido_antigo)
+        elif all(i.get("status")=="ATENDIDA" for i in _filhos):
             _legados_separados.append(_pedido_antigo)
-        elif _filhos and all(i.get("status")=="RECUSADA" for i in _filhos):
+        elif all(i.get("status")=="RECUSADA" for i in _filhos):
             _legados_recusados.append(_pedido_antigo)
+        else:
+            # Tratativas parciais anteriores continuam aparecendo no acompanhamento.
+            _legados_separados.append(_pedido_antigo)
     _counters=st.columns(4 if perfil=="CONSULTA" else 3)
     if perfil=="CONSULTA":
         _counters[0].metric("MATERIAIS DISPONÍVEIS",len(materiais))
-        _counters[1].metric("AGUARDANDO",len(_pendentes))
+        _counters[1].metric("AGUARDANDO",len(_pendentes)+len(_legados_pendentes))
         _counters[2].metric("SEPARADAS",len(_separados)+len(_legados_separados))
         _counters[3].metric("ENTREGUES",len(_entregues))
     else:
-        _counters[0].metric("AGUARDANDO SEPARAÇÃO",len(_pendentes))
+        _counters[0].metric("AGUARDANDO SEPARAÇÃO",len(_pendentes)+len(_legados_pendentes))
         _counters[1].metric("AGUARDANDO ENTREGA",len(_separados))
         _counters[2].metric("ENTREGUES",len(_entregues))
     st.markdown(
@@ -80,16 +87,29 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             filhos=_itens_pedido(p)
             proto=_protocolo(p)
             titulo=proto+" · "+_labels.get(str(p.get("finalidade")), "SOLICITAÇÃO ANTERIOR")
-            _estado_tela=str(p.get("estado") or "LEGADO")
+            _estado_tela=str(p.get("estado") or "")
             if _estado_tela=="LEGADO" and filhos:
-                if all(i.get("status")=="ATENDIDA" for i in filhos):
-                    _estado_tela="SEPARADA · HISTÓRICO"
-                elif all(i.get("status")=="RECUSADA" for i in filhos):
-                    _estado_tela="RECUSADA · HISTÓRICO"
-            titulo+=" · "+_estado_tela+" · "+str(len(filhos))+" materiais"
+                _statuses=[str(i.get("status") or "") for i in filhos]
+                if "ABERTA" in _statuses:
+                    _estado_tela="AGUARDANDO SEPARAÇÃO"
+                elif all(i=="ATENDIDA" for i in _statuses):
+                    _estado_tela="SEPARADA"
+                elif all(i=="RECUSADA" for i in _statuses):
+                    _estado_tela="RECUSADA"
+                else:
+                    _estado_tela="TRATATIVA PARCIAL"
+            titulo+=" · "+_estado_tela+" · "+str(len(filhos))+" material(is)"
             with st.expander(titulo,expanded=False):
-                st.markdown("**Solicitante:** "+str(p.get("solicitante") or "")+
-                  "  \\\\n**Criada em:** "+_hora(p.get("criado_em")))
+                _nome_col,_data_col,_situacao_col=st.columns([5,2.4,2.2],gap="medium")
+                with _nome_col:
+                    st.caption("SOLICITANTE")
+                    st.write(str(p.get("solicitante") or "—"))
+                with _data_col:
+                    st.caption("SOLICITADO EM")
+                    st.write(_hora(p.get("criado_em")) or "—")
+                with _situacao_col:
+                    st.caption("SITUAÇÃO")
+                    st.write(_estado_tela)
                 if p.get("psys"):st.write("**PSYs:** "+str(p["psys"]))
                 if p.get("cr"):st.write("**CR:** "+str(p["cr"]))
                 if p.get("aprovador"):st.write("**Aprovador:** "+str(p["aprovador"]))
@@ -129,11 +149,17 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         "SITUAÇÃO GARANTIA":str(filho.get("destino_garantia") or ""),
                     })
                 if _linhas:
-                    st.dataframe(pd.DataFrame(_linhas),use_container_width=True,hide_index=True)
+                    _planilha_pedido=pd.DataFrame(_linhas)
+                    _planilha_pedido["UNITÁRIO R$"]=_planilha_pedido["UNITÁRIO R$"].map(
+                        lambda n: "—" if pd.isna(n) else "R$ "+f"{float(n):,.2f}".replace(",","X").replace(".",",").replace("X","."))
+                    _planilha_pedido["TOTAL R$"]=_planilha_pedido["TOTAL R$"].map(
+                        lambda n: "—" if pd.isna(n) else "R$ "+f"{float(n):,.2f}".replace(",","X").replace(".",",").replace("X","."))
+                    st.dataframe(_planilha_pedido,use_container_width=True,hide_index=True)
                     if not _sem_preco:
-                        st.markdown("**Valor total de referência: R$ "+f"{_total:,.2f}"+ "**")
+                        st.markdown("**Valor total de referência: R$ "+
+                            f"{_total:,.2f}".replace(",","X").replace(".",",").replace("X",".")+"**")
                     else:
-                        st.caption("Há materiais sem valor da última compra no CADASTROS.")
+                        st.caption("Valor unitário não registrado neste pedido. Solicitações anteriores à implantação do custo não possuem preço histórico.")
                 if perfil=="CONSULTA" and p.get("estado")=="ENTREGUE" and p.get("finalidade")=="GARANTIA" and filhos:
                     st.markdown("**Destinação dos materiais de garantia**")
                     _choices={str(i["codigo"])+" · "+str(i.get("descricao") or "")+
@@ -287,13 +313,13 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         st.rerun()
     if perfil=="OPERADOR":
         tab_pendentes,tab_separadas,tab_entregues,tab_recusadas=st.tabs([
-            "PENDENTES ("+str(len(_pendentes))+")",
-            "SEPARADAS ("+str(len(_separados))+")",
+            "PENDENTES ("+str(len(_pendentes)+len(_legados_pendentes))+")",
+            "SEPARADAS ("+str(len(_separados)+len(_legados_separados))+")",
             "ENTREGUES ("+str(len(_entregues))+")",
-            "RECUSADAS ("+str(len(_recusados))+")",
+            "RECUSADAS ("+str(len(_recusados)+len(_legados_recusados))+")",
         ])
         with tab_pendentes:
-            _mostrar_pedidos(_pendentes,"Nenhuma solicitação aguardando separação.")
+            _mostrar_pedidos(_pendentes+_legados_pendentes,"Nenhuma solicitação aguardando separação.")
             if _pendentes:
                 with st.form("mrp_avulsa_atender",enter_to_submit=False):
                     _choices={_protocolo(p)+" · "+str(p.get("solicitante")):p["id"] for p in _pendentes}
@@ -317,7 +343,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                             st.rerun()
                         except Exception as exc:st.error(str(exc))
         with tab_separadas:
-            _mostrar_pedidos(_separados,"Nenhum material aguardando entrega.")
+            _mostrar_pedidos(_separados+_legados_separados,"Nenhum material aguardando entrega.")
             if _separados:
                 with st.form("mrp_avulsa_entregar",enter_to_submit=False):
                     _choices={_protocolo(p)+" · "+str(p.get("solicitante")):p["id"] for p in _separados}
@@ -336,7 +362,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                             st.rerun()
                         except Exception as exc:st.error(str(exc))
         with tab_entregues:_mostrar_pedidos(_entregues,"Nenhum pedido entregue.")
-        with tab_recusadas:_mostrar_pedidos(_recusados,"Nenhuma solicitação recusada.")
+        with tab_recusadas:_mostrar_pedidos(_recusados+_legados_recusados,"Nenhuma solicitação recusada.")
     else:
         tabs=st.tabs([
           "MINHAS SOLICITAÇÕES ("+str(len(pedidos))+")" if perfil=="CONSULTA" else "TODAS ("+str(len(pedidos))+")",

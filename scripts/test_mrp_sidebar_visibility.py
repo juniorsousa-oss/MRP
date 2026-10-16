@@ -12,7 +12,7 @@ assert "_mrp_set_sidebar_page" in functions
 assert 'with st.sidebar:' in generated
 assert 'with st.popover("☰"' not in generated
 assert 'st.container(key="setta_custom_navigation")' not in generated
-assert 'initial_sidebar_state="auto"' in generated
+assert 'initial_sidebar_state="collapsed"' in generated
 assert 'key=f"mrp_nav_btn_{_nav_index}"' in generated
 assert "RELATÓRIO MRP" in generated
 assert "SEMANA ATUAL" in generated
@@ -22,6 +22,9 @@ assert 'st.session_state["_mrp_sidebar_page"]=page' in ast.get_source_segment(
 
 from mrp_setta_ui_v1_patch import SETTA_UI_V1_PATCH
 assert '[data-testid="stHeader"],header[data-testid="stHeader"]{' in SETTA_UI_V1_PATCH
+assert "pointer-events:auto!important" in SETTA_UI_V1_PATCH
+assert '[data-testid="stSidebarCollapsedControl"]' in SETTA_UI_V1_PATCH
+assert '[data-testid="collapsedControl"]' in SETTA_UI_V1_PATCH
 assert 'display:flex!important' in SETTA_UI_V1_PATCH
 assert '[data-testid="stSidebar"]{' in SETTA_UI_V1_PATCH
 assert 'div[data-baseweb="popover"]:has(.sidebar-brand)' not in SETTA_UI_V1_PATCH

@@ -14,6 +14,12 @@ assert 'with st.popover("☰"' not in generated
 assert 'st.container(key="setta_custom_navigation")' not in generated
 assert 'initial_sidebar_state="collapsed"' in generated
 assert 'key=f"mrp_nav_btn_{_nav_index}"' in generated
+assert 'unsafe_allow_javascript=True' in generated
+assert 'window.__settaMenuCloseOnNavV1' in generated
+assert '[class*="st-key-mrp_nav_btn_"] button' in generated
+assert 'stSidebarCollapseButton' in generated
+assert 'queueMicrotask' in generated
+
 assert "RELATÓRIO MRP" in generated
 assert "SEMANA ATUAL" in generated
 assert 'st.session_state["_mrp_sidebar_page"]=page' in ast.get_source_segment(

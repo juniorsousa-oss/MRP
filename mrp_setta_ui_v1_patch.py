@@ -405,6 +405,67 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   font-weight:900!important;
   text-transform:uppercase!important;
 }
+/* Conta ativa: conteúdo fluido dentro da sidebar, nunca flutuante. */
+.sidebar-account-divider{
+  margin:16px 0!important;
+}
+.sidebar-account-card{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  background:#f8fafc!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:10px!important;
+  padding:12px 14px!important;
+  margin:0 0 9px 0!important;
+}
+.sidebar-account-label{
+  color:#64748b!important;
+  font-size:10px!important;
+  font-weight:800!important;
+  line-height:14px!important;
+  letter-spacing:.035em!important;
+}
+.sidebar-account-name{
+  color:#111827!important;
+  font-size:13px!important;
+  font-weight:800!important;
+  line-height:18px!important;
+  margin:5px 0 3px!important;
+  overflow-wrap:anywhere!important;
+}
+.sidebar-account-role{
+  display:inline-block!important;
+  padding:3px 7px!important;
+  color:#334155!important;
+  background:#e9eef5!important;
+  border-radius:6px!important;
+  font-weight:800!important;
+  font-size:10px!important;
+  line-height:14px!important;
+}
+.sidebar-account-email{
+  margin:8px 0 0!important;
+  color:#64748b!important;
+  font-size:11px!important;
+  line-height:15px!important;
+  overflow-wrap:anywhere!important;
+}
+section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button{
+  width:100%!important;
+  min-height:39px!important;
+  background:#fff!important;
+  border:1px solid #e5e8ee!important;
+  border-radius:9px!important;
+  color:#991b1b!important;
+  font-size:12px!important;
+  font-weight:800!important;
+}
+section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button:hover{
+  background:#fff5f5!important;
+  border-color:#fecaca!important;
+  color:#7f1d1d!important;
+}
 /* SETTA UI — Sidebar Operacional V1 */
 
 /* SETTA UI — Header Superior V1: medidas exatas do Conversor MRP */

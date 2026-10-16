@@ -15,11 +15,12 @@ for name in (
     "_mrp_set_sidebar_page",
 ):
     assert name in functions,name
-assert '_setta_sidebar_mode_current=="closed"' in codigo
-assert 'section[data-testid="stSidebar"]{display:none!important;}' in codigo
-assert '.st-key-setta_top_controls{left:14px!important;}' in codigo
-assert '_setta_sidebar_mode_current=="auto"' not in codigo
-assert 'section[data-testid="stSidebar"]{display:flex!important;}' in codigo
+# Navegação não deve depender de st.sidebar nem da detecção do navegador.
+assert 'if _setta_sidebar_mode_current=="open":' in codigo
+assert 'with st.container(key="setta_custom_navigation"):' in codigo
+assert 'section[data-testid="stSidebar"]{' in codigo
+assert 'display:none!important' in codigo
+assert 'section[data-testid="stSidebar"]{display:flex!important;}' not in codigo
 assert 'key="setta_drawer_toggle"' in codigo
 assert 'key="setta_drawer_toggle_mobile"' in codigo
 assert 'on_click=_setta_toggle_sidebar_desktop' in codigo
@@ -28,6 +29,14 @@ assert 'st.session_state["_setta_sidebar_mode"]="closed"' in codigo
 assert '_setta_close_sidebar()' in ast.get_source_segment(
     codigo,functions["_mrp_set_sidebar_page"]
 )
+# A sidebar interna foi substituída, com os controles/status preservados.
+assert 'with st.container(key="setta_custom_navigation"):' in codigo
+assert 'key=f"mrp_nav_btn_{_nav_index}"' in codigo
+assert 'RELATÓRIO MRP' in codigo
+assert 'SEMANA ATUAL' in codigo
+assert "position:fixed!important" in codigo
+assert "z-index:500!important" in codigo
+assert "z-index:10010!important" in codigo
 
 class St:
     session_state={}

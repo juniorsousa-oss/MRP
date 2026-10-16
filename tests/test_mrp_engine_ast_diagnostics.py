@@ -23,7 +23,7 @@ class MotorASTTests(unittest.TestCase):
                     if isinstance(n, ast.Name)
                     and isinstance(n.ctx, ast.Store)
                 })
-                result.append((node.lineno, node.end_lineno, type(node).__name__, assigned[:17]))
+                result.append((node.lineno, node.end_lineno, type(node).__name__, assigned))
             if started and any(
                 isinstance(n, ast.Name) and n.id == "fab_det"
                 and isinstance(n.ctx, ast.Store)

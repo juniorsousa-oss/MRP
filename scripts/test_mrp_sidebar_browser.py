@@ -87,6 +87,9 @@ def check(browser,width,height,name):
         assert rect and rect["x"]>=-4 and rect["width"]>=20, rect
         toggle.click(timeout=8000)
         page.get_by_role("button",name="MRP ATUAL").wait_for(state="visible",timeout=10000)
+        # O Streamlit anima a sidebar com translateX: aguardar o fim
+        # da transição, e não registrar o frame intermediário como defeito.
+        page.wait_for_timeout(700)
         page.screenshot(path=str(ARTIFACTS/f"{name}-aberto.png"),full_page=True)
         assert page.get_by_role("button",name="SOLICITAÇÕES AVULSAS").is_visible()
         # O painel de controle deve permanecer na viewport, sem cortes laterais.

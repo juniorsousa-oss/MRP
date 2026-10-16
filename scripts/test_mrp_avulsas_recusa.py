@@ -8,11 +8,11 @@ view=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=="_mr
 form_names={}
 for n in ast.walk(view):
     if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=="form":
-        label=ast.unparse(n.args[0]) if n.args else ""
-        form_names[label]={kw.arg:kw.value for kw in n.keywords}
-assert '"mrp_avulsa_criar"' in form_names
-for form in ('"mrp_avulsa_criar"','"mrp_avulsa_atender_" + str(p["id"])',
-             '"mrp_avulsa_entregar_" + str(p["id"])'):
+        tokens=[x.value for x in ast.walk(n.args[0])
+                if isinstance(x,ast.Constant) and isinstance(x.value,str)]
+        if tokens:
+            form_names[tokens[0]]={kw.arg:kw.value for kw in n.keywords}
+for form in ("mrp_avulsa_criar","mrp_avulsa_atender_","mrp_avulsa_entregar_"):
     assert form in form_names,(form,list(form_names))
     assert form_names[form]["enter_to_submit"].value is False
 v=ast.get_source_segment(source,view)

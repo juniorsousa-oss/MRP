@@ -40,36 +40,67 @@ assert "mrp_avulsas_protocolo_migracoes" in sql
 api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text("utf-8")
 assert 'carregarCustos(admin)' in api
 assert 'valor_ultima_compra_atual' in api
-# Na aba principal existe somente a tabela geral; um unico registro por protocolo.
+# Na aba principal cada MATERIAL aparece em uma linha, repetindo seu protocolo.
 tabelar=helpers["_tabela_geral_solicitacoes"]
 import pandas as pd
 ids=[
     {"id":"pedido-3","numero":3,"estado":"LEGADO","solicitante":"consulta@gruposetta.com",
-     "criado_em":"2026-10-15T14:00:00+00:00","finalidade":None},
+     "criado_em":"2026-10-15T14:00:00+00:00","finalidade":"GARANTIA"},
     {"id":"pedido-2","numero":2,"estado":"PENDENTE","solicitante":"consulta@gruposetta.com",
      "criado_em":"2026-10-15T12:00:00+00:00","finalidade":"GARANTIA"},
     {"id":"pedido-1","numero":1,"estado":"SEPARADA","solicitante":"consulta@gruposetta.com",
-     "criado_em":"2026-10-15T11:00:00+00:00","finalidade":"TRANSFERENCIA"},
+     "criado_em":"2026-10-15T11:00:00+00:00","finalidade":"ACERTO_GERENCIAL"},
 ]
 filhos_por_id={
-    "pedido-3":[{"status":"ABERTA"}],
-    "pedido-2":[{"status":"ABERTA"} for _ in range(3)],
-    "pedido-1":[{"status":"ATENDIDA"} for _ in range(2)],
+    "pedido-3":[{"id":10,"pedido_id":"pedido-3","codigo":"00000001","descricao":"ITEM A",
+                  "quantidade":1,"status":"ABERTA"}],
+    "pedido-2":[{"id":11+i,"pedido_id":"pedido-2","codigo":str(i+2).zfill(8),
+                  "descricao":"ITEM "+str(i+2),"quantidade":i+1,"status":"ABERTA"}
+                  for i in range(3)],
+    "pedido-1":[{"id":20+i,"pedido_id":"pedido-1","codigo":str(i+5).zfill(8),
+                  "descricao":"ITEM "+str(i+5),"quantidade":i+4,"status":"ATENDIDA"}
+                  for i in range(2)],
 }
+todos_itens=[item for rows in filhos_por_id.values() for item in rows]
 ns.update({
     "pd":pd,
-    "_labels":{"GARANTIA":"GARANTIA","TRANSFERENCIA":"TRANSFERÊNCIA ENTRE FILIAL"},
+    "_labels":{"GARANTIA":"GARANTIA","ACERTO_GERENCIAL":"ACERTO GERENCIAL"},
     "_itens_pedido":lambda pedido:filhos_por_id[pedido["id"]],
     "_situacao_pedido":status,
     "_hora":lambda dt:dt,
+    "itens":todos_itens,
 })
 exec(compile(ast.fix_missing_locations(ast.Module(body=[tabelar],type_ignores=[])),
              "<mrp-tabela-solicitacoes>","exec"),ns)
 tabela=ns["_tabela_geral_solicitacoes"](ids)
-assert len(tabela)==len(ids) and list(tabela["S.A."])==["SA-000003","SA-000002","SA-000001"]
-assert list(tabela["MATERIAIS"])==[1,3,2],tabela
-assert list(tabela["SITUAÇÃO"])==["AGUARDANDO SEPARAÇÃO","PENDENTE","SEPARADA"]
-assert list(tabela.columns)==["S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE","MATERIAIS","SITUAÇÃO"]
+assert len(tabela)==6,tabela
+assert list(tabela["S.A."])==[
+    "SA-000003","SA-000002","SA-000002","SA-000002","SA-000001","SA-000001"
+],tabela
+assert list(tabela["CÓDIGO"])==[
+    "00000001","00000002","00000003","00000004","00000005","00000006"
+],tabela
+assert list(tabela["QUANTIDADE"])==[1.,1.,2.,3.,4.,5.],tabela
+assert list(tabela["SITUAÇÃO"])==[
+    "AGUARDANDO SEPARAÇÃO","AGUARDANDO SEPARAÇÃO",
+    "AGUARDANDO SEPARAÇÃO","AGUARDANDO SEPARAÇÃO","SEPARADA","SEPARADA",
+],tabela
+assert list(tabela["FINALIDADE"])==[
+    "GARANTIA","GARANTIA","GARANTIA","GARANTIA","ACERTO GERENCIAL","ACERTO GERENCIAL"
+],tabela
+assert list(tabela.columns)==[
+    "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
+    "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO",
+]
+# Historico sem pedido_id continua aparecendo, sem desaparecer.
+ns["itens"]=todos_itens+[{
+    "id":44,"pedido_id":None,"codigo":"00000044","descricao":"ITEM ANTIGO",
+    "quantidade":2,"status":"RECUSADA","solicitante":"consulta@gruposetta.com",
+}]
+tabela_legado=ns["_tabela_geral_solicitacoes"](ids)
+assert len(tabela_legado)==7
+assert tabela_legado.iloc[-1]["S.A."]=="REGISTRO #44"
+assert tabela_legado.iloc[-1]["SITUAÇÃO"]=="RECUSADA"
 # A aba principal nunca exibe cartões de S.A. nem comandos de tratativa.
 abas=[
     x for x in ast.walk(view)

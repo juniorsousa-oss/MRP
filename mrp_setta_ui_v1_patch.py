@@ -8,10 +8,13 @@ SETTA_UI_V1_PATCH = r'''
 # filtros, persistência, banco, integrações ou regras de negócio.
 
 # 1) Sidebar nativa: desktop integrado à largura da página; mobile recolhível.
-_page_cfg_old = 'st.set_page_config(page_title="MRP | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide")'
-_page_cfg_new = 'st.set_page_config(page_title="MRP | SETTA", page_icon="assets/mrp_setta_icon.png", layout="wide", initial_sidebar_state="auto")'
-if _page_cfg_old in _source:
-    _source = _source.replace(_page_cfg_old, _page_cfg_new, 1)
+# O tema SETTA já substitui set_page_config pela versão com favicon
+# global. Corrigir o estado diretamente nessa configuração final.
+_page_cfg_old = '    initial_sidebar_state="expanded",'
+_page_cfg_new = '    initial_sidebar_state="auto",'
+if _source.count(_page_cfg_old) != 1:
+    raise RuntimeError("Configuração de sidebar da página MRP não localizada.")
+_source = _source.replace(_page_cfg_old, _page_cfg_new, 1)
 
 # 2) O menu permanece no próprio st.sidebar. O Streamlit cuida do
 # recolhimento no desktop e da abertura responsiva no celular.

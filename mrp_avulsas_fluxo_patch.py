@@ -322,6 +322,23 @@ _pedido_nova_view = """def _mrp_avulsas_view():
     _c1.markdown("### "+titulo)
     if _c2.button("ATUALIZAR STATUS",key="mrp_avulsas_atualizar_status",use_container_width=True):
         st.rerun()
+    def _tabela_geral_solicitacoes(_lista):
+        # Uma linha por protocolo, inclusive pedidos anteriores vinculados por UUID.
+        _resumo=[]
+        for _pedido in _lista:
+            _filhos=_itens_pedido(_pedido)
+            _resumo.append({
+                "S.A.":_protocolo(_pedido),
+                "SOLICITADO EM":_hora(_pedido.get("criado_em")),
+                "SOLICITANTE":str(_pedido.get("solicitante") or "—"),
+                "FINALIDADE":_labels.get(str(_pedido.get("finalidade") or ""), "NÃO INFORMADA"),
+                "MATERIAIS":len(_filhos),
+                "SITUAÇÃO":_situacao_pedido(_pedido,_filhos),
+            })
+        return pd.DataFrame(_resumo,columns=[
+            "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
+            "MATERIAIS","SITUAÇÃO",
+        ])
     if perfil=="OPERADOR":
         tab_pendentes,tab_separadas,tab_entregues,tab_recusadas=st.tabs([
             "PENDENTES ("+str(len(_pendentes)+len(_legados_pendentes))+")",
@@ -353,6 +370,37 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                                 st.warning("Separação salva; e-mail aguardando configuração ou reenvio.")
                             st.rerun()
                         except Exception as exc:st.error(str(exc))
+        with tab_pendentes:
+        _ids_legado={str(p["id"]) for p in pedidos if p.get("estado")=="LEGADO"}
+        _antigos=[i for i in itens if not i.get("pedido_id") or str(i.get("pedido_id")) in _ids_legado]
+        if _antigos:
+            with st.expander("REGISTROS ANTERIORES · CONFERÊNCIA POR MATERIAL",expanded=False):
+                st.caption("Registros anteriores preservados. Seus números originais continuam disponíveis.")
+                st.dataframe(pd.DataFrame(_antigos),use_container_width=True,hide_index=True)
+                _abertos=[i for i in _antigos if i.get("status")=="ABERTA"]
+                if perfil=="OPERADOR" and _abertos:
+                    st.markdown("**Tratativa de pendências anteriores**")
+                    with st.form("mrp_avulsa_legado_tratar",enter_to_submit=False):
+                        chaves={
+                           "#"+str(i["id"])+" · "+str(i.get("codigo"))+" · "+str(i.get("solicitante")):i["id"]
+                           for i in _abertos
+                        }
+                        alvo=st.selectbox("SOLICITAÇÃO LEGADA",list(chaves))
+                        obs=st.text_input("OBSERVAÇÃO / MOTIVO DA RECUSA",key="mrp_obs_legado")
+                        sep,rec=st.columns(2)
+                        separar=sep.form_submit_button("CONFIRMAR SEPARAÇÃO",type="primary")
+                        recusar=rec.form_submit_button("RECUSAR ITEM")
+                    if separar or recusar:
+                        if recusar and len(obs.strip())<5:
+                            st.error("Informe o motivo da recusa.")
+                        else:
+                            try:
+                                if recusar:
+                                    _mrp_avulsas_call("reject",{"id":chaves[alvo],"motivo":obs.strip()})
+                                else:
+                                    _mrp_avulsas_call("attend",{"id":chaves[alvo],"observacao":obs.strip()})
+                                st.rerun()
+                            except Exception as exc:st.error(str(exc))
         with tab_separadas:
             _mostrar_pedidos(_separados+_legados_separados,"Nenhum material aguardando entrega.")
             if _separados:
@@ -375,46 +423,48 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         with tab_entregues:_mostrar_pedidos(_entregues,"Nenhum pedido entregue.")
         with tab_recusadas:_mostrar_pedidos(_recusados+_legados_recusados,"Nenhuma solicitação recusada.")
     else:
+        # CONSULTA e ADMIN: aba geral somente com tabela, detalhes nas abas de status.
         tabs=st.tabs([
-          "MINHAS SOLICITAÇÕES ("+str(len(pedidos))+")" if perfil=="CONSULTA" else "TODAS ("+str(len(pedidos))+")",
+          "MINHAS SOLICITAÇÕES ("+str(len(pedidos)) +")" if perfil=="CONSULTA"
+              else "TODAS AS SOLICITAÇÕES ("+str(len(pedidos))+")",
+          "AGUARDANDO SEPARAÇÃO ("+str(len(_pendentes)+len(_legados_pendentes))+")",
           "SEPARADAS ("+str(len(_separados)+len(_legados_separados))+")",
           "ENTREGUES ("+str(len(_entregues))+")",
           "RECUSADAS ("+str(len(_recusados)+len(_legados_recusados))+")",
         ])
-        with tabs[0]:_mostrar_pedidos(pedidos,"Nenhuma solicitação registrada.")
-        with tabs[1]:_mostrar_pedidos(_separados+_legados_separados,"Nenhuma solicitação separada.")
-        with tabs[2]:_mostrar_pedidos(_entregues,"Nenhuma solicitação entregue.")
-        with tabs[3]:_mostrar_pedidos(_recusados+_legados_recusados,"Nenhuma solicitação recusada.")
-    _ids_legado={str(p["id"]) for p in pedidos if p.get("estado")=="LEGADO"}
-    _antigos=[i for i in itens if not i.get("pedido_id") or str(i.get("pedido_id")) in _ids_legado]
-    if _antigos:
-        with st.expander("REGISTROS ANTERIORES · CONFERÊNCIA POR MATERIAL",expanded=False):
-            st.caption("Registros anteriores preservados. Seus números originais continuam disponíveis.")
-            st.dataframe(pd.DataFrame(_antigos),use_container_width=True,hide_index=True)
-            _abertos=[i for i in _antigos if i.get("status")=="ABERTA"]
-            if perfil=="OPERADOR" and _abertos:
-                st.markdown("**Tratativa de pendências anteriores**")
-                with st.form("mrp_avulsa_legado_tratar",enter_to_submit=False):
-                    chaves={
-                       "#"+str(i["id"])+" · "+str(i.get("codigo"))+" · "+str(i.get("solicitante")):i["id"]
-                       for i in _abertos
-                    }
-                    alvo=st.selectbox("SOLICITAÇÃO LEGADA",list(chaves))
-                    obs=st.text_input("OBSERVAÇÃO / MOTIVO DA RECUSA",key="mrp_obs_legado")
-                    sep,rec=st.columns(2)
-                    separar=sep.form_submit_button("CONFIRMAR SEPARAÇÃO",type="primary")
-                    recusar=rec.form_submit_button("RECUSAR ITEM")
-                if separar or recusar:
-                    if recusar and len(obs.strip())<5:
-                        st.error("Informe o motivo da recusa.")
-                    else:
-                        try:
-                            if recusar:
-                                _mrp_avulsas_call("reject",{"id":chaves[alvo],"motivo":obs.strip()})
-                            else:
-                                _mrp_avulsas_call("attend",{"id":chaves[alvo],"observacao":obs.strip()})
-                            st.rerun()
-                        except Exception as exc:st.error(str(exc))
+        with tabs[0]:
+            if pedidos:
+                st.dataframe(
+                    _tabela_geral_solicitacoes(pedidos),
+                    use_container_width=True,hide_index=True,
+                    column_config={
+                        "S.A.":st.column_config.TextColumn("S.A."),
+                        "SOLICITADO EM":st.column_config.TextColumn("SOLICITADO EM"),
+                        "SOLICITANTE":st.column_config.TextColumn("SOLICITANTE"),
+                        "FINALIDADE":st.column_config.TextColumn("FINALIDADE"),
+                        "MATERIAIS":st.column_config.NumberColumn("MATERIAIS",format="%d"),
+                        "SITUAÇÃO":st.column_config.TextColumn("SITUAÇÃO"),
+                    },
+                )
+            else:
+                st.info("Nenhuma solicitação registrada.")
+        with tabs[1]:
+            _mostrar_pedidos(
+                _pendentes+_legados_pendentes,
+                "Nenhuma solicitação aguardando separação.",
+            )
+        with tabs[2]:
+            _mostrar_pedidos(
+                _separados+_legados_separados,
+                "Nenhuma solicitação separada.",
+            )
+        with tabs[3]:
+            _mostrar_pedidos(_entregues,"Nenhuma solicitação entregue.")
+        with tabs[4]:
+            _mostrar_pedidos(
+                _recusados+_legados_recusados,
+                "Nenhuma solicitação recusada.",
+            )
     if pedidos:
         _exportar=pd.DataFrame([{
             "PROTOCOLO":_protocolo(p),"FINALIDADE":_labels.get(p.get("finalidade"),"NÃO INFORMADA (ANTERIOR)"),

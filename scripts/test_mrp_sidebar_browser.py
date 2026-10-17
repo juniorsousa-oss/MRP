@@ -104,12 +104,32 @@ def check(browser,width,height,name):
               text:(el.innerText||"").slice(0,45),
               html:el.outerHTML.slice(0,140)
             }));
-          return {logoY:Math.round(rect?.y||0),frames,block,innerWidth:window.innerWidth};
+          const main=document.querySelector('[data-testid="stMain"]');
+          const mr=main?.getBoundingClientRect();
+          return {
+            logoY:Math.round(rect?.y||0),
+            logoX:Math.round(rect?.x||0),
+            logoW:Math.round(rect?.width||0),
+            mainX:Math.round(mr?.x||0),
+            mainW:Math.round(mr?.width||0),
+            scrollW:document.documentElement.scrollWidth,
+            frames,block,innerWidth:window.innerWidth
+          };
         }""")
         print(f"LAYOUT_DIAGNOSTICO {name}: {diagnostics}",flush=True)
         if width<=430:
             assert diagnostics["logoY"]<205, (
                 "O cabeçalho SETTA ficou afastado do topo no celular",diagnostics)
+            assert diagnostics["mainX"]<24, (
+                "Sidebar colapsada deslocou o MRP para a direita",diagnostics)
+            assert diagnostics["logoX"]<35, (
+                "Logo fora da area util do celular",diagnostics)
+            assert diagnostics["logoW"]>=width-55, (
+                "MRP perdeu largura para a sidebar colapsada",diagnostics)
+            assert diagnostics["mainW"]>=width-25, (
+                "Conteudo principal comprimido no Safari",diagnostics)
+            assert diagnostics["scrollW"]<=width+6, (
+                "Rolagem horizontal indevida no celular",diagnostics)
         page.screenshot(path=str(ARTIFACTS/f"{name}-fechado.png"),full_page=True)
         toggle=button(page)
         rect=toggle.bounding_box()
@@ -121,6 +141,11 @@ def check(browser,width,height,name):
         page.wait_for_timeout(700)
         page.screenshot(path=str(ARTIFACTS/f"{name}-aberto.png"),full_page=True)
         assert page.get_by_role("button",name="SOLICITAÇÕES AVULSAS").is_visible()
+        if width<=430:
+            open_main=page.locator('[data-testid="stMain"]').bounding_box()
+            assert open_main and open_main["x"]<24 and open_main["width"]>=width-25, (
+                "Abrir menu deslocou ou comprimiu o MRP",open_main
+            )
         nav_box=page.get_by_role("button",name="MRP ATUAL").bounding_box()
         assert nav_box and nav_box["width"]>=190,nav_box
         # O painel de controle deve permanecer na viewport, sem cortes laterais.

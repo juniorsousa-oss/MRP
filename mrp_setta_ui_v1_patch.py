@@ -572,8 +572,12 @@ section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button:hover{
     overflow-x:clip!important;
   }
   [data-testid="stAppViewContainer"]{
+    /* Nao converter para display:block: a sidebar colapsada passa a
+       ocupar uma linha inteira acima do MRP no Safari/Chromium mobile. */
     position:relative!important;
-    display:block!important;
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:stretch!important;
     width:100%!important;
     min-width:0!important;
     max-width:100%!important;

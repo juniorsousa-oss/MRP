@@ -571,33 +571,21 @@ section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button:hover{
     margin:0!important;
     overflow-x:clip!important;
   }
+  /* Preservar o algoritmo responsivo nativo do Streamlit. Nao forcar
+     display, flex-basis nem largura de main: no Safari a coluna fantasma
+     pode deslocar o conteúdo para fora do viewport. */
   [data-testid="stAppViewContainer"]{
-    /* Nao converter para display:block: a sidebar colapsada passa a
-       ocupar uma linha inteira acima do MRP no Safari/Chromium mobile. */
-    position:relative!important;
-    display:flex!important;
-    flex-direction:row!important;
-    align-items:stretch!important;
     width:100%!important;
     min-width:0!important;
     max-width:100%!important;
     margin:0!important;
-    overflow-x:clip!important;
   }
   [data-testid="stMain"],.stMain,section.main{
-    position:relative!important;
-    left:auto!important;
-    right:auto!important;
-    transform:none!important;
-    flex:1 1 100%!important;
-    flex-basis:100%!important;
-    width:100%!important;
     min-width:0!important;
     max-width:100%!important;
     margin:0!important;
-    padding:0!important;
     box-sizing:border-box!important;
-    overflow-x:clip!important;
+    overflow-x:hidden!important;
   }
   [data-testid="stMainBlockContainer"],
   [data-testid="stAppViewBlockContainer"],
@@ -610,28 +598,8 @@ section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button:hover{
     padding:76px 14px 28px!important;
     overflow:visible!important;
   }
-  /* Streamlit deixa a sidebar nativa como item flex no WebKit do iPhone.
-     Mesmo colapsada, reserva ate 300px da largura disponivel. Ao tirá-la
-     do fluxo (sem mexer em display/transform), o MRP ocupa a tela inteira
-     e a animacao/controle de abrir e fechar do Streamlit continuam nativos. */
-  section[data-testid="stSidebar"]{
-    position:fixed!important;
-    top:0!important;
-    bottom:0!important;
-    left:0!important;
-    right:auto!important;
-    flex:none!important;
-    flex-basis:auto!important;
-    width:min(86vw,300px)!important;
-    min-width:0!important;
-    max-width:min(86vw,300px)!important;
-    height:100dvh!important;
-    max-height:100dvh!important;
-    overflow-y:auto!important;
-    overscroll-behavior:contain;
-    z-index:1001!important;
-    box-shadow:7px 0 32px rgba(12,32,50,.15)!important;
-  }
+  /* A posicao e a largura da sidebar aberta/recolhida sao nativas.
+     Somente o conteudo interno recebe o estilo institucional. */
   section[data-testid="stSidebar"]>div,
   section[data-testid="stSidebar"] .block-container{
     box-sizing:border-box!important;

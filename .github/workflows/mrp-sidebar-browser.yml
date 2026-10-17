@@ -23,6 +23,7 @@ jobs:
         run: |
           python -m pip install 'streamlit==1.55.0' 'playwright>=1.54,<2'
           which google-chrome || which chromium || true
+          python -m playwright install --with-deps webkit
       - name: Verificar menu do MRP em desktop e mobile
         run: python -m scripts.test_mrp_sidebar_browser
       - name: Anexar capturas para auditoria visual

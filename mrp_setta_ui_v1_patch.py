@@ -598,8 +598,17 @@ section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button:hover{
     padding:76px 14px 28px!important;
     overflow:visible!important;
   }
-  /* A posicao e a largura da sidebar aberta/recolhida sao nativas.
-     Somente o conteudo interno recebe o estilo institucional. */
+  /* A sidebar não pode ocupar uma coluna flex nem reduzir o MRP quando
+     aberta. Usar posicionamento fixo, mas deixar a largura/left/transform
+     sob controle nativo do Streamlit (especialmente Safari iOS). */
+  section[data-testid="stSidebar"]{
+    position:fixed!important;
+    flex:none!important;
+    flex-basis:auto!important;
+    max-height:100dvh!important;
+    overflow-y:auto!important;
+    z-index:1001!important;
+  }
   section[data-testid="stSidebar"]>div,
   section[data-testid="stSidebar"] .block-container{
     box-sizing:border-box!important;

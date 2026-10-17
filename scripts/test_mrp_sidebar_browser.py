@@ -82,9 +82,23 @@ def button(page):
     )
     raise AssertionError("Controle nativo de expandir sidebar não visível: "+str(ids))
 
-def check(browser,width,height,name):
-    page=browser.new_page(viewport={"width":width,"height":height},
-                          device_scale_factor=1)
+def check(browser,width,height,name,mobile_iphone=False):
+    # WebKit desktop reduzido não equivale ao Safari do iPhone:
+    # viewport móvel, toque, DPR e User-Agent mudam o layout do Streamlit.
+    opts={"viewport":{"width":width,"height":height},
+          "device_scale_factor":3 if mobile_iphone else 1}
+    if mobile_iphone:
+        opts.update({
+            "is_mobile":True,
+            "has_touch":True,
+            "user_agent":(
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) "
+                "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 "
+                "Mobile/15E148 Safari/604.1"
+            ),
+        })
+    context=browser.new_context(**opts)
+    page=context.new_page()
     try:
         page.goto(URL,wait_until="domcontentloaded",timeout=30000)
         page.get_by_text("MRP | SETTA — TESTE VISUAL").wait_for(timeout=35000)
@@ -178,7 +192,7 @@ def check(browser,width,height,name):
         page.screenshot(path=str(ARTIFACTS/f"{name}-ERRO.png"),full_page=True)
         raise
     finally:
-        page.close()
+        context.close()
 
 def main():
     executable=next((p for cmd in ["google-chrome","google-chrome-stable","chromium","chromium-browser"]
@@ -210,8 +224,8 @@ def main():
                 # nao apareceu no Chromium, portanto validar tambem nele.
                 safari=playwright.webkit.launch(headless=True)
                 try:
-                    check(safari,390,844,"safari-390")
-                    check(safari,414,896,"safari-414")
+                    check(safari,390,844,"safari-390",mobile_iphone=True)
+                    check(safari,414,896,"safari-414",mobile_iphone=True)
                 finally:
                     safari.close()
         finally:

@@ -178,6 +178,7 @@ def main():
                 try:
                     check(browser,1440,900,"desktop-1440")
                     check(browser,390,844,"mobile-390")
+                    check(browser,414,896,"iphone-414")
                 finally:
                     browser.close()
         finally:

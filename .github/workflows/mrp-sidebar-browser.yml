@@ -7,6 +7,7 @@ on:
     paths:
       - 'mrp_setta_ui_v1_patch.py'
       - 'scripts/test_mrp_sidebar_browser.py'
+      - 'scripts/diagnostico_mrp_mobile_publico.py'
       - '.github/workflows/mrp-sidebar-browser.yml'
   workflow_dispatch:
 
@@ -26,10 +27,15 @@ jobs:
           python -m playwright install --with-deps webkit
       - name: Verificar menu do MRP em desktop e mobile
         run: python -m scripts.test_mrp_sidebar_browser
+      - name: Diagnosticar largura do MRP publicado no Safari iOS
+        run: python scripts/diagnostico_mrp_mobile_publico.py
+        continue-on-error: true
       - name: Anexar capturas para auditoria visual
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-menu-mrp
-          path: artifacts/sidebar-browser/*.png
+          path: |
+            artifacts/sidebar-browser/*.png
+            artifacts/live-mobile/*.png
           if-no-files-found: ignore

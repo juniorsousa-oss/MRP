@@ -181,6 +181,14 @@ def main():
                     check(browser,414,896,"iphone-414")
                 finally:
                     browser.close()
+                # WebKit e o motor do Safari: o bug de espaco em branco
+                # nao apareceu no Chromium, portanto validar tambem nele.
+                safari=playwright.webkit.launch(headless=True)
+                try:
+                    check(safari,390,844,"safari-390")
+                    check(safari,414,896,"safari-414")
+                finally:
+                    safari.close()
         finally:
             server.terminate()
             try:

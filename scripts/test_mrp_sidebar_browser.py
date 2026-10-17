@@ -48,6 +48,11 @@ APP = (
     'RELATÓRIO MRP</div>\', unsafe_allow_html=True)\n'
     'st.markdown(\'<div class="setta-logo-card">Setta</div>\', unsafe_allow_html=True)\n'
     'st.title("MRP | SETTA — TESTE VISUAL")\n'
+    'st.markdown(\'<div class="section-band"><div class="section-band-title">INDICADORES DO MRP</div></div>\',unsafe_allow_html=True)\n'
+    'cards=st.columns(3)\n'
+    'for pos,col in enumerate(cards):\n'
+    '    with col:\n'
+    '        st.markdown(\'<div class="mrp-source-card" style="min-height:100px">DEMANDAS NO MRP</div>\',unsafe_allow_html=True)\n'
     'st.write("Corpo do relatório MRP")\n'
     'st.write("Página atual: "+st.session_state.get("pagina_atual","MRP ATUAL"))\n'
 )
@@ -120,7 +125,14 @@ def check(browser,width,height,name,mobile_iphone=False):
             }));
           const main=document.querySelector('[data-testid="stMain"]');
           const mr=main?.getBoundingClientRect();
+          const band=document.querySelector('.section-band')?.getBoundingClientRect();
+          const cardRects=[...document.querySelectorAll('.mrp-source-card')].map(x=>{
+            const r=x.getBoundingClientRect();return {x:Math.round(r.x),w:Math.round(r.width),
+              right:Math.round(r.right)};
+          });
           return {
+            bandX:Math.round(band?.x||0),bandW:Math.round(band?.width||0),
+            cardRects,
             logoY:Math.round(rect?.y||0),
             logoX:Math.round(rect?.x||0),
             logoW:Math.round(rect?.width||0),
@@ -140,6 +152,15 @@ def check(browser,width,height,name,mobile_iphone=False):
                 "Logo fora da area util do celular",diagnostics)
             assert diagnostics["logoW"]>=width-55, (
                 "MRP perdeu largura para a sidebar colapsada",diagnostics)
+            assert diagnostics["bandX"]>=8 and diagnostics["bandX"]<36, (
+                "Seção visual cortada na esquerda",diagnostics)
+            assert diagnostics["bandW"]>=width-58, (
+                "Seção visual comprimida",diagnostics)
+            assert len(diagnostics["cardRects"])==3
+            for rect in diagnostics["cardRects"]:
+                assert 8<=rect["x"]<=36 and rect["w"]>=width-60, (
+                    "Cartão deslocado ou cortado no mobile",rect,diagnostics)
+                assert rect["right"]<=width+4,rect
             assert diagnostics["mainW"]>=width-25, (
                 "Conteudo principal comprimido no Safari",diagnostics)
             assert diagnostics["scrollW"]<=width+6, (

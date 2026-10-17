@@ -20,8 +20,10 @@ mobile=shell[shell.index("/* SETTA MRP — RESPONSIVIDADE MOBILE"):]
 assert "flex-direction:row!important;" not in mobile
 assert "flex-basis:100%!important;" not in mobile
 assert "max-width:min(86vw,300px)!important" not in mobile
-assert "position:fixed!important" not in mobile.split(
+assert "position:fixed!important" in mobile.split(
     'section[data-testid="stSidebar"]>div,',1)[0]
+assert "width:min(86vw,300px)!important" not in mobile
+assert "flex-basis:auto!important" in mobile
 assert "display:block!important;" not in mobile.split(
     'section[data-testid="stSidebar"]>div,',1)[0]
 

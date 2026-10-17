@@ -589,7 +589,8 @@ section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button:hover{
     left:auto!important;
     right:auto!important;
     transform:none!important;
-    flex:1 1 auto!important;
+    flex:1 1 100%!important;
+    flex-basis:100%!important;
     width:100%!important;
     min-width:0!important;
     max-width:100%!important;
@@ -609,8 +610,23 @@ section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button:hover{
     padding:76px 14px 28px!important;
     overflow:visible!important;
   }
+  /* Streamlit deixa a sidebar nativa como item flex no WebKit do iPhone.
+     Mesmo colapsada, reserva ate 300px da largura disponivel. Ao tirá-la
+     do fluxo (sem mexer em display/transform), o MRP ocupa a tela inteira
+     e a animacao/controle de abrir e fechar do Streamlit continuam nativos. */
   section[data-testid="stSidebar"]{
+    position:fixed!important;
+    top:0!important;
+    bottom:0!important;
+    left:0!important;
+    right:auto!important;
+    flex:none!important;
+    flex-basis:auto!important;
+    width:min(86vw,300px)!important;
+    min-width:0!important;
     max-width:min(86vw,300px)!important;
+    height:100dvh!important;
+    max-height:100dvh!important;
     overflow-y:auto!important;
     overscroll-behavior:contain;
     z-index:1001!important;

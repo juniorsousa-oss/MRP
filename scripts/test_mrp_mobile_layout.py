@@ -13,17 +13,17 @@ assert SETTA_UI_V1_PATCH.count(prefix)==1
 shell=SETTA_UI_V1_PATCH.split(prefix,1)[1].split('</style>"""',1)[0]
 assert shell.count("{")==shell.count("}"),"CSS com chaves divergentes"
 assert shell.count("@media (max-width:900px)")>=1
-mobile_view= shell.split("/* SETTA MRP — RESPONSIVIDADE MOBILE",1)[1].split("section[data-testid=\"stSidebar\"]",1)[0]
-assert "display:flex!important;" in mobile_view
-assert "flex-direction:row!important;" in mobile_view
-assert "display:block!important;" not in mobile_view
 mobile=shell[shell.index("/* SETTA MRP — RESPONSIVIDADE MOBILE"):]
 
-# Nenhuma reserva horizontal permanente para o menu no celular.
-assert 'section[data-testid="stSidebar"]{' in mobile
-assert "max-width:min(86vw,300px)!important" in mobile
-assert "z-index:1001!important" in mobile
-assert "overflow-y:auto!important" in mobile
+# A sidebar nativa e o painel principal não recebem dimensões impostas.
+# Isso evita a coluna invisível que empurra os cartões no Safari iOS.
+assert "flex-direction:row!important;" not in mobile
+assert "flex-basis:100%!important;" not in mobile
+assert "max-width:min(86vw,300px)!important" not in mobile
+assert "position:fixed!important" not in mobile.split(
+    'section[data-testid="stSidebar"]>div,',1)[0]
+assert "display:block!important;" not in mobile.split(
+    'section[data-testid="stSidebar"]>div,',1)[0]
 
 # A página e os blocos devem ocupar 100% do viewport.
 for selector in (

@@ -88,6 +88,28 @@ def check(browser,width,height,name):
     try:
         page.goto(URL,wait_until="domcontentloaded",timeout=30000)
         page.get_by_text("MRP | SETTA — TESTE VISUAL").wait_for(timeout=35000)
+        page.wait_for_timeout(500)
+        diagnostics=page.evaluate("""() => {
+          const logo=document.querySelector('.setta-logo-card');
+          const rect=logo?.getBoundingClientRect();
+          const frames=[...document.querySelectorAll('iframe')].map(el=>({
+            h:Math.round(el.getBoundingClientRect().height),
+            y:Math.round(el.getBoundingClientRect().top),
+            outer:el.outerHTML.slice(0,300)
+          }));
+          const block=[...document.querySelectorAll('[data-testid="stElementContainer"]')]
+            .slice(0,7).map(el=>({
+              h:Math.round(el.getBoundingClientRect().height),
+              y:Math.round(el.getBoundingClientRect().top),
+              text:(el.innerText||"").slice(0,45),
+              html:el.outerHTML.slice(0,140)
+            }));
+          return {logoY:Math.round(rect?.y||0),frames,block,innerWidth:window.innerWidth};
+        }""")
+        print(f"LAYOUT_DIAGNOSTICO {name}: {diagnostics}",flush=True)
+        if width<=430:
+            assert diagnostics["logoY"]<205, (
+                "O cabeçalho SETTA ficou afastado do topo no celular",diagnostics)
         page.screenshot(path=str(ARTIFACTS/f"{name}-fechado.png"),full_page=True)
         toggle=button(page)
         rect=toggle.bounding_box()

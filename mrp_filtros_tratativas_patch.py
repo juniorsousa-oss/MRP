@@ -97,8 +97,11 @@ def _mrp_dashboard_navigate(status_key, mostrar_nao_aptas):
     # Os atalhos de status preservam todos os demais filtros selecionados.
 
 def _mrp_consulta_navigate(status_key, mostrar_nao_aptas):
+    st.session_state["consulta_tabs_kpi"]=UI_CONFIG["title_demanda_projeto"]
     st.session_state["consulta_status_kpi"]=status_key
     st.session_state["consulta_mostrar_residuos"]=bool(mostrar_nao_aptas)
+    for _key in ("consulta_projeto_busca","consulta_produto_busca","consulta_projeto_descricao","consulta_semana"):
+        st.session_state.pop(_key,None)
 
 def _mrp_dashboard_card(col,titulo,valor,cor,subtitulo,key,status_key,mostrar_nao_aptas=False):
     html=(
@@ -195,6 +198,36 @@ _consulta_kpi_code="""    st.markdown("<style>[class*=st-key-mrp_kpi_]{position:
 
 """
 _source=_source[:_consulta_tabs_pos]+_consulta_kpi_code+_source[_consulta_tabs_pos:]
+# Os cards da Consulta Geral precisam controlar as abas de ambos os perfis.
+# Substituir apenas st.tabs da função render_consulta_view, sem afetar outras telas.
+_consulta_inicio=_source.index("def render_consulta_view():")
+_consulta_fim=_source.find("\\ndef ",_consulta_inicio+10)
+if _consulta_fim<0: _consulta_fim=len(_source)
+_consulta_trecho=_source[_consulta_inicio:_consulta_fim]
+_ponto=0
+_posicoes=[]
+while True:
+    _inicio=_consulta_trecho.find("st.tabs(",_ponto)
+    if _inicio<0: break
+    _abertura=_inicio+len("st.tabs(")
+    _nivel=1
+    _fim=_abertura
+    while _fim<len(_consulta_trecho) and _nivel:
+        if _consulta_trecho[_fim]=="(": _nivel+=1
+        elif _consulta_trecho[_fim]==")": _nivel-=1
+        _fim+=1
+    if _nivel: raise RuntimeError("Abas da consulta com parênteses inválidos.")
+    _posicoes.append((_inicio,_fim))
+    _ponto=_fim
+if len(_posicoes)<2:
+    raise RuntimeError("Abas ADMIN e CONSULTA não encontradas para navegação dos indicadores.")
+for _inicio,_fim in reversed(_posicoes[:2]):
+    _chamada=_consulta_trecho[_inicio:_fim]
+    if "key=" not in _chamada:
+        _chamada=_chamada[:-1]+', key="consulta_tabs_kpi", on_change="rerun")'
+        _consulta_trecho=_consulta_trecho[:_inicio]+_chamada+_consulta_trecho[_fim:]
+_source=_source[:_consulta_inicio]+_consulta_trecho+_source[_consulta_fim:]
+
 
 # ---------------------------------------------------------
 # 3) CONSULTA — DEMANDA GERAL: filtros separados.

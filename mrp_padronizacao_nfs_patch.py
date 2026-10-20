@@ -201,6 +201,19 @@ for _mrp_base_key in (
 _mrp_meta_text += f"<br>QNT DE BASES: {_mrp_base_ok}/{_mrp_base_total}"
 if _mrp_stale_keys:
     _mrp_meta_text += f"<br>BASES DESATUALIZADAS: {len(_mrp_stale_keys)}"
+    # Exibe apenas os nomes conhecidos das fontes, nunca URLs ou credenciais.
+    _mrp_nomes_base={
+        "relatorio_geral_tratado":"RELATÓRIO GERAL",
+        "estoque_tratado":"ESTOQUE",
+        "compras_tratado":"COMPRAS",
+        "tctp_tratado":"TC/TP",
+    }
+    _mrp_fontes_pendentes=[
+        _mrp_nomes_base[x] for x in sorted(_mrp_stale_keys)
+        if x in _mrp_nomes_base
+    ]
+    if _mrp_fontes_pendentes:
+        _mrp_meta_text += "<br>PENDENTE: " + ", ".join(_mrp_fontes_pendentes)
 # As 5 fontes disponíveis não significam que a publicação do MRP já foi refeita.
 if _mrp_central_error:
     _mrp_meta_text += "<br>CENTRAL INDISPONÍVEL"
@@ -211,19 +224,11 @@ elif _mrp_output_stale and _mrp_base_ok == _mrp_base_total:
 elif _mrp_output_stale:
     _mrp_meta_text += "<br>MRP AGUARDA BASES ATUALIZADAS"
 
-_mrp_sidebar_week="—"
-try:
-    _mrp_week_frame=(_central_bundle or {}).get("relatorio_geral_tratado")
-    if _mrp_week_frame is not None and not _mrp_week_frame.empty and "SEMANA DE NECESSIDADE" in _mrp_week_frame.columns:
-        _mrp_week_values=_mrp_week_frame["SEMANA DE NECESSIDADE"].map(semana_id)
-        _mrp_week_values=pd.to_numeric(_mrp_week_values,errors="coerce").dropna()
-        _mrp_week_values=_mrp_week_values[
-            (_mrp_week_values>=200001)&(_mrp_week_values<=999953)
-        ]
-        if len(_mrp_week_values):
-            _mrp_sidebar_week=formatar_semana(int(_mrp_week_values.min()))
-except Exception:
-    pass
+# Semana corrente do calendário ISO, independente do cabeçalho da planilha.
+# A semana do snapshot permanece informada na área de Consulta Geral.
+from datetime import date as _mrp_date
+_mrp_ano_iso, _mrp_semana_iso, _ = _mrp_date.today().isocalendar()
+_mrp_sidebar_week=f"{_mrp_ano_iso}{_mrp_semana_iso:02d}"
 
 with st.sidebar:
     st.markdown(

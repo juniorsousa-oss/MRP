@@ -194,9 +194,13 @@ for _mrp_base_key in (
     "tctp_tratado",
 ):
     _mrp_base_meta=_mrp_der_meta.get(_mrp_base_key) or {}
-    if _mrp_base_meta.get("available") and _mrp_base_key not in _mrp_stale_keys:
+    if _mrp_base_meta.get("available"):
         _mrp_base_ok+=1
+# Disponibilidade e atualidade são métricas diferentes: não descontar uma base
+# existente do total apenas porque está em atualização.
 _mrp_meta_text += f"<br>QNT DE BASES: {_mrp_base_ok}/{_mrp_base_total}"
+if _mrp_stale_keys:
+    _mrp_meta_text += f"<br>BASES DESATUALIZADAS: {len(_mrp_stale_keys)}"
 # As 5 fontes disponíveis não significam que a publicação do MRP já foi refeita.
 if _mrp_central_error:
     _mrp_meta_text += "<br>CENTRAL INDISPONÍVEL"

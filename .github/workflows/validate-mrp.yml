@@ -42,6 +42,8 @@ jobs:
         run: python -m scripts.test_mrp_garantia_status
       - name: Validar subtabs de garantias pendentes e confirmadas
         run: python -m scripts.test_mrp_garantia_abas
+      - name: Verificar contrato de notificações por e-mail
+        run: python -m scripts.test_mrp_email_config
       - name: Testar separacao e entrega do operador por S.A.
         run: python -m scripts.test_mrp_operador_fluxo
       - name: Testar numeracao, status e custos nas solicitacoes

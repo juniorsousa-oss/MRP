@@ -96,6 +96,10 @@ def _mrp_dashboard_navigate(status_key, mostrar_nao_aptas):
     st.session_state["admin_mostrar_residuos"]=bool(mostrar_nao_aptas)
     # Os atalhos de status preservam todos os demais filtros selecionados.
 
+def _mrp_consulta_navigate(status_key, mostrar_nao_aptas):
+    st.session_state["consulta_status_kpi"]=status_key
+    st.session_state["consulta_mostrar_residuos"]=bool(mostrar_nao_aptas)
+
 def _mrp_dashboard_card(col,titulo,valor,cor,subtitulo,key,status_key,mostrar_nao_aptas=False):
     html=(
         f'<div class="mrp-dashboard-card" style="--mrp-kpi-color:{cor};">'
@@ -112,7 +116,7 @@ def _mrp_dashboard_card(col,titulo,valor,cor,subtitulo,key,status_key,mostrar_na
                 f"ABRIR {titulo}",
                 key=f"mrp_kpi_action_{key}",
                 use_container_width=True,
-                on_click=_mrp_dashboard_navigate,
+                on_click=_mrp_consulta_navigate if key.startswith("consulta_") else _mrp_dashboard_navigate,
                 args=(status_key,mostrar_nao_aptas),
                 help=f"Abrir Demanda por Projeto · {titulo}",
             )
@@ -182,11 +186,11 @@ if _consulta_func_pos<0 or _consulta_tabs_pos<0:
     raise RuntimeError("Adequação final não localizada: KPIs de atendimento na Consulta Geral.")
 _consulta_kpi_code="""    _status_dashboard_consulta=_mrp_status_atendimento_series(dem)
     _mk=st.columns(5)
-    _mrp_dashboard_card_static(_mk[0],"Demandas no MRP",_mrp_numero_br(len(dem)),"#2563eb","TOTAL DA DEMANDA POR PROJETO")
-    _mrp_dashboard_card_static(_mk[1],"Dentro do Prazo",_mrp_numero_br((_status_dashboard_consulta=="🟢").sum()),"#16a34a","ATENDIMENTO NO PRAZO OU ANTES")
-    _mrp_dashboard_card_static(_mk[2],"Atenção ao Prazo",_mrp_numero_br((_status_dashboard_consulta=="🟡").sum()),"#f59e0b","ATÉ 2 SEMANAS APÓS A NECESSIDADE")
-    _mrp_dashboard_card_static(_mk[3],"Atendimento Crítico",_mrp_numero_br((_status_dashboard_consulta=="🔴").sum()),"#ef4444","ACIMA DE 2 SEMANAS OU SEM PREVISÃO")
-    _mrp_dashboard_card_static(_mk[4],"Demandas Não Aptas",_mrp_numero_br((_status_dashboard_consulta=="⚪").sum()),"#94a3b8","RESÍDUOS, SUSPENSAS E CANCELADAS")
+    _mrp_dashboard_card(_mk[0],"Demandas no MRP",_mrp_numero_br(len(dem)),"#2563eb","TOTAL DA DEMANDA POR PROJETO","consulta_total","TODOS",True)
+    _mrp_dashboard_card(_mk[1],"Dentro do Prazo",_mrp_numero_br((_status_dashboard_consulta=="🟢").sum()),"#16a34a","ATENDIMENTO NO PRAZO OU ANTES","consulta_verde","🟢 DENTRO DO PRAZO",False)
+    _mrp_dashboard_card(_mk[2],"Atenção ao Prazo",_mrp_numero_br((_status_dashboard_consulta=="🟡").sum()),"#f59e0b","ATÉ 2 SEMANAS APÓS A NECESSIDADE","consulta_amarelo","🟡 ATENÇÃO AO PRAZO",False)
+    _mrp_dashboard_card(_mk[3],"Atendimento Crítico",_mrp_numero_br((_status_dashboard_consulta=="🔴").sum()),"#ef4444","ACIMA DE 2 SEMANAS OU SEM PREVISÃO","consulta_vermelho","🔴 ATENDIMENTO CRÍTICO",False)
+    _mrp_dashboard_card(_mk[4],"Demandas Não Aptas",_mrp_numero_br((_status_dashboard_consulta=="⚪").sum()),"#94a3b8","RESÍDUOS, SUSPENSAS E CANCELADAS","consulta_cinza","⚪ DEMANDAS NÃO APTAS",True)
 
 """
 _source=_source[:_consulta_tabs_pos]+_consulta_kpi_code+_source[_consulta_tabs_pos:]
@@ -288,8 +292,11 @@ _consulta_proj_logic_old = """        f = dem.copy()
             ]
         if semana != "TODAS": f = f[f["Semana de Necessidade"].astype(str) == semana]"""
 _consulta_proj_logic_new = """        f = dem.copy()
-        if not mostrar_residuos_consulta:
+        _consulta_alvo={"🟢 DENTRO DO PRAZO":"🟢","🟡 ATENÇÃO AO PRAZO":"🟡","🔴 ATENDIMENTO CRÍTICO":"🔴","⚪ DEMANDAS NÃO APTAS":"⚪"}.get(st.session_state.get("consulta_status_kpi"))
+        if not mostrar_residuos_consulta and _consulta_alvo!="⚪":
             f=f[~_mrp_demanda_nao_apta_mask(f)]
+        if _consulta_alvo:
+            f=f[_mrp_status_atendimento_series(f)==_consulta_alvo]
         if projeto_consulta != "TODOS":
             _pc=projeto_consulta.strip()
             f=f[f["Projeto"].fillna("").astype(str).eq(_pc)]

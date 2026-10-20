@@ -224,11 +224,33 @@ elif _mrp_output_stale and _mrp_base_ok == _mrp_base_total:
 elif _mrp_output_stale:
     _mrp_meta_text += "<br>MRP AGUARDA BASES ATUALIZADAS"
 
-# Semana corrente do calendário ISO, independente do cabeçalho da planilha.
-# A semana do snapshot permanece informada na área de Consulta Geral.
-from datetime import date as _mrp_date
-_mrp_ano_iso, _mrp_semana_iso, _ = _mrp_date.today().isocalendar()
-_mrp_sidebar_week=f"{_mrp_ano_iso}{_mrp_semana_iso:02d}"
+# Semana Atual é a MENOR semana de necessidade válida do Relatório Geral Tratado.
+# Não substituir pela semana ISO do calendário: a referência operacional pode divergir.
+_mrp_sidebar_week="—"
+try:
+    _mrp_week_frame=(_central_bundle or {}).get("relatorio_geral_tratado")
+    if _mrp_week_frame is not None and not _mrp_week_frame.empty:
+        import unicodedata as _mrp_unicode
+        def _mrp_nome_coluna(valor):
+            _normal=_mrp_unicode.normalize("NFKD",str(valor))
+            return "".join(ch for ch in _normal if not _mrp_unicode.combining(ch)).strip().upper().replace("_"," ")
+        _mrp_semana_col=next((
+            col for col in _mrp_week_frame.columns
+            if _mrp_nome_coluna(col) in ("SEMANA DE NECESSIDADE","SEMANA NECESSIDADE")
+        ),None)
+        if _mrp_semana_col is not None:
+            _mrp_semanas=_mrp_week_frame[_mrp_semana_col].map(semana_id)
+            _mrp_semanas=pd.to_numeric(_mrp_semanas,errors="coerce").dropna()
+            _mrp_semanas=_mrp_semanas[
+                (_mrp_semanas>=200001)&(_mrp_semanas<=999953)
+                &(_mrp_semanas.mod(100).between(1,53))
+            ]
+            if not _mrp_semanas.empty:
+                _mrp_sidebar_week=formatar_semana(int(_mrp_semanas.min()))
+except Exception:
+    # Sem base ou semana reconhecida, mostrar indisponibilidade em vez de
+    # inventar uma semana de calendário.
+    _mrp_sidebar_week="—"
 
 with st.sidebar:
     st.markdown(

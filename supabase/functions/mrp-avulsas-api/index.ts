@@ -107,6 +107,18 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = String(body?.action || "").trim();
     const input = body?.payload || {};
+    if (action === "email_config_status") {
+      if (role !== "ADMIN") return fail("ADMIN_REQUIRED", 403);
+      // Nunca retornar o endpoint, sua assinatura, queries ou tokens.
+      const configured=String(Deno.env.get("MRP_EMAIL_WORKFLOW_URL")||"").trim();
+      return json({ok:true,data:{
+        status: configured.startsWith("https://") ? "CONFIGURADO" :
+          configured ? "URL_INVALIDA" : "NAO_CONFIGURADO",
+        observacao: configured.startsWith("https://")
+          ? "Endpoint presente. O envio real ainda precisa ser testado no Outlook."
+          : "Falta cadastrar MRP_EMAIL_WORKFLOW_URL nas secrets do Supabase.",
+      }});
+    }
     if (action === "test_teams") {
       // Ação explícita do administrador, sem reserva ou gravação de materiais.
       if (role !== "ADMIN") return fail("ADMIN_REQUIRED", 403);

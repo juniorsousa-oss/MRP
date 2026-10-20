@@ -735,6 +735,21 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             st.write("Versão de referência: "+str(fonte_custo.get("versao") or "—"))
             st.write("Códigos processados na coluna M (incluindo valores zero): "+
                      str(fonte_custo.get("codigos_com_valor") or 0))
+        with st.expander("ADMINISTRAÇÃO · NOTIFICAÇÕES POR E-MAIL",expanded=False):
+            st.caption("Separação: e-mail ao solicitante. Entrega: e-mail à gestão "+
+                       "do almoxarifado, com cópia ao solicitante.")
+            if st.button("VERIFICAR CONFIGURAÇÃO DE E-MAIL",key="mrp_email_config_check"):
+                try:
+                    _mailcfg=_mrp_avulsas_call("email_config_status")
+                    _estado=str(_mailcfg.get("status") or "INDETERMINADO")
+                    if _estado=="CONFIGURADO":
+                        st.info("Integração cadastrada. Ainda é necessário confirmar "+
+                                "um teste de entrega no Outlook.")
+                    else:
+                        st.warning("Serviço de e-mail: "+_estado+". Configure "+
+                                   "MRP_EMAIL_WORKFLOW_URL no Supabase.")
+                except Exception as exc:
+                    st.error("Não foi possível conferir o serviço de e-mail: "+str(exc))
         with st.expander("ADMINISTRAÇÃO · TESTAR CONEXÃO COM O TEAMS",expanded=False):
             if st.button("ENVIAR MENSAGEM DE TESTE AO TEAMS",key="mrp_teams_connection_test"):
                 try:

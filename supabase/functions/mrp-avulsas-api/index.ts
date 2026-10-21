@@ -225,6 +225,34 @@ Deno.serve(async (req) => {
       }
       return json({ok:true,data:{...data,email_status:emailStatus}});
     }
+    if (action === "conferencia_final_confirmar") {
+      if (role !== "ADMIN") return fail("ADMIN_REQUIRED",403);
+      const pedidoId=String(input.pedido_id||"").trim();
+      const procedimento=String(input.procedimento||"").trim().toUpperCase();
+      const documento=String(input.documento_referencia||"").trim();
+      const observacao=String(input.observacao||"").trim();
+      if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(pedidoId))
+        return fail("PEDIDO_INVALIDO");
+      if(!["EMISSAO_NF","BAIXA","TRANSFERENCIA"].includes(procedimento))
+        return fail("PROCEDIMENTO_INVALIDO");
+      if(documento.length<3||documento.length>120)
+        return fail("DOCUMENTO_PROTHEUS_OBRIGATORIO_3_A_120_CARACTERES");
+      if(observacao.length>1000)return fail("OBSERVACAO_MAXIMO_1000_CARACTERES");
+      if(input.confere_materiais!==true||input.confere_movimentacao!==true||
+         input.confere_documento!==true)return fail("CHECKLIST_FINAL_INCOMPLETO");
+      const {data,error}=await admin.rpc("mrp_avulsa_conferencia_final_seguro",{
+        p_pedido_id:pedidoId,
+        p_actor:userId,
+        p_procedimento:procedimento,
+        p_documento:documento,
+        p_confere_materiais:true,
+        p_confere_movimentacao:true,
+        p_confere_documento:true,
+        p_observacao:observacao,
+      });
+      if(error)return fail(error.message,409);
+      return json({ok:true,data});
+    }
     if (action === "garantia_resultado") {
       if(role!=="CONSULTA")return fail("CONSULTA_REQUIRED",403);
       const itemId=Number(input.id);
@@ -401,6 +429,15 @@ Deno.serve(async (req) => {
       .order("criado_em",{ascending:false}).limit(2000);
     if(pedidosError)return fail(pedidosError.message,500);
     const ids=(pedidos||[]).map((p:any)=>p.id);
+    const conferencias:any[]=[];
+    if(role==="ADMIN"&&ids.length){
+      const {data:resultados,error:conferenciaErro}=await admin
+        .from("mrp_avulsas_conferencias_finais")
+        .select("pedido_id,procedimento,documento_referencia,observacao,confirmado_por,confirmado_em")
+        .in("pedido_id",ids);
+      if(conferenciaErro)return fail("CONFERENCIAS_FINAIS_INDISPONIVEIS",500);
+      conferencias.push(...(resultados||[]));
+    }
     const avisos:any[]=[];
     if(ids.length){
       const {data,eventos,error:emailError}=await (async ()=>{
@@ -412,7 +449,7 @@ Deno.serve(async (req) => {
       avisos.push(...(eventos||[]));
     }
     return json({ ok: true, data: {
-      pedidos:pedidos||[], email_eventos:avisos,
+      pedidos:pedidos||[], email_eventos:avisos, conferencias_finais:conferencias,
       custo_referencia:{status:custos.status,coluna:custos.coluna,
         versao:custos.referencia,codigos_com_valor:custos.valorPorCodigo.size},
       snapshot_id: latest.id, materials: role === "CONSULTA" ? materials : [],

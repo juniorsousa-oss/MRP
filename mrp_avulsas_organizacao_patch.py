@@ -19,10 +19,11 @@ _nav_anchor='    _counters=st.columns(4 if perfil=="CONSULTA" else 3)'
 _admin_uma(_nav_anchor,"indicadores")
 _nav='''    if perfil=="ADMIN":
         st.markdown("**ÁREA DE TRABALHO**")
-        _mrp_av_admin_area=st.radio(
+        _mrp_av_admin_area=st.segmented_control(
             "NAVEGAÇÃO DAS SOLICITAÇÕES AVULSAS",
             options=("SOLICITAÇÕES","CONFERÊNCIA FINAL","ADMINISTRAÇÃO"),
-            horizontal=True,
+            default="SOLICITAÇÕES",
+            selection_mode="single",
             label_visibility="collapsed",
             key="mrp_avulsas_admin_area",
         )

@@ -20,6 +20,7 @@ _av_final_section = '''    if perfil=="ADMIN":
             "TRANSFERENCIA": "Transferência de materiais",
             "BAIXA": "Baixa de materiais",
             "EMISSAO_NF": "Emissão de nota fiscal",
+            "REGULARIZACAO_GARANTIA": "Garantia regularizada (ASTEC + baixa/retorno ao estoque)",
         }
         _entregues_pendentes = [
             _p for _p in _entregues if str(_p["id"]) not in _conferencias_finais
@@ -62,7 +63,7 @@ _av_final_section = '''    if perfil=="ADMIN":
                             "QUANTIDADE": float(_i.get("quantidade") or 0),
                         } for _i in _items_final]),use_container_width=True,hide_index=True)
                     _permitidos = {
-                        "GARANTIA": ["TRANSFERENCIA"],
+                        "GARANTIA": ["REGULARIZACAO_GARANTIA"],
                         "ACERTO_GERENCIAL": ["BAIXA","TRANSFERENCIA"],
                         "TRANSFERENCIA": ["EMISSAO_NF"],
                     }.get(_finalidade, [])
@@ -70,11 +71,139 @@ _av_final_section = '''    if perfil=="ADMIN":
                         "TRANSFERENCIA": "Transferência de materiais",
                         "BAIXA": "Baixa de materiais",
                         "EMISSAO_NF": "Emissão de nota fiscal",
+                        "REGULARIZACAO_GARANTIA": "Garantia regularizada (ASTEC + baixa/retorno ao estoque)",
                     }
+                    _ready_garantia = True
+                    _documento_inicial = ""
+                    if _finalidade == "GARANTIA":
+                        st.markdown("#### ETAPA 1 · ENDEREÇAMENTO À ASTEC")
+                        _regs_garantia = {
+                            int(_r["item_id"]): _r
+                            for _r in (dados.get("garantia_regularizacoes") or [])
+                            if str(_r.get("pedido_id")) == str(_p["id"])
+                        }
+                        _astec_registrada = bool(_items_final) and all(
+                            bool(_regs_garantia.get(int(_i["id"]), {}).get("astec_documento"))
+                            for _i in _items_final
+                        )
+                        if _astec_registrada:
+                            _documento_inicial = str(
+                                _regs_garantia[int(_items_final[0]["id"])].get("astec_documento") or ""
+                            )
+                            st.success("Endereçamento ASTEC confirmado · Documento: " + _documento_inicial)
+                        elif not _regs_garantia:
+                            st.warning("Aguardando comprovação do encaminhamento do material à ASTEC.")
+                            with st.form("mrp_astec_"+str(_p["id"]), enter_to_submit=False):
+                                _doc_astec = st.text_input(
+                                    "NÚMERO DO MOVIMENTO DE ENDEREÇAMENTO ASTEC NO PROTHEUS *",
+                                    max_chars=120,
+                                    key="mrp_doc_astec_"+str(_p["id"]),
+                                )
+                                _check_astec = st.checkbox(
+                                    "Confirmo que a transferência/endereço ASTEC foi efetivamente registrada.",
+                                    key="mrp_check_astec_"+str(_p["id"]),
+                                )
+                                _salvar_astec = st.form_submit_button(
+                                    "CONFIRMAR ENDEREÇAMENTO À ASTEC",
+                                    use_container_width=True,
+                                )
+                            if _salvar_astec:
+                                if len(_doc_astec.strip()) < 3 or not _check_astec:
+                                    st.error("Informe o documento e confirme o encaminhamento executado.")
+                                else:
+                                    try:
+                                        _mrp_avulsas_call("garantia_astec_confirmar",{
+                                            "pedido_id":_p["id"],"documento_astec":_doc_astec.strip(),
+                                        })
+                                        st.session_state["_mrp_final_admin_confirmado"] = (
+                                            "Encaminhamento ASTEC registrado para "+_proto
+                                        )
+                                        st.rerun()
+                                    except Exception as exc:
+                                        st.error("Não foi possível confirmar a ASTEC: "+str(exc))
+                        else:
+                            st.warning("Endereçamento ASTEC incompleto. Verifique o histórico antes de prosseguir.")
+
+                        st.markdown("#### ETAPA 2 · RESULTADO DA ASTEC")
+                        st.caption(
+                            "O solicitante confirma o resultado de cada material em suas solicitações: "
+                            "UTILIZADO ou DEVOLVIDO SEM USO. O ADMIN não altera essa decisão."
+                        )
+                        _ready_garantia = _astec_registrada and bool(_items_final)
+                        for _i in _items_final:
+                            _item_id = int(_i["id"])
+                            _g = _regs_garantia.get(_item_id, {})
+                            _destino = str(_i.get("destino_garantia") or "AGUARDANDO_RETORNO")
+                            _movimento_esperado = (
+                                "BAIXA" if _destino=="UTILIZADO" else
+                                "TRANSFERENCIA_ESTOQUE" if _destino=="DEVOLVIDO" else ""
+                            )
+                            _rotulo_movimento = (
+                                "BAIXA DO MATERIAL UTILIZADO" if _destino=="UTILIZADO" else
+                                "TRANSFERÊNCIA DE RETORNO AO ESTOQUE" if _destino=="DEVOLVIDO" else
+                                "AGUARDANDO DEFINIÇÃO DA ASTEC"
+                            )
+                            with st.container(border=True):
+                                st.markdown(
+                                    "**"+str(_i.get("codigo") or "")+" · "+
+                                    str(_i.get("descricao") or "")+"**"
+                                )
+                                st.caption("Resultado informado: "+_destino.replace("_"," ")+" · "+
+                                           "Providência: "+_rotulo_movimento)
+                                if not _astec_registrada:
+                                    st.warning("Etapa 1 pendente: registrar a ASTEC antes da regularização.")
+                                    _ready_garantia = False
+                                elif not _movimento_esperado:
+                                    st.info("Aguardando o solicitante informar se utilizou ou devolveu o material.")
+                                    _ready_garantia = False
+                                elif _g.get("movimento_final_documento"):
+                                    st.success(
+                                        _rotulo_movimento+" concluída · Protheus: "+
+                                        str(_g.get("movimento_final_documento"))
+                                    )
+                                else:
+                                    _ready_garantia = False
+                                    st.markdown("**ETAPA 3 · REGULARIZAÇÃO NO PROTHEUS**")
+                                    with st.form("mrp_mov_final_"+str(_item_id),enter_to_submit=False):
+                                        _doc_final = st.text_input(
+                                            "DOCUMENTO DE "+_rotulo_movimento+" *",
+                                            max_chars=120,
+                                            key="mrp_doc_movimento_final_"+str(_item_id),
+                                        )
+                                        _confirma_mov = st.checkbox(
+                                            "Confirmo que a movimentação foi efetivada no Protheus.",
+                                            key="mrp_check_movimento_final_"+str(_item_id),
+                                        )
+                                        _salvar_mov = st.form_submit_button(
+                                            "REGISTRAR "+_rotulo_movimento,
+                                            use_container_width=True,
+                                        )
+                                    if _salvar_mov:
+                                        if len(_doc_final.strip())<3 or not _confirma_mov:
+                                            st.error("Informe o documento e confirme a movimentação realizada.")
+                                        else:
+                                            try:
+                                                _mrp_avulsas_call("garantia_movimento_final_confirmar",{
+                                                    "item_id":_item_id,"documento_movimento":_doc_final.strip(),
+                                                })
+                                                st.session_state["_mrp_final_admin_confirmado"] = (
+                                                    "Movimentação de "+str(_i.get("codigo") or "")+" registrada."
+                                                )
+                                                st.rerun()
+                                            except Exception as exc:
+                                                st.error("Não foi possível registrar a movimentação: "+str(exc))
+                        st.markdown("#### ETAPA 4 · VALIDAÇÃO FINAL DO GESTOR")
+                        if _ready_garantia:
+                            st.success("Todos os materiais têm ASTEC, resultado e movimentação Protheus confirmados.")
+                        else:
+                            st.warning(
+                                "O encerramento permanece bloqueado enquanto algum material não tiver "
+                                "ASTEC, resultado e baixa ou transferência de retorno documentados."
+                            )
                     if not _permitidos:
                         st.error("Finalidade não elegível para conclusão administrativa.")
                         continue
-                    st.markdown("**REGULARIZAÇÃO ADMINISTRATIVA**")
+                    st.markdown("**CHECKLIST DE ENCERRAMENTO ADMINISTRATIVO**")
                     with st.form("mrp_final_admin_"+str(_p["id"]), enter_to_submit=False):
                         _procedimento = st.selectbox(
                             "PROCEDIMENTO EXECUTADO",
@@ -83,9 +212,11 @@ _av_final_section = '''    if perfil=="ADMIN":
                             key="mrp_procedimento_final_"+str(_p["id"]),
                         )
                         _documento = st.text_input(
-                            "DOCUMENTO / REFERÊNCIA NO PROTHEUS *",
+                            "DOCUMENTO ASTEC DE REFERÊNCIA *" if _finalidade=="GARANTIA"
+                            else "DOCUMENTO / REFERÊNCIA NO PROTHEUS *",
+                            value=_documento_inicial,
                             max_chars=120,
-                            placeholder="Número da NF, movimento ou documento de transferência",
+                            placeholder="Número do documento de referência",
                             key="mrp_documento_final_"+str(_p["id"]),
                         )
                         _check_materiais = st.checkbox(
@@ -108,6 +239,7 @@ _av_final_section = '''    if perfil=="ADMIN":
                         _submit_final = st.form_submit_button(
                             "CONFIRMAR ENCERRAMENTO ADMINISTRATIVO",
                             type="primary", use_container_width=True,
+                            disabled=(_finalidade=="GARANTIA" and not _ready_garantia),
                         )
                     if _submit_final:
                         if len(_documento.strip()) < 3:

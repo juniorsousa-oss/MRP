@@ -225,6 +225,30 @@ Deno.serve(async (req) => {
       }
       return json({ok:true,data:{...data,email_status:emailStatus}});
     }
+    if (action === "garantia_astec_confirmar") {
+      if (role !== "ADMIN") return fail("ADMIN_REQUIRED",403);
+      const pedidoId=String(input.pedido_id||"").trim();
+      const documento=String(input.documento_astec||"").trim();
+      if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(pedidoId))return fail("PEDIDO_INVALIDO");
+      if(documento.length<3||documento.length>120)return fail("DOCUMENTO_ASTEC_OBRIGATORIO");
+      const {data,error}=await admin.rpc("mrp_avulsa_garantia_ast_ec_seguro",{
+        p_pedido_id:pedidoId,p_actor:userId,p_documento:documento,
+      });
+      if(error)return fail(error.message,409);
+      return json({ok:true,data});
+    }
+    if (action === "garantia_movimento_final_confirmar") {
+      if (role !== "ADMIN") return fail("ADMIN_REQUIRED",403);
+      const itemId=Number(input.item_id);
+      const documento=String(input.documento_movimento||"").trim();
+      if(!Number.isSafeInteger(itemId)||itemId<1)return fail("ITEM_INVALIDO");
+      if(documento.length<3||documento.length>120)return fail("DOCUMENTO_MOVIMENTO_OBRIGATORIO");
+      const {data,error}=await admin.rpc("mrp_avulsa_garantia_movimento_final_seguro",{
+        p_item_id:itemId,p_actor:userId,p_documento:documento,
+      });
+      if(error)return fail(error.message,409);
+      return json({ok:true,data});
+    }
     if (action === "conferencia_final_confirmar") {
       if (role !== "ADMIN") return fail("ADMIN_REQUIRED",403);
       const pedidoId=String(input.pedido_id||"").trim();
@@ -233,7 +257,7 @@ Deno.serve(async (req) => {
       const observacao=String(input.observacao||"").trim();
       if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(pedidoId))
         return fail("PEDIDO_INVALIDO");
-      if(!["EMISSAO_NF","BAIXA","TRANSFERENCIA"].includes(procedimento))
+      if(!["EMISSAO_NF","BAIXA","TRANSFERENCIA","REGULARIZACAO_GARANTIA"].includes(procedimento))
         return fail("PROCEDIMENTO_INVALIDO");
       if(documento.length<3||documento.length>120)
         return fail("DOCUMENTO_PROTHEUS_OBRIGATORIO_3_A_120_CARACTERES");
@@ -429,6 +453,15 @@ Deno.serve(async (req) => {
       .order("criado_em",{ascending:false}).limit(2000);
     if(pedidosError)return fail(pedidosError.message,500);
     const ids=(pedidos||[]).map((p:any)=>p.id);
+    const garantiaRegularizacoes:any[]=[];
+    if(ids.length&&(role==="ADMIN"||role==="CONSULTA")){
+      const {data:etapasGarantia,error:erroGarantia}=await admin
+        .from("mrp_avulsas_garantia_regularizacoes")
+        .select("item_id,pedido_id,astec_documento,astec_confirmado_em,movimento_final_tipo,movimento_final_documento,movimento_final_confirmado_em")
+        .in("pedido_id",ids);
+      if(erroGarantia)return fail("ETAPAS_GARANTIA_INDISPONIVEIS",500);
+      garantiaRegularizacoes.push(...(etapasGarantia||[]));
+    }
     const conferencias:any[]=[];
     if(role==="ADMIN"&&ids.length){
       const {data:resultados,error:conferenciaErro}=await admin
@@ -462,6 +495,7 @@ Deno.serve(async (req) => {
     }
     return json({ ok: true, data: {
       pedidos:pedidos||[], email_eventos:avisos, conferencias_finais:conferencias,
+      garantia_regularizacoes:garantiaRegularizacoes,
       custo_referencia:{status:custos.status,coluna:custos.coluna,
         versao:custos.referencia,codigos_com_valor:custos.valorPorCodigo.size},
       snapshot_id: latest.id, materials: role === "CONSULTA" ? materials : [],

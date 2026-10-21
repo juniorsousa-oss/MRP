@@ -48,6 +48,20 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         else:
             # Tratativas parciais anteriores continuam aparecendo no acompanhamento.
             _legados_separados.append(_pedido_antigo)
+    # Indicador de materiais = linhas individuais de solicitação, não S.A.s
+    # nem soma de unidades físicas. Uma S.A. com 5 itens conta 5 materiais.
+    _ids_separados={
+        str(_p.get("id")) for _p in (_separados+_legados_separados)
+    }
+    _ids_entregues={str(_p.get("id")) for _p in _entregues}
+    _materiais_separados=sum(
+        1 for _i in itens if str(_i.get("pedido_id")) in _ids_separados
+        and str(_i.get("status") or "")=="ATENDIDA"
+    )
+    _materiais_entregues=sum(
+        1 for _i in itens if str(_i.get("pedido_id")) in _ids_entregues
+    )
+    _materiais_movimentados=_materiais_separados+_materiais_entregues
     _counters=st.columns(4 if perfil=="CONSULTA" else 3)
     if perfil=="CONSULTA":
         _counters[0].metric("MATERIAIS DISPONÍVEIS",len(materiais))
@@ -59,8 +73,14 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         _counters[1].metric("SEPARADAS · NÃO ENTREGUES",len(_separados)+len(_legados_separados))
         _counters[2].metric("ENTREGUES",len(_entregues))
     if perfil in {"ADMIN","OPERADOR"}:
-        st.caption("Separadas: materiais com separação confirmada, mas sem registro de entrega. "
-                   "Entregues: solicitações cuja entrega já foi confirmada pelo operador.")
+        st.caption("Os três indicadores acima contabilizam solicitações (S.A.s), não materiais.")
+    _card_mat,_legenda_mat=st.columns([1.15,2.85],gap="medium",vertical_alignment="center")
+    _card_mat.metric("MATERIAIS SEPARADOS E ENTREGUES",_materiais_movimentados)
+    _legenda_mat.caption(
+        str(_materiais_separados)+" material(is) separados, aguardando entrega · "+
+        str(_materiais_entregues)+" material(is) com entrega confirmada. "+
+        "Cada linha de material é contada uma única vez, independentemente da quantidade solicitada."
+    )
     st.markdown(
         '<div class="mrp-ped-meta"><b>MRP de referência #'
         +str(dados.get("snapshot_id") or "—")
@@ -134,7 +154,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             proto=_protocolo(p)
             titulo=proto+" · "+_labels.get(str(p.get("finalidade")), "SOLICITAÇÃO ANTERIOR")
             _estado_tela=_situacao_pedido(p,filhos)
-            titulo+=" · "+_estado_tela+" · "+str(len(filhos))+" material(is)"
+            titulo+=" · "+_estado_tela
             with st.expander(titulo,expanded=False):
                 _nome_col,_data_col,_situacao_col=st.columns([5,2.4,2.2],gap="medium")
                 with _nome_col:
@@ -576,11 +596,14 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     "AGUARDANDO_RETORNO").upper() not in {"UTILIZADO","DEVOLVIDO"}]
             _con=[i for i in _filhos if str(i.get("destino_garantia") or "").upper()
                   in {"UTILIZADO","DEVOLVIDO"}]
+            # Um pedido pertence somente a uma subaba: se algum material
+            # aguarda resultado, a S.A. inteira permanece pendente.
             if _pend:
                 _aguardando.append(_pedido)
                 _n_aguardando+=len(_pend)
-            if _con:
+            elif _con:
                 _confirmadas.append(_pedido)
+            if _con:
                 _n_confirmadas+=len(_con)
                 _n_utilizados+=sum(str(i.get("destino_garantia")).upper()=="UTILIZADO"
                                    for i in _con)
@@ -596,19 +619,18 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         }
     def _exibir_entregas():
         _grupos=_agrupar_garantias_entregues(_entregues)
-        _tot_garantias=(_grupos["itens_aguardando"]+_grupos["itens_confirmados"])
+        _tot_garantias=len(_grupos["garantias"])
         _tab_garantias,_tab_demais=st.tabs([
-            "GARANTIAS ("+str(_tot_garantias)+" materiais)",
+            "GARANTIAS ("+str(_tot_garantias)+" S.A.s)",
             "DEMAIS ENTREGAS ("+str(len(_grupos["demais"]))+" S.A.s)",
         ])
         with _tab_garantias:
             _aba_aguardando,_aba_confirmadas=st.tabs([
-                "AGUARDANDO CONFIRMAÇÃO ("+str(_grupos["itens_aguardando"])+")",
-                "CONFIRMADAS ("+str(_grupos["itens_confirmados"])+")",
+                "AGUARDANDO CONFIRMAÇÃO ("+str(len(_grupos["aguardando"]))+" S.A.s)",
+                "CONFIRMADAS ("+str(len(_grupos["confirmadas"]))+" S.A.s)",
             ])
             with _aba_aguardando:
-                st.caption("Garantias entregues que ainda aguardam a confirmação "
-                           "de utilização ou devolução, por material.")
+                st.caption("S.A.s com pelo menos um material aguardando resultado da ASTEC.")
                 _mostrar_pedidos(
                     _grupos["aguardando"],
                     "Nenhum material de garantia aguardando confirmação.",
@@ -617,9 +639,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     grupo="garantia_pendente",
                 )
             with _aba_confirmadas:
-                st.caption("Utilizados: "+str(_grupos["itens_utilizados"])+
-                           " · Devolvidos: "+str(_grupos["itens_devolvidos"])+
-                           ". O histórico permanece disponível.")
+                st.caption("S.A.s com resultado da ASTEC informado para todos os materiais.")
                 _mostrar_pedidos(
                     _grupos["confirmadas"],
                     "Nenhum material de garantia confirmado.",

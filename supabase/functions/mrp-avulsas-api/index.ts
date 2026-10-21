@@ -341,10 +341,21 @@ Deno.serve(async (req) => {
     // baixar CADASTROS a cada botão; o histórico tem preços persistidos.
     // Criação e CONSULTA mantêm integralmente a lógica de disponibilidade.
     const historicoLeve=action==="list"&&role!=="CONSULTA";
-    const { data: latest, error: latestError } = await admin.from("mrp_snapshots")
-      .select(historicoLeve ? "id,created_at" : "id,created_at,mrp_geral,compressed_payload")
-      .order("created_at", { ascending: false }).order("id", { ascending: false })
-      .limit(1).maybeSingle();
+    let latest:Record<string,any>|null=null;
+    let latestError:any=null;
+    if(historicoLeve){
+      const result=await admin.from("mrp_snapshots")
+        .select("id,created_at")
+        .order("created_at",{ascending:false}).order("id",{ascending:false})
+        .limit(1).maybeSingle();
+      latest=result.data;latestError=result.error;
+    }else{
+      const result=await admin.from("mrp_snapshots")
+        .select("id,created_at,mrp_geral,compressed_payload")
+        .order("created_at",{ascending:false}).order("id",{ascending:false})
+        .limit(1).maybeSingle();
+      latest=result.data;latestError=result.error;
+    }
     if (latestError) return fail(latestError.message, 500);
     if (!latest) return fail("MRP_AINDA_NAO_SALVO", 409);
     const available:Map<string,MrpMaterial>=historicoLeve

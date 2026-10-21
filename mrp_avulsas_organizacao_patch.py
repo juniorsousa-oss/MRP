@@ -80,4 +80,22 @@ _view=_view.replace(_admin_tools,
 )
 
 _source=_source[:_view_start]+_view+_source[_view_end:]
+
+# Exceções de renderização aparecem como aviso recuperável, nunca tela branca.
+_ui_call='if _mrp_page=="SOLICITAÇÕES AVULSAS":\n    _mrp_avulsas_view()\n    st.stop()'
+if _source.count(_ui_call)!=1:
+    raise RuntimeError("Proteção de exibição MRP: chamada da página não encontrada.")
+_ui_guard='''if _mrp_page=="SOLICITAÇÕES AVULSAS":
+    try:
+        _mrp_avulsas_view()
+    except Exception:
+        import logging as _mrp_log
+        _mrp_log.exception("MRP: erro ao renderizar solicitações avulsas")
+        st.error("Falha ao atualizar a tela de solicitações. Os registros já confirmados continuam salvos.")
+        st.info("Recarregue a consulta abaixo. Se continuar, informe o momento e a operação realizada.")
+        if st.button("RECARREGAR SOLICITAÇÕES",key="mrp_avulsas_retry_view"):
+            st.session_state.pop("_mrp_avulsas_lista_cache",None)
+            st.rerun()
+    st.stop()'''
+_source=_source.replace(_ui_call,_ui_guard,1)
 """

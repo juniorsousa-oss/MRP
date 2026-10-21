@@ -494,6 +494,7 @@ _pedido_nova_view = """def _mrp_avulsas_view():
     _c1,_c2=st.columns([5,1],vertical_alignment="center")
     _c1.markdown("### "+titulo)
     if _c2.button("ATUALIZAR STATUS",key="mrp_avulsas_atualizar_status",use_container_width=True):
+        st.session_state.pop("_mrp_avulsas_lista_cache",None)
         st.rerun()
     def _tabela_geral_solicitacoes(_lista):
         # Visao analitica: uma linha por MATERIAL, repetindo a S.A. para cada item.
@@ -746,11 +747,19 @@ _pedido_nova_view = """def _mrp_avulsas_view():
            use_container_width=True)
     if perfil=="ADMIN":
         with st.expander("ADMINISTRAÇÃO · DIAGNÓSTICO DE CUSTOS",expanded=False):
-            st.write("Situação CADASTROS: "+str(fonte_custo.get("status") or "—"))
-            st.write("Campo encontrado: "+str(fonte_custo.get("coluna") or "Não identificado"))
-            st.write("Versão de referência: "+str(fonte_custo.get("versao") or "—"))
-            st.write("Códigos processados na coluna M (incluindo valores zero): "+
-                     str(fonte_custo.get("codigos_com_valor") or 0))
+            st.caption("O diagnóstico de custos é carregado sob demanda para não atrasar a consulta de solicitações.")
+            if st.button("CONSULTAR DIAGNÓSTICO DE CUSTOS",key="mrp_avulsas_cost_status"):
+                try:
+                    st.session_state["_mrp_avulsas_custo_diagnostico"]=_mrp_avulsas_call("cost_status")
+                except Exception as exc:
+                    st.error("Não foi possível consultar o cadastro: "+str(exc))
+            _diag=st.session_state.get("_mrp_avulsas_custo_diagnostico")
+            if _diag:
+                st.write("Situação CADASTROS: "+str(_diag.get("status") or "—"))
+                st.write("Campo encontrado: "+str(_diag.get("coluna") or "Não identificado"))
+                st.write("Versão de referência: "+str(_diag.get("versao") or "—"))
+                st.write("Códigos processados na coluna M: "+
+                         str(_diag.get("codigos_com_valor") or 0))
         with st.expander("ADMINISTRAÇÃO · NOTIFICAÇÕES POR E-MAIL",expanded=False):
             st.caption("Separação: e-mail ao solicitante. Entrega: e-mail à gestão "+
                        "do almoxarifado, com cópia ao solicitante.")

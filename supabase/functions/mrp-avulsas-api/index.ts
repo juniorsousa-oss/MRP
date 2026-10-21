@@ -321,24 +321,45 @@ Deno.serve(async (req) => {
       if (error) return fail(error.message);
       return json({ ok: true, data });
     }
+    if (action==="cost_status") {
+      if(role!=="ADMIN")return fail("ADMIN_REQUIRED",403);
+      try{
+        const fonte=await carregarCustos(admin);
+        return json({ok:true,data:{
+          status:fonte.status,coluna:fonte.coluna,
+          versao:fonte.referencia,codigos_com_valor:fonte.valorPorCodigo.size,
+        }});
+      }catch{
+        return json({ok:true,data:{status:"FONTE_INDISPONIVEL",
+          coluna:null,versao:"",codigos_com_valor:0}});
+      }
+    }
     if (!["list", "create", "create_batch"].includes(action)) return fail("ACAO_INVALIDA");
     // A autorizacao e validada no servidor; ocultar controles nao basta.
     if (action !== "list" && role !== "CONSULTA") return fail("CONSULTA_REQUIRED", 403);
+    // Consultas ADMIN/OPERADOR não precisam descompactar o MRP completo nem
+    // baixar CADASTROS a cada botão; o histórico tem preços persistidos.
+    // Criação e CONSULTA mantêm integralmente a lógica de disponibilidade.
+    const historicoLeve=action==="list"&&role!=="CONSULTA";
     const { data: latest, error: latestError } = await admin.from("mrp_snapshots")
-      .select("id,created_at,mrp_geral,compressed_payload")
+      .select(historicoLeve ? "id,created_at" : "id,created_at,mrp_geral,compressed_payload")
       .order("created_at", { ascending: false }).order("id", { ascending: false })
       .limit(1).maybeSingle();
     if (latestError) return fail(latestError.message, 500);
     if (!latest) return fail("MRP_AINDA_NAO_SALVO", 409);
-    const available = await unpackMrp(latest);
-    // O CADASTROS e a referencia de custo; nunca substituir o saldo do MRP.
+    const available:Map<string,MrpMaterial>=historicoLeve
+      ? new Map<string,MrpMaterial>() : await unpackMrp(latest);
+    // Custos completos só são necessários para consulta/criação de materiais.
+    // No painel ADMIN, diagnóstico pode ser solicitado com "cost_status".
     let custos:CustoCadastro={valorPorCodigo:new Map(),coluna:null,referencia:"",
-      status:"FONTE_INDISPONIVEL"};
-    try{custos=await carregarCustos(admin);}catch{
-      // Sem custo, preserva-se a solicitacao. O valor nulo bloqueia a entrega.
-    }
-    for(const material of available.values()){
-      material.valor_unitario=custos.valorPorCodigo.get(material.codigo) ?? 0;
+      status:historicoLeve?"SOB_DEMANDA":"FONTE_INDISPONIVEL"};
+    if(!historicoLeve){
+      try{custos=await carregarCustos(admin);}catch{
+        // A consulta informa a indisponibilidade; preços gravados são preservados.
+      }
+      for(const material of available.values()){
+        material.valor_unitario=custos.valorPorCodigo.get(material.codigo) ?? 0;
+      }
     }
     if (action === "create_batch") {
       const requested = input.itens;
@@ -413,11 +434,14 @@ Deno.serve(async (req) => {
     }
     // A reserva considera TODOS os pedidos, inclusive os de outros usuários,
     // independentemente das permissões de visualização do solicitante.
-    const { data: ledger, error: ledgerError } = await admin.from("mrp_solicitacoes_avulsas")
-      .select("snapshot_id,codigo,quantidade,status")
-      .in("status",["ABERTA","ATENDIDA"])
-      .limit(10000);
-    if (ledgerError) return fail(ledgerError.message, 500);
+    let ledger:any[]=[];
+    if(!historicoLeve){
+      const {data,error}=await admin.from("mrp_solicitacoes_avulsas")
+        .select("snapshot_id,codigo,quantidade,status")
+        .in("status",["ABERTA","ATENDIDA"]).limit(10000);
+      if(error)return fail(error.message,500);
+      ledger=data||[];
+    }
 
     let query = admin.from("mrp_solicitacoes_avulsas")
       .select("id,pedido_id,snapshot_id,codigo,descricao,quantidade,div_referencia,solicitante,criado_por,criado_em,status,atendido_em,observacao_atendimento,recusado_em,valor_unitario_ref,destino_garantia,destino_garantia_em");
@@ -442,7 +466,9 @@ Deno.serve(async (req) => {
       .filter(x => x.disponivel > 0 && x.saldo > 0 && x.div > 0);
     const visibleRows = (rows || []).map((r:any) => ({
       ...r, status_exibicao: displayStatus(r.status),
-      valor_ultima_compra_atual: custos.valorPorCodigo.get(String(r.codigo)) ?? 0,
+      valor_ultima_compra_atual: historicoLeve
+        ? (r.valor_unitario_ref ?? null)
+        : (custos.valorPorCodigo.get(String(r.codigo)) ?? 0),
     }));
     // Cabeçalho de pedidos: número único, finalidade, separação e entrega.
     let pedidosQuery=admin.from("mrp_avulsas_pedidos").select(

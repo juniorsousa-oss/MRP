@@ -453,35 +453,45 @@ Deno.serve(async (req) => {
       .order("criado_em",{ascending:false}).limit(2000);
     if(pedidosError)return fail(pedidosError.message,500);
     const ids=(pedidos||[]).map((p:any)=>p.id);
+    // Relatórios apresentam somente status e data para OPERADOR. ADMIN e
+    // CONSULTA continuam recebendo dados de garantia necessários ao seu fluxo.
     const garantiaRegularizacoes:any[]=[];
-    if(ids.length&&(role==="ADMIN"||role==="CONSULTA")){
+    const conferencias:any[]=[];
+    if(ids.length){
+      const camposGarantia=role==="OPERADOR"
+        ? "item_id,pedido_id,astec_confirmado_em,movimento_final_confirmado_em"
+        : "item_id,pedido_id,astec_documento,astec_confirmado_em,movimento_final_tipo,movimento_final_documento,movimento_final_confirmado_em";
       const {data:etapasGarantia,error:erroGarantia}=await admin
         .from("mrp_avulsas_garantia_regularizacoes")
-        .select("item_id,pedido_id,astec_documento,astec_confirmado_em,movimento_final_tipo,movimento_final_documento,movimento_final_confirmado_em")
-        .in("pedido_id",ids);
+        .select(camposGarantia).in("pedido_id",ids);
       if(erroGarantia)return fail("ETAPAS_GARANTIA_INDISPONIVEIS",500);
       garantiaRegularizacoes.push(...(etapasGarantia||[]));
-    }
-    const conferencias:any[]=[];
-    if(role==="ADMIN"&&ids.length){
+
+      // Sempre dentro dos pedidos autorizados: CONSULTA enxerga apenas os seus.
+      const camposConferencia=role==="ADMIN"
+        ? "pedido_id,procedimento,documento_referencia,observacao,confirmado_por,confirmado_em"
+        : "pedido_id,confirmado_em";
       const {data:resultados,error:conferenciaErro}=await admin
         .from("mrp_avulsas_conferencias_finais")
-        .select("pedido_id,procedimento,documento_referencia,observacao,confirmado_por,confirmado_em")
-        .in("pedido_id",ids);
+        .select(camposConferencia).in("pedido_id",ids);
       if(conferenciaErro)return fail("CONFERENCIAS_FINAIS_INDISPONIVEIS",500);
       const finalizados=resultados||[];
-      const responsaveis=[...new Set(finalizados.map((v:any)=>String(v.confirmado_por||"")).filter(Boolean))];
-      const nomes=new Map<string,string>();
-      if(responsaveis.length){
-        const {data:perfis,error:perfisErro}=await admin.from("user_roles")
-          .select("user_id,nome").in("user_id",responsaveis);
-        if(!perfisErro)for(const perfil of perfis||[]){
-          nomes.set(String(perfil.user_id),String(perfil.nome||perfil.user_id));
+      if(role==="ADMIN"){
+        const responsaveis=[...new Set(finalizados.map((v:any)=>String(v.confirmado_por||"")).filter(Boolean))];
+        const nomes=new Map<string,string>();
+        if(responsaveis.length){
+          const {data:perfis,error:perfisErro}=await admin.from("user_roles")
+            .select("user_id,nome").in("user_id",responsaveis);
+          if(!perfisErro)for(const perfil of perfis||[]){
+            nomes.set(String(perfil.user_id),String(perfil.nome||perfil.user_id));
+          }
         }
+        conferencias.push(...finalizados.map((v:any)=>({
+          ...v,admin_nome:nomes.get(String(v.confirmado_por))||String(v.confirmado_por),
+        })));
+      }else{
+        conferencias.push(...finalizados);
       }
-      conferencias.push(...finalizados.map((v:any)=>({
-        ...v,admin_nome:nomes.get(String(v.confirmado_por))||String(v.confirmado_por),
-      })));
     }
     const avisos:any[]=[];
     if(ids.length){

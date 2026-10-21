@@ -1,4 +1,4 @@
-"""Teste funcional dos campos de execução/data do relatório de S.A., sem banco."""
+"""Teste da ordem e dos indicadores do relatório de S.A., sem banco."""
 import ast
 import sys
 import textwrap
@@ -70,27 +70,20 @@ ctx={
 exec(compile(fn_source,"report_function","exec"),ctx,ctx)
 df=ctx["_tabela_geral_solicitacoes"](pedidos)
 expected=[
-    "ASTEC REALIZADA","DATA ASTEC",
-    "MOVIMENTO FINAL REALIZADO","DATA MOVIMENTO FINAL",
-    "VALIDAÇÃO FINAL REALIZADA","DATA VALIDAÇÃO FINAL",
+    "S.A.","SOLICITADO EM","SOLICITANTE","CÓDIGO","DESCRIÇÃO",
+    "QUANTIDADE","SITUAÇÃO","FINALIDADE","OP","CR","APROVADOR",
+    "FILIAL","ASTEC REALIZADA","VALIDAÇÃO FINAL",
 ]
-for col in expected:
-    assert col in df["colunas"],col
-
+assert df["colunas"]==expected,df["colunas"]
 rows={r["S.A."]:r for r in df["linhas"]}
 assert rows["SA-1"]["ASTEC REALIZADA"]=="SIM"
-assert rows["SA-1"]["DATA ASTEC"]=="2026-10-20T09:00:00Z"
-assert rows["SA-1"]["MOVIMENTO FINAL REALIZADO"]=="SIM"
-assert rows["SA-1"]["DATA MOVIMENTO FINAL"]=="2026-10-21T12:00:00Z"
-assert rows["SA-1"]["VALIDAÇÃO FINAL REALIZADA"]=="SIM"
-assert rows["SA-1"]["DATA VALIDAÇÃO FINAL"]=="2026-10-21T15:00:00Z"
+assert rows["SA-1"]["VALIDAÇÃO FINAL"]=="SIM"
+assert rows["SA-1"]["OP"]=="NA"
 assert rows["SA-2"]["ASTEC REALIZADA"]=="SIM"
-assert rows["SA-2"]["MOVIMENTO FINAL REALIZADO"]=="NÃO"
-assert rows["SA-2"]["DATA MOVIMENTO FINAL"]==""
-assert rows["SA-2"]["VALIDAÇÃO FINAL REALIZADA"]=="NÃO"
-assert rows["SA-2"]["DATA VALIDAÇÃO FINAL"]==""
+assert rows["SA-2"]["VALIDAÇÃO FINAL"]=="NÃO"
 assert rows["SA-3"]["ASTEC REALIZADA"]=="N/A"
-assert rows["SA-3"]["MOVIMENTO FINAL REALIZADO"]=="N/A"
-assert rows["SA-3"]["VALIDAÇÃO FINAL REALIZADA"]=="SIM"
-assert rows["SA-3"]["DATA VALIDAÇÃO FINAL"]=="2026-10-21T16:00:00Z"
-print("MRP_RELATORIO_REALIZADO_DATA_OK")
+assert rows["SA-3"]["VALIDAÇÃO FINAL"]=="SIM"
+assert "DATA ASTEC" not in df["colunas"]
+assert "DATA VALIDAÇÃO FINAL" not in df["colunas"]
+assert "MOVIMENTO FINAL REALIZADO" not in df["colunas"]
+print("MRP_RELATORIO_COLUNAS_ENXUTAS_OK")

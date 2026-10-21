@@ -12,6 +12,9 @@ _av_final_section = '''    if perfil=="ADMIN":
             "Confirme o procedimento realizado no Protheus e guarde a referência "
             "documental. Esta etapa não executa baixa, emissão de NF ou transferência."
         )
+        _ultima_confirmacao = st.session_state.pop("_mrp_final_admin_confirmado",None)
+        if _ultima_confirmacao:
+            st.success("Operação registrada com sucesso: "+str(_ultima_confirmacao))
         _conferencias_finais = {
             str(_c.get("pedido_id")): _c
             for _c in (dados.get("conferencias_finais") or [])
@@ -41,6 +44,8 @@ _av_final_section = '''    if perfil=="ADMIN":
         with _tab_final_pendente:
             if not _entregues_pendentes:
                 st.success("Não existem entregas aguardando conferência final.")
+                if _entregues_concluidas:
+                    st.info("As solicitações encerradas estão na aba CONCLUÍDAS, logo acima.")
             for _p in _entregues_pendentes:
                 _proto = _protocolo(_p)
                 _finalidade = str(_p.get("finalidade") or "")
@@ -275,9 +280,7 @@ _av_final_section = '''    if perfil=="ADMIN":
                     mime="text/csv", use_container_width=True,
                     key="mrp_admin_exportar_conferencias",
                 )
-        _ultima_confirmacao = st.session_state.pop("_mrp_final_admin_confirmado",None)
-        if _ultima_confirmacao:
-            st.success("Conferência final registrada para "+_ultima_confirmacao+".")
+        # Mensagem de sucesso exibida acima das abas na atualização pós-ação.
 '''
 _source = _source.replace(
     _av_final_anchor, _av_final_section + "\n" + _av_final_anchor, 1

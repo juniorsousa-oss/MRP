@@ -211,14 +211,20 @@ _av_final_section = '''    if perfil=="ADMIN":
                             format_func=lambda v: _rotulos_procedimento.get(v,v),
                             key="mrp_procedimento_final_"+str(_p["id"]),
                         )
-                        _documento = st.text_input(
-                            "DOCUMENTO ASTEC DE REFERÊNCIA *" if _finalidade=="GARANTIA"
-                            else "DOCUMENTO / REFERÊNCIA NO PROTHEUS *",
-                            value=_documento_inicial,
-                            max_chars=120,
-                            placeholder="Número do documento de referência",
-                            key="mrp_documento_final_"+str(_p["id"]),
-                        )
+                        if _finalidade=="GARANTIA":
+                            _documento = _documento_inicial
+                            st.caption(
+                                "Documento de referência para o encerramento: "+
+                                (_documento or "aguardando ASTEC")+
+                                ". As baixas e os retornos estão registrados individualmente."
+                            )
+                        else:
+                            _documento = st.text_input(
+                                "DOCUMENTO / REFERÊNCIA NO PROTHEUS *",
+                                max_chars=120,
+                                placeholder="Número da NF, baixa ou transferência",
+                                key="mrp_documento_final_"+str(_p["id"]),
+                            )
                         _check_materiais = st.checkbox(
                             "Conferi materiais, códigos e quantidades da solicitação.",
                             key="mrp_check_material_"+str(_p["id"]),

@@ -48,6 +48,7 @@ from mrp_compra_validacao_patch import VALIDACAO_COMPRA_PATCH
 from mrp_avulsas_custos_patch import AVULSAS_CUSTOS_PATCH
 from mrp_avulsas_fluxo_patch import AVULSAS_FLUXO_PATCH
 from mrp_avulsas_final_admin_patch import FINAL_ADMIN_PATCH
+from mrp_avulsas_organizacao_patch import AVULSAS_ORGANIZACAO_PATCH
 
 # Mantém toda a lógica funcional validada no runtime estável e aplica somente
 # smoke-layout-performance-20260930
@@ -139,7 +140,7 @@ if _old_export in _source:
 
 _runtime_source = _runtime_source.replace(
     _exec_anchor,
-    _producao_patch + "\n" + ENTREGA_PATCH + "\n" + LAYOUT_PATCH + "\n" + COMPRA_TCTP_PATCH + "\n" + FILTROS_PATCH + "\n" + COMPARATIVO_PATCH + "\n" + UI_ADEQUACOES_PATCH + "\n" + TRATATIVA_PRODUTO_PATCH + "\n" + FILTROS_VISUAL_PATCH + "\n" + LOGIN_PATCH + "\n" + LOGIN_SPACING_PATCH + "\n" + CONEXAO_PATCH + "\n" + SALVAMENTO_COMPACTO_PATCH + "\n" + ANO_SEMANA_PATCH + "\n" + PERFORMANCE_PATCH + "\n" + CENTRAL_DATA_PATCH + "\n" + DESEMPENHO_FINAL_PATCH + "\n" + SETTA_PADRAO_PATCH + "\n" + MRP_PADRAO_FINAL_PATCH + "\n" + PADRONIZACAO_NFS_PATCH + "\n" + ADEQUACOES_FILTROS_TRATATIVAS_PATCH + "\n" + SETTA_UI_V1_PATCH + "\n" + AVULSAS_PATCH + "\n" + AVULSAS_UX_PATCH + "\n" + MRP_TABLES_PATCH + "\n" + VALIDACAO_COMPRA_PATCH + "\n" + AVULSAS_CUSTOS_PATCH + "\n" + AVULSAS_FLUXO_PATCH + "\n" + FINAL_ADMIN_PATCH + "\n" + _exec_anchor,
+    _producao_patch + "\n" + ENTREGA_PATCH + "\n" + LAYOUT_PATCH + "\n" + COMPRA_TCTP_PATCH + "\n" + FILTROS_PATCH + "\n" + COMPARATIVO_PATCH + "\n" + UI_ADEQUACOES_PATCH + "\n" + TRATATIVA_PRODUTO_PATCH + "\n" + FILTROS_VISUAL_PATCH + "\n" + LOGIN_PATCH + "\n" + LOGIN_SPACING_PATCH + "\n" + CONEXAO_PATCH + "\n" + SALVAMENTO_COMPACTO_PATCH + "\n" + ANO_SEMANA_PATCH + "\n" + PERFORMANCE_PATCH + "\n" + CENTRAL_DATA_PATCH + "\n" + DESEMPENHO_FINAL_PATCH + "\n" + SETTA_PADRAO_PATCH + "\n" + MRP_PADRAO_FINAL_PATCH + "\n" + PADRONIZACAO_NFS_PATCH + "\n" + ADEQUACOES_FILTROS_TRATATIVAS_PATCH + "\n" + SETTA_UI_V1_PATCH + "\n" + AVULSAS_PATCH + "\n" + AVULSAS_UX_PATCH + "\n" + MRP_TABLES_PATCH + "\n" + VALIDACAO_COMPRA_PATCH + "\n" + AVULSAS_CUSTOS_PATCH + "\n" + AVULSAS_FLUXO_PATCH + "\n" + FINAL_ADMIN_PATCH + "\n" + AVULSAS_ORGANIZACAO_PATCH + "\n" + _exec_anchor,
     1,
 )
 

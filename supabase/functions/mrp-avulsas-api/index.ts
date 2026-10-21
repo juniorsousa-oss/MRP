@@ -257,22 +257,16 @@ Deno.serve(async (req) => {
       const observacao=String(input.observacao||"").trim();
       if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(pedidoId))
         return fail("PEDIDO_INVALIDO");
-      if(!["EMISSAO_NF","BAIXA","TRANSFERENCIA","REGULARIZACAO_GARANTIA"].includes(procedimento))
+      if(!["EMISSAO_NF","BAIXA","TRANSFERENCIA"].includes(procedimento))
         return fail("PROCEDIMENTO_INVALIDO");
-      if(documento.length<3||documento.length>120)
-        return fail("DOCUMENTO_PROTHEUS_OBRIGATORIO_3_A_120_CARACTERES");
+      if(documento.length<1||documento.length>120)
+        return fail("NUMERO_DOCUMENTO_OBRIGATORIO");
       if(observacao.length>1000)return fail("OBSERVACAO_MAXIMO_1000_CARACTERES");
-      if(input.confere_materiais!==true||input.confere_movimentacao!==true||
-         input.confere_documento!==true)return fail("CHECKLIST_FINAL_INCOMPLETO");
-      const {data,error}=await admin.rpc("mrp_avulsa_conferencia_final_seguro",{
-        p_pedido_id:pedidoId,
-        p_actor:userId,
-        p_procedimento:procedimento,
-        p_documento:documento,
-        p_confere_materiais:true,
-        p_confere_movimentacao:true,
-        p_confere_documento:true,
-        p_observacao:observacao,
+      // A confirmação do ADMIN não declara que checkboxes individuais foram
+      // conferidos. A RPC grava esses indicadores como false e preserva auditoria.
+      const {data,error}=await admin.rpc("mrp_avulsa_conferencia_simples_seguro",{
+        p_pedido_id:pedidoId,p_actor:userId,p_procedimento:procedimento,
+        p_documento:documento,p_observacao:observacao,
       });
       if(error)return fail(error.message,409);
       return json({ok:true,data});

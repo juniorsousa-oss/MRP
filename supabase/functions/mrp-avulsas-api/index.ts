@@ -436,7 +436,19 @@ Deno.serve(async (req) => {
         .select("pedido_id,procedimento,documento_referencia,observacao,confirmado_por,confirmado_em")
         .in("pedido_id",ids);
       if(conferenciaErro)return fail("CONFERENCIAS_FINAIS_INDISPONIVEIS",500);
-      conferencias.push(...(resultados||[]));
+      const finalizados=resultados||[];
+      const responsaveis=[...new Set(finalizados.map((v:any)=>String(v.confirmado_por||"")).filter(Boolean))];
+      const nomes=new Map<string,string>();
+      if(responsaveis.length){
+        const {data:perfis,error:perfisErro}=await admin.from("user_roles")
+          .select("user_id,nome").in("user_id",responsaveis);
+        if(!perfisErro)for(const perfil of perfis||[]){
+          nomes.set(String(perfil.user_id),String(perfil.nome||perfil.user_id));
+        }
+      }
+      conferencias.push(...finalizados.map((v:any)=>({
+        ...v,admin_nome:nomes.get(String(v.confirmado_por))||String(v.confirmado_por),
+      })));
     }
     const avisos:any[]=[];
     if(ids.length){

@@ -20,21 +20,26 @@ view=next(n for n in ast.parse(source).body if isinstance(n,ast.FunctionDef) and
 src=ast.get_source_segment(source,view)
 for item in (
  "CONFERÊNCIA FINAL · ADMIN",
- "ETAPA 1 · ENDEREÇAMENTO À ASTEC",
+ "ETAPA 1 · TRANSFERÊNCIA À ASTEC",
  "ETAPA 2 · RESULTADO DA ASTEC",
- "ETAPA 3 · REGULARIZAÇÃO NO PROTHEUS",
- "ETAPA 4 · VALIDAÇÃO FINAL DO GESTOR",
+ "ETAPA 3 · CONFIRMAÇÃO FINAL POR MATERIAL",
+ "CONFIRMAR TRANSFERÊNCIA À ASTEC",
+ "AGUARDANDO ANÁLISE",
+ "DEVOLVIDO SEM USO",
+ "CONFIRMAR BAIXA",
+ "CONFIRMAR DEVOLUÇÃO AO ESTOQUE",
  "garantia_astec_confirmar",
  "garantia_movimento_final_confirmar",
- "REGULARIZACAO_GARANTIA",
- "BAIXA DO MATERIAL UTILIZADO",
- "TRANSFERÊNCIA DE RETORNO AO ESTOQUE",
- "not _ready_garantia",
+ "movimento_final_confirmado_em",
+ 'continue',
  "disabled=(not _astec_liberada or _movimentacao_final)",
- "CONFIRMAR ENCERRAMENTO ADMINISTRATIVO",
  "if perfil==\"ADMIN\" and _mrp_av_admin_area==\"CONFERÊNCIA FINAL\"",
 ):
  assert item in src,item
+assert "ETAPA 4 · VALIDAÇÃO FINAL DO GESTOR" not in src
+assert "mrp_doc_astec_" not in src
+assert "mrp_doc_movimento_final_" not in src
+assert "confirmar_astec" in src
 api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text("utf-8")
 for item in ("garantia_astec_confirmar","garantia_movimento_final_confirmar",
              "mrp_avulsa_garantia_ast_ec_seguro","mrp_avulsa_garantia_movimento_final_seguro",

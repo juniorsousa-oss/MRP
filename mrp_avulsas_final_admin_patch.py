@@ -144,7 +144,7 @@ _av_final_section = '''    if perfil=="ADMIN":
                     ),
                     "DOCUMENTO PROTHEUS": str(_conf.get("documento_referencia") or ""),
                     "CONFIRMADO EM": _hora(_conf.get("confirmado_em")),
-                    "ADMIN (ID)": str(_conf.get("confirmado_por") or ""),
+                    "ADMIN RESPONSÁVEL": str(_conf.get("admin_nome") or _conf.get("confirmado_por") or ""),
                     "OBSERVAÇÃO": str(_conf.get("observacao") or ""),
                 }
                 _historico_final.append(_linha_historico)

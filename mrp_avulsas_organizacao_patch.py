@@ -1,5 +1,5 @@
 """Separa acompanhamento, conferência final e administração sem alterar regras operacionais."""
-AVULSAS_ORGANIZACAO_PATCH = r'''
+AVULSAS_ORGANIZACAO_PATCH = r"""
 _view_start=_source.index("def _mrp_avulsas_view():\n")
 _view_end=_source.index('\nif _mrp_page=="SOLICITAÇÕES AVULSAS":',_view_start)
 _view=_source[_view_start:_view_end]
@@ -80,4 +80,4 @@ _view=_view.replace(_admin_tools,
 )
 
 _source=_source[:_view_start]+_view+_source[_view_end:]
-'''
+"""

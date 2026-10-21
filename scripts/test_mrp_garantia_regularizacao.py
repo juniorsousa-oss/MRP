@@ -43,9 +43,10 @@ assert "confirmar_astec" in src
 api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text("utf-8")
 for item in ("garantia_astec_confirmar","garantia_movimento_final_confirmar",
              "mrp_avulsa_garantia_ast_ec_seguro","mrp_avulsa_garantia_movimento_final_seguro",
-             "REGULARIZACAO_GARANTIA","garantia_regularizacoes:garantiaRegularizacoes"):
+             "garantia_regularizacoes:garantiaRegularizacoes"):
  assert item in api,item
 migration=(root/"supabase/migrations/20261021_mrp_avulsas_garantia_duas_movimentacoes.sql").read_text("utf-8")
+assert "REGULARIZACAO_GARANTIA" in migration
 for item in (
  "garantia_movimento_completo_check",
  "mrp_avulsa_garantia_resultado_seguro",

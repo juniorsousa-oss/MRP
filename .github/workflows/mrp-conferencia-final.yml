@@ -1,0 +1,29 @@
+name: Conferência Final MRP — Validação Isolada
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mrp_avulsas_final_admin_patch.py'
+      - 'app_mrp.py'
+      - 'scripts/test_mrp_conferencia_final_admin.py'
+      - 'supabase/functions/mrp-avulsas-api/index.ts'
+      - 'supabase/migrations/20261021_mrp_avulsas_conferencia_final_admin.sql'
+      - '.github/workflows/mrp-conferencia-final.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  final-admin-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verificar compilacao da aplicação final e regras ADMIN
+        run: python scripts/test_mrp_conferencia_final_admin.py
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Verificar API das solicitações
+        run: deno check supabase/functions/mrp-avulsas-api/index.ts

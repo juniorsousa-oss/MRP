@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
       const pedidoId=String(input.pedido_id||"").trim();
       const documento=String(input.documento_astec||"").trim();
       if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(pedidoId))return fail("PEDIDO_INVALIDO");
-      if(documento.length<3||documento.length>120)return fail("DOCUMENTO_ASTEC_OBRIGATORIO");
+      // Documento não é exigido: a confirmação guarda ADMIN e horário no banco.
       const {data,error}=await admin.rpc("mrp_avulsa_garantia_ast_ec_seguro",{
         p_pedido_id:pedidoId,p_actor:userId,p_documento:documento,
       });
@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
       const itemId=Number(input.item_id);
       const documento=String(input.documento_movimento||"").trim();
       if(!Number.isSafeInteger(itemId)||itemId<1)return fail("ITEM_INVALIDO");
-      if(documento.length<3||documento.length>120)return fail("DOCUMENTO_MOVIMENTO_OBRIGATORIO");
+      // Documento não é exigido: a confirmação guarda ADMIN e horário no banco.
       const {data,error}=await admin.rpc("mrp_avulsa_garantia_movimento_final_seguro",{
         p_item_id:itemId,p_actor:userId,p_documento:documento,
       });

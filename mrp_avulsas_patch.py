@@ -16,9 +16,15 @@ _avulsas_view = """
 # Solicitações avulsas consomem exclusivamente a DIV do último MRP gravado.
 # A API valida novamente quantidade e reservas no banco, sob bloqueio transacional.
 def _mrp_avulsas_call(action,payload=None):
+    import time as _av_tempo
     token=st.session_state.get("auth_access_token")
     if not token:
         raise RuntimeError("A sessão MRP expirou. Entre novamente.")
+    if action=="list":
+        _cached=st.session_state.get("_mrp_avulsas_lista_cache")
+        if (_cached and _cached.get("token")==token
+                and _cached.get("expires",0)>_av_tempo.monotonic()):
+            return _cached["data"]
     url=f"{SUPABASE_URL}/functions/v1/mrp-avulsas-api"
     response=requests.post(
         url,
@@ -32,7 +38,15 @@ def _mrp_avulsas_call(action,payload=None):
         raise RuntimeError(f"Falha da API: HTTP {response.status_code}") from None
     if not response.ok or not result.get("ok"):
         raise RuntimeError(str(result.get("error") or f"HTTP {response.status_code}"))
-    return result.get("data") or {}
+    data=result.get("data") or {}
+    if action=="list":
+        st.session_state["_mrp_avulsas_lista_cache"]={
+            "token":token,"data":data,"expires":_av_tempo.monotonic()+8,
+        }
+    else:
+        # Qualquer confirmação bem-sucedida exige atualização na próxima tela.
+        st.session_state.pop("_mrp_avulsas_lista_cache",None)
+    return data
 
 def _mrp_avulsas_view():
     st.markdown('<div class="section-band"><div class="section-band-kicker">01 · REQUISIÇÕES</div><div class="section-band-title">SOLICITAÇÕES AVULSAS DE MATERIAL</div></div>',unsafe_allow_html=True)

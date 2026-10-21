@@ -363,7 +363,7 @@ Deno.serve(async (req) => {
     // Custos completos só são necessários para consulta/criação de materiais.
     // No painel ADMIN, diagnóstico pode ser solicitado com "cost_status".
     let custos:CustoCadastro={valorPorCodigo:new Map(),coluna:null,referencia:"",
-      status:historicoLeve?"SOB_DEMANDA":"FONTE_INDISPONIVEL"};
+      status:"FONTE_INDISPONIVEL"};
     if(!historicoLeve){
       try{custos=await carregarCustos(admin);}catch{
         // A consulta informa a indisponibilidade; preços gravados são preservados.

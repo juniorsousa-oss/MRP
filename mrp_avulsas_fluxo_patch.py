@@ -309,6 +309,21 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     _alvo=st.selectbox("MATERIAL",list(_choices),key="garantia_item_"+str(p["id"])+"_"+grupo)
                     _id_escolhido=_choices[_alvo]
                     _item_escolhido=next(i for i in filhos if int(i["id"])==_id_escolhido)
+                    _regularizacao_item=next(
+                        (g for g in (dados.get("garantia_regularizacoes") or [])
+                         if int(g.get("item_id") or 0)==_id_escolhido),
+                        {},
+                    )
+                    _astec_liberada=bool(_regularizacao_item.get("astec_documento"))
+                    _movimentacao_final=bool(_regularizacao_item.get("movimento_final_documento"))
+                    if not _astec_liberada:
+                        st.warning("Aguardando o gestor confirmar o endereçamento para ASTEC antes da decisão de uso/devolução.")
+                    elif _movimentacao_final:
+                        st.success("Destino já regularizado no Protheus: "+
+                                   str(_regularizacao_item.get("movimento_final_tipo") or "")+
+                                   " · Documento "+str(_regularizacao_item.get("movimento_final_documento") or ""))
+                    else:
+                        st.info("ASTEC confirmada. Informe se o material foi UTILIZADO ou DEVOLVIDO SEM USO.")
                     _opcoes=[
                         ("AGUARDANDO RETORNO","AGUARDANDO_RETORNO"),
                         ("UTILIZADO","UTILIZADO"),
@@ -323,7 +338,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     )
                     _codigo_resultado=dict(_opcoes)[_resultado]
                     if st.button("SALVAR CONDIÇÃO DO MATERIAL",
-                                 key="garantia_salvar_"+str(p["id"])+"_"+grupo):
+                                 key="garantia_salvar_"+str(p["id"])+"_"+grupo,
+                                 disabled=(not _astec_liberada or _movimentacao_final)):
                         if _codigo_resultado==_valor_atual:
                             st.toast("A condição deste material já está atualizada.",icon="ℹ️")
                         else:

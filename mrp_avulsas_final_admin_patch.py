@@ -16,6 +16,11 @@ _av_final_section = '''    if perfil=="ADMIN":
             str(_c.get("pedido_id")): _c
             for _c in (dados.get("conferencias_finais") or [])
         }
+        _rotulos_procedimento = {
+            "TRANSFERENCIA": "Transferência de materiais",
+            "BAIXA": "Baixa de materiais",
+            "EMISSAO_NF": "Emissão de nota fiscal",
+        }
         _entregues_pendentes = [
             _p for _p in _entregues if str(_p["id"]) not in _conferencias_finais
         ]

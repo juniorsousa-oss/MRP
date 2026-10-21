@@ -305,8 +305,8 @@ _source = _source.replace(
     _av_final_anchor, _av_final_section + "\n" + _av_final_anchor, 1
 )
 
-# O relatório geral e o Excel registram execução e data real de cada etapa.
-# A situação ENTREGUE permanece representando apenas a entrega física.
+# Relatório enxuto: controle operacional e flags da ASTEC e validação final.
+# As datas e demais movimentações ficam no histórico, não nas colunas da consulta/Excel.
 _tabela_anchor = '                    "SITUAÇÃO":_situacao,\n                    "CONDIÇÃO GARANTIA":_condicao_garantia_relatorio(_pedido,_item),'
 if _source.count(_tabela_anchor) != 1:
     raise RuntimeError("Relatório de conferência: linha base não localizada.")
@@ -315,26 +315,10 @@ _campos_relatorio = '''                    "SITUAÇÃO":_situacao,
                         "SIM" if _garantias_por_item.get(str(_item.get("id")), {}).get("astec_confirmado_em")
                         else "NÃO"
                     ) if _pedido.get("finalidade")=="GARANTIA" else "N/A",
-                    "DATA ASTEC": (
-                        _hora(_garantias_por_item.get(str(_item.get("id")), {}).get("astec_confirmado_em"))
-                        if _pedido.get("finalidade")=="GARANTIA" else ""
-                    ),
-                    "MOVIMENTO FINAL REALIZADO": (
-                        "SIM" if _garantias_por_item.get(str(_item.get("id")), {}).get("movimento_final_confirmado_em")
-                        else "NÃO"
-                    ) if _pedido.get("finalidade")=="GARANTIA" else "N/A",
-                    "DATA MOVIMENTO FINAL": (
-                        _hora(_garantias_por_item.get(str(_item.get("id")), {}).get("movimento_final_confirmado_em"))
-                        if _pedido.get("finalidade")=="GARANTIA" else ""
-                    ),
-                    "VALIDAÇÃO FINAL REALIZADA": (
+                    "VALIDAÇÃO FINAL": (
                         "SIM" if _conferencias_por_pedido.get(str(_pedido.get("id")), {}).get("confirmado_em")
                         else "NÃO"
-                    ),
-                    "DATA VALIDAÇÃO FINAL":_hora(
-                        _conferencias_por_pedido.get(str(_pedido.get("id")), {}).get("confirmado_em")
-                    ),
-                    "CONDIÇÃO GARANTIA":_condicao_garantia_relatorio(_pedido,_item),'''
+                    ),'''
 _source = _source.replace(_tabela_anchor,_campos_relatorio,1)
 
 _initial_anchor = '    def _tabela_geral_solicitacoes(_lista):'
@@ -349,38 +333,44 @@ _mapa_relatorio = '''    _conferencias_por_pedido = {
 '''
 _source = _source.replace(_initial_anchor,_mapa_relatorio+_initial_anchor,1)
 
-_cols_anchor = '            "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","CONDIÇÃO GARANTIA",'
+# Renomear apenas a coluna de saída; preservar OP(s) nos dados e outros formulários.
+_retorno_anchor = '        return pd.DataFrame(_linhas,columns=['
+if _source.count(_retorno_anchor) != 1:
+    raise RuntimeError("Relatório de conferência: retorno da tabela não localizado.")
+_source = _source.replace(_retorno_anchor,
+    '        for _linha in _linhas:\n'
+    '            _linha["OP"] = _linha.pop("OP(s)","NA")\n'
+    + _retorno_anchor,1)
+
+_cols_anchor = '''        return pd.DataFrame(_linhas,columns=[
+            "S.A.","SOLICITADO EM","SOLICITANTE","FINALIDADE",
+            "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","CONDIÇÃO GARANTIA",
+            "OP(s)","CR","APROVADOR","FILIAL",
+        ])'''
 if _source.count(_cols_anchor) != 1:
     raise RuntimeError("Relatório de conferência: ordem de colunas não localizada.")
 _source = _source.replace(_cols_anchor,
-    '            "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","CONDIÇÃO GARANTIA",'
-    '"ASTEC REALIZADA","DATA ASTEC","MOVIMENTO FINAL REALIZADO",'
-    '"DATA MOVIMENTO FINAL","VALIDAÇÃO FINAL REALIZADA","DATA VALIDAÇÃO FINAL",',1)
+    '''        return pd.DataFrame(_linhas,columns=[
+            "S.A.","SOLICITADO EM","SOLICITANTE",
+            "CÓDIGO","DESCRIÇÃO","QUANTIDADE","SITUAÇÃO","FINALIDADE",
+            "OP","CR","APROVADOR","FILIAL","ASTEC REALIZADA","VALIDAÇÃO FINAL",
+        ])''',1)
 
-# Registros legados sem pedido não possuem histórico administrativo; distinguir N/A de SIM/NÃO.
+# Linhas históricas sem protocolo não têm ASTEC nem fechamento rastreável.
 _legacy_anchor = '                "CONDIÇÃO GARANTIA":"NA",'
 if _source.count(_legacy_anchor) != 1:
     raise RuntimeError("Relatório de conferência: material legado não localizado.")
 _source = _source.replace(_legacy_anchor,
-    '                "CONDIÇÃO GARANTIA":"NA",\n'
-    '                "ASTEC REALIZADA":"N/A","DATA ASTEC":"",\n'
-    '                "MOVIMENTO FINAL REALIZADO":"N/A","DATA MOVIMENTO FINAL":"",\n'
-    '                "VALIDAÇÃO FINAL REALIZADA":"N/A","DATA VALIDAÇÃO FINAL":"",',
-    1,
-)
+    '                "ASTEC REALIZADA":"N/A","VALIDAÇÃO FINAL":"N/A",',1)
 
-# Labels explícitos no dataframe. O mesmo dataframe é exportado para Excel.
+# O DataFrame de consulta e a exportação Excel usam a mesma ordem.
 _config_anchor = '                        "SITUAÇÃO":st.column_config.TextColumn("SITUAÇÃO"),'
 if _source.count(_config_anchor) != 1:
     raise RuntimeError("Relatório de conferência: configuração visual ausente.")
 _source = _source.replace(_config_anchor,
     _config_anchor+'\n'
-    '                        "VALIDAÇÃO FINAL REALIZADA":st.column_config.TextColumn("VALIDAÇÃO FINAL REALIZADA"),\n'
-    '                        "DATA VALIDAÇÃO FINAL":st.column_config.TextColumn("DATA VALIDAÇÃO FINAL"),\n'
     '                        "ASTEC REALIZADA":st.column_config.TextColumn("ASTEC REALIZADA"),\n'
-    '                        "DATA ASTEC":st.column_config.TextColumn("DATA ASTEC"),\n'
-    '                        "MOVIMENTO FINAL REALIZADO":st.column_config.TextColumn("MOVIMENTO FINAL REALIZADO"),\n'
-    '                        "DATA MOVIMENTO FINAL":st.column_config.TextColumn("DATA MOVIMENTO FINAL"),',
+    '                        "VALIDAÇÃO FINAL":st.column_config.TextColumn("VALIDAÇÃO FINAL"),',
     1,
 )
 """

@@ -7,6 +7,8 @@ on:
       - 'mrp_avulsas_fluxo_patch.py'
       - 'scripts/test_mrp_garantia_regularizacao.py'
       - 'scripts/test_mrp_relatorio_realizado_data.py'
+      - 'scripts/test_mrp_contadores_sa_materiais.py'
+      - 'supabase/migrations/20261021_mrp_conferencia_simplificada.sql'
       - 'supabase/migrations/20261021_mrp_avulsas_garantia_duas_movimentacoes.sql'
       - 'app_mrp.py'
       - 'scripts/test_mrp_conferencia_final_admin.py'
@@ -30,6 +32,8 @@ jobs:
         run: python scripts/test_mrp_garantia_regularizacao.py
       - name: Verificar status e datas do relatório e Excel
         run: python scripts/test_mrp_relatorio_realizado_data.py
+      - name: Verificar contagem por S.A. e materiais
+        run: python scripts/test_mrp_contadores_sa_materiais.py
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x

@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - 'mrp_avulsas_final_admin_patch.py'
+      - 'mrp_avulsas_fluxo_patch.py'
+      - 'scripts/test_mrp_garantia_regularizacao.py'
+      - 'supabase/migrations/20261021_mrp_avulsas_garantia_duas_movimentacoes.sql'
       - 'app_mrp.py'
       - 'scripts/test_mrp_conferencia_final_admin.py'
       - 'supabase/functions/mrp-avulsas-api/index.ts'
@@ -22,6 +25,8 @@ jobs:
           python-version: '3.12'
       - name: Verificar compilacao da aplicação final e regras ADMIN
         run: python scripts/test_mrp_conferencia_final_admin.py
+      - name: Verificar garantia ASTEC, baixa/retorno e conferência
+        run: python scripts/test_mrp_garantia_regularizacao.py
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x

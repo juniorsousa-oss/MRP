@@ -1,8 +1,10 @@
 """Validação isolada da Conferência Final ADMIN; não modifica banco ou pedidos."""
 import ast
+import sys
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(root))
 entry = (root / "app_mrp.py").read_text("utf-8")
 marker = 'exec(compile(_runtime_source, "app_mrp_runtime.py", "exec"), globals(), globals())'
 assert entry.count(marker) == 1

@@ -186,67 +186,52 @@ _av_final_section = '''    if perfil=="ADMIN":
                     if not _permitidos:
                         st.error("Finalidade não elegível para conclusão administrativa.")
                         continue
-                    st.markdown("**CHECKLIST DE ENCERRAMENTO ADMINISTRATIVO**")
+                    # Somente documento e observações na transferência entre filiais.
+                    # Para acerto gerencial, é necessário indicar se houve baixa
+                    # ou transferência, pois são operações distintas do Protheus.
                     with st.form("mrp_final_admin_"+str(_p["id"]), enter_to_submit=False):
-                        _procedimento = st.selectbox(
-                            "PROCEDIMENTO EXECUTADO",
-                            _permitidos,
-                            format_func=lambda v: _rotulos_procedimento.get(v,v),
-                            key="mrp_procedimento_final_"+str(_p["id"]),
-                        )
-                        if _finalidade=="GARANTIA":
-                            _documento = _documento_inicial
-                            st.caption(
-                                "Documento de referência para o encerramento: "+
-                                (_documento or "aguardando ASTEC")+
-                                ". As baixas e os retornos estão registrados individualmente."
-                            )
-                        else:
-                            _documento = st.text_input(
-                                "DOCUMENTO / REFERÊNCIA NO PROTHEUS *",
+                        if _finalidade=="TRANSFERENCIA":
+                            _procedimento="EMISSAO_NF"
+                            _documento=st.text_input(
+                                "NÚMERO DA NOTA FISCAL *",
                                 max_chars=120,
-                                placeholder="Número da NF, baixa ou transferência",
+                                placeholder="Informe o número da NF emitida",
                                 key="mrp_documento_final_"+str(_p["id"]),
                             )
-                        _check_materiais = st.checkbox(
-                            "Conferi materiais, códigos e quantidades da solicitação.",
-                            key="mrp_check_material_"+str(_p["id"]),
-                        )
-                        _check_movimentacao = st.checkbox(
-                            "Confirmei que a movimentação foi efetivada no Protheus.",
-                            key="mrp_check_movimento_"+str(_p["id"]),
-                        )
-                        _check_documento = st.checkbox(
-                            "Conferi o documento e sua vinculação à solicitação.",
-                            key="mrp_check_documento_"+str(_p["id"]),
-                        )
-                        _obs = st.text_area(
+                        else:
+                            _procedimento=st.selectbox(
+                                "PROCEDIMENTO REALIZADO",
+                                _permitidos,
+                                format_func=lambda v: _rotulos_procedimento.get(v,v),
+                                key="mrp_procedimento_final_"+str(_p["id"]),
+                            )
+                            _documento=st.text_input(
+                                "NÚMERO DO DOCUMENTO / BAIXA NO PROTHEUS *",
+                                max_chars=120,
+                                placeholder="Informe o documento da baixa ou transferência",
+                                key="mrp_documento_final_"+str(_p["id"]),
+                            )
+                        _obs=st.text_area(
                             "OBSERVAÇÕES (OPCIONAL)",
                             max_chars=1000,
                             key="mrp_obs_final_"+str(_p["id"]),
                         )
-                        _submit_final = st.form_submit_button(
+                        _submit_final=st.form_submit_button(
                             "CONFIRMAR ENCERRAMENTO ADMINISTRATIVO",
-                            type="primary", use_container_width=True,
-                            disabled=(_finalidade=="GARANTIA" and not _ready_garantia),
+                            type="primary",use_container_width=True,
                         )
                     if _submit_final:
-                        if len(_documento.strip()) < 3:
-                            st.error("Informe a referência do documento no Protheus (mínimo 3 caracteres).")
-                        elif not all([_check_materiais,_check_movimentacao,_check_documento]):
-                            st.error("Todos os três itens do checklist são obrigatórios.")
+                        if not _documento.strip():
+                            st.error("Informe o número da NF ou documento correspondente no Protheus.")
                         else:
                             try:
-                                _mrp_avulsas_call("conferencia_final_confirmar", {
-                                    "pedido_id": _p["id"],
-                                    "procedimento": _procedimento,
-                                    "documento_referencia": _documento.strip(),
-                                    "confere_materiais": True,
-                                    "confere_movimentacao": True,
-                                    "confere_documento": True,
-                                    "observacao": _obs.strip(),
+                                _mrp_avulsas_call("conferencia_final_confirmar",{
+                                    "pedido_id":_p["id"],
+                                    "procedimento":_procedimento,
+                                    "documento_referencia":_documento.strip(),
+                                    "observacao":_obs.strip(),
                                 })
-                                st.session_state["_mrp_final_admin_confirmado"] = _proto
+                                st.session_state["_mrp_final_admin_confirmado"]=_proto
                                 st.rerun()
                             except Exception as exc:
                                 st.error("Não foi possível concluir a conferência: "+str(exc))

@@ -13,20 +13,26 @@ function valid(check:boolean,m:string){if(!check)throw Error(m);}
 Deno.test("separação vai apenas para solicitante",()=>{
   const mail=montarEmail(pedido,itens,"SEPARADA");
   valid(mail.to===pedido.solicitante,"destinatario");
-  valid(mail.cc.length===0,"nao copiar gestao na separacao");
+  valid(mail.cc.length===0,"nao copiar gestao ou jessica na separacao");
+  valid(!mail.cc.includes("jessica.samara@gruposetta.com"),"jessica fora da separacao");
   valid(mail.subject.includes("SA-001002"),"protocolo");
   valid(mail.texto.includes("disponíveis para retirada"),"orientacao");
 });
 Deno.test("garantia entrega para gestao, cc solicitante, tabela e total",()=>{
   const mail=montarEmail(pedido,itens,"ENTREGUE");
   valid(mail.to==="almoxarifado.energy@gruposetta.com","gestao");
-  valid(mail.cc.length===1&&mail.cc[0]===pedido.solicitante,"copia");
+  valid(mail.cc.length===2&&mail.cc.includes(pedido.solicitante),"copia solicitante");
+  valid(mail.cc.includes("jessica.samara@gruposetta.com"),"jessica apenas na entrega");
   valid(mail.subject==="ENTREGA DE PEÇAS AVULSAS - GARANTIA","titulo");
   valid(mail.texto.includes("OP(s): 26012301001"),"OP(s) de origem");
   valid(mail.total===36.25,"total (2*15,50 + 3*1,75)");
   valid(mail.html.includes("R$"),"moeda");
   valid(mail.html.includes("RELE &lt;TESTE&gt;"),"escape html");
   valid(!mail.html.includes("RELE <TESTE>"),"injection prevention");
+});
+Deno.test("entrega nao duplica destinatario quando solicitante e jessica",()=>{
+  const mail=montarEmail({...pedido,solicitante:"jessica.samara@gruposetta.com"},itens,"ENTREGUE");
+  valid(mail.cc.length===1&&mail.cc[0]==="jessica.samara@gruposetta.com","sem duplicacao");
 });
 Deno.test("acerto gerencial inclui CR e aprovador",()=>{
   const mail=montarEmail({

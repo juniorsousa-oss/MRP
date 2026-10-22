@@ -13,7 +13,7 @@ function valid(check:boolean,m:string){if(!check)throw Error(m);}
 Deno.test("separação vai apenas para solicitante",()=>{
   const mail=montarEmail(pedido,itens,"SEPARADA");
   valid(mail.to===pedido.solicitante,"destinatario");
-  valid(mail.cc.length===0,"nao copiar gestao ou jessica na separacao");
+  valid(mail.cc.length===1&&mail.cc.includes("junior.sousa@gruposetta.com"),"junior em copia na separacao");
   valid(!mail.cc.includes("jessica.samara@gruposetta.com"),"jessica fora da separacao");
   valid(mail.subject.includes("SA-001002"),"protocolo");
   valid(mail.texto.includes("disponíveis para retirada"),"orientacao");
@@ -21,7 +21,8 @@ Deno.test("separação vai apenas para solicitante",()=>{
 Deno.test("garantia entrega para gestao, cc solicitante, tabela e total",()=>{
   const mail=montarEmail(pedido,itens,"ENTREGUE");
   valid(mail.to==="almoxarifado.energy@gruposetta.com","gestao");
-  valid(mail.cc.length===2&&mail.cc.includes(pedido.solicitante),"copia solicitante");
+  valid(mail.cc.length===3&&mail.cc.includes(pedido.solicitante),"copia solicitante");
+  valid(mail.cc.includes("junior.sousa@gruposetta.com"),"junior em copia na entrega");
   valid(mail.cc.includes("jessica.samara@gruposetta.com"),"jessica apenas na entrega");
   valid(mail.subject==="ENTREGA DE PEÇAS AVULSAS - GARANTIA","titulo");
   valid(mail.texto.includes("OP(s): 26012301001"),"OP(s) de origem");
@@ -32,7 +33,13 @@ Deno.test("garantia entrega para gestao, cc solicitante, tabela e total",()=>{
 });
 Deno.test("entrega nao duplica destinatario quando solicitante e jessica",()=>{
   const mail=montarEmail({...pedido,solicitante:"jessica.samara@gruposetta.com"},itens,"ENTREGUE");
-  valid(mail.cc.length===1&&mail.cc[0]==="jessica.samara@gruposetta.com","sem duplicacao");
+  valid(mail.cc.length===2&&mail.cc.includes("jessica.samara@gruposetta.com")
+    &&mail.cc.includes("junior.sousa@gruposetta.com"),"sem duplicacao");
+});
+Deno.test("separacao nao duplica quando solicitante e junior",()=>{
+  const mail=montarEmail({...pedido,solicitante:"junior.sousa@gruposetta.com"},itens,"SEPARADA");
+  valid(mail.to==="junior.sousa@gruposetta.com","para junior");
+  valid(mail.cc.length===0,"nao repetir no cc");
 });
 Deno.test("acerto gerencial inclui CR e aprovador",()=>{
   const mail=montarEmail({

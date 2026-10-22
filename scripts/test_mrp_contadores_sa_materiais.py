@@ -1,4 +1,4 @@
-"""Testa que garantias e entregas são contadas por S.A., e materiais em cartão próprio."""
+"""Verifica que os indicadores exibem S.A.s e que não existe cartão de materiais."""
 import ast
 import sys
 import textwrap
@@ -49,11 +49,15 @@ for value in (
     '"DEMAIS ENTREGAS ("+str(len(_grupos["demais"]))+" S.A.s)"',
     '"AGUARDANDO CONFIRMAÇÃO ("+str(len(_grupos["aguardando"]))+" S.A.s)"',
     '"CONFIRMADAS ("+str(len(_grupos["confirmadas"]))+" S.A.s)"',
-    'MATERIAIS SEPARADOS E ENTREGUES',
-    '_materiais_separados',
-    '_materiais_entregues',
+    '_counters[0].metric("AGUARDANDO SEPARAÇÃO"',
+    '_counters[1].metric("SEPARADAS · NÃO ENTREGUES"',
+    '_counters[2].metric("ENTREGUES"',
 ):
     assert value in source, value
 assert '_tot_garantias=(_grupos["itens_aguardando"]+_grupos["itens_confirmados"])' not in source
 assert '"GARANTIAS ("+str(_tot_garantias)+" materiais)"' not in source
+assert "MATERIAIS SEPARADOS E ENTREGUES" not in source
+assert "_card_mat" not in source
+assert "_materiais_separados" not in source
+assert "_materiais_entregues" not in source
 print("MRP_CONTADORES_SA_MATERIAIS_OK")

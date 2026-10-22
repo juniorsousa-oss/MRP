@@ -31,7 +31,10 @@ export function montarEmail(pedido: PedidoMail,itens: ItemMail[],tipo:TipoEmail)
   const nomeFinalidade=finalidades[String(pedido.finalidade||"")];
   if(!nomeFinalidade)throw Error("FINALIDADE_NAO_DEFINIDA");
   const to = tipo==="ENTREGUE"?gestão:usuario;
-  const cc = tipo==="ENTREGUE"?[usuario]:[];
+  // A separação notifica somente o solicitante. Jéssica recebe cópia apenas na entrega.
+  const cc = tipo==="ENTREGUE"
+    ? [...new Set([usuario,"jessica.samara@gruposetta.com"])]
+    : [];
   const subject=tipo==="ENTREGUE"
     ? "ENTREGA DE PEÇAS AVULSAS - "+nomeFinalidade
     : "MRP SETTA - MATERIAIS SEPARADOS - "+referencia;

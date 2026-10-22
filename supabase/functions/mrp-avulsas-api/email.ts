@@ -10,6 +10,8 @@ export type ItemMail = {
 };
 export type TipoEmail = "SEPARADA" | "ENTREGUE";
 const gestão = "almoxarifado.energy@gruposetta.com";
+const copiasObrigatorias = ["junior.sousa@gruposetta.com"];
+const copiaSomenteEntrega = "jessica.samara@gruposetta.com";
 const escapar = (v: unknown) => String(v ?? "").replace(/[&<>"']/g,(c)=>({
   "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;",
 }[c] ?? c));
@@ -31,10 +33,12 @@ export function montarEmail(pedido: PedidoMail,itens: ItemMail[],tipo:TipoEmail)
   const nomeFinalidade=finalidades[String(pedido.finalidade||"")];
   if(!nomeFinalidade)throw Error("FINALIDADE_NAO_DEFINIDA");
   const to = tipo==="ENTREGUE"?gestão:usuario;
-  // A separação notifica somente o solicitante. Jéssica recebe cópia apenas na entrega.
-  const cc = tipo==="ENTREGUE"
-    ? [...new Set([usuario,"jessica.samara@gruposetta.com"])]
-    : [];
+  // Júnior em ambas as etapas. Jéssica apenas na entrega, além do solicitante.
+  // Remover duplicações e nunca repetir o destinatário principal no CC.
+  const cc = [...new Set([
+    ...(tipo==="ENTREGUE" ? [usuario,copiaSomenteEntrega] : []),
+    ...copiasObrigatorias,
+  ].map(email=>email.trim().toLowerCase()))].filter(email=>email!==to);
   const subject=tipo==="ENTREGUE"
     ? "ENTREGA DE PEÇAS AVULSAS - "+nomeFinalidade
     : "MRP SETTA - MATERIAIS SEPARADOS - "+referencia;

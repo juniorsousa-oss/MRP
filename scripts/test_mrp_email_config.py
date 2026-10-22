@@ -22,9 +22,10 @@ assert '"email_config_status"' in view
 assert '"ADMINISTRAÇÃO · NOTIFICAÇÕES POR E-MAIL"' in view
 assert 'MRP_EMAIL_WORKFLOW_URL' in email
 assert 'const to = tipo==="ENTREGUE"?gestão:usuario;' in email
-assert 'const cc = tipo==="ENTREGUE"' in email
-assert '[...new Set([usuario,"jessica.samara@gruposetta.com"])]' in email
-assert '    : [];' in email
+assert 'const copiasObrigatorias = ["junior.sousa@gruposetta.com"];' in email
+assert 'const copiaSomenteEntrega = "jessica.samara@gruposetta.com";' in email
+assert '...(tipo==="ENTREGUE" ? [usuario,copiaSomenteEntrega] : []),' in email
+assert '...copiasObrigatorias,' in email
 assert '"ENTREGA DE PEÇAS AVULSAS - "+nomeFinalidade' in email
 assert 'notificacao_id:event.id' in email
 assert 'if(event.status==="ACEITO")return "ACEITO";' in email

@@ -10,11 +10,11 @@ estoque ou a situação dos pedidos:
    `MRP_TEAMS_WORKFLOW_URL`. O status fica em `mrp_avulsas_pedidos.teams_status`.
 2. **OPERADOR confirma SEPARAÇÃO** — RPC grava a separação e cria evento
    `mrp_avulsas_email_eventos` de tipo `SEPARADA`; a função solicita e-mail
-   apenas ao solicitante `@gruposetta.com` e registra status.
+   ao solicitante `@gruposetta.com`, com cópia para `junior.sousa@gruposetta.com`, e registra status.
 3. **OPERADOR confirma ENTREGA** — RPC registra entrega e cria evento
    `ENTREGUE`; a função prepara e-mail para
-   `almoxarifado.energy@gruposetta.com`, com cópia ao solicitante e a
-   `jessica.samara@gruposetta.com`. Assunto:
+   `almoxarifado.energy@gruposetta.com`, com cópia ao solicitante,
+   `junior.sousa@gruposetta.com` e `jessica.samara@gruposetta.com`. Assunto:
    `ENTREGA DE PEÇAS AVULSAS - <FINALIDADE>`.
    A mensagem inclui materiais, quantidade, último preço do CADASTROS, totais
    e OP(s), CR/aprovador ou filial conforme a finalidade.
@@ -50,7 +50,7 @@ Supabase -> projeto MRP -> Edge Functions -> Secrets.
   "pedido_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   "tipo": "SEPARADA",
   "para": "nome.sobrenome@gruposetta.com",
-  "copia": [],
+  "copia": ["junior.sousa@gruposetta.com"],
   "assunto": "MRP SETTA - MATERIAIS SEPARADOS - SA-000004",
   "html": "<div>...mensagem em HTML...</div>",
   "texto": "Separação confirmada. ..."
@@ -59,8 +59,9 @@ Supabase -> projeto MRP -> Edge Functions -> Secrets.
 
 Na entrega, `tipo` é `ENTREGUE`, `para` é
 `almoxarifado.energy@gruposetta.com`, e `copia` contém o e-mail do
-solicitante e `jessica.samara@gruposetta.com` (sem duplicatas). Na separação,
-`copia` permanece vazio. O MRP produz o HTML e a tabela, não é necessário construir
+solicitante, `junior.sousa@gruposetta.com` e
+`jessica.samara@gruposetta.com` (sem duplicatas). Na separação, `copia`
+contém somente `junior.sousa@gruposetta.com`, exceto quando ele já for o destinatário principal. O MRP produz o HTML e a tabela, não é necessário construir
 layout do e-mail no Power Automate.
 
 ### Schema do corpo no Power Automate

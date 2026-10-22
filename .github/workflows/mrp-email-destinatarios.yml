@@ -1,0 +1,25 @@
+name: Validar destinatários de e-mail MRP
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/mrp-avulsas-api/email.ts'
+      - 'supabase/functions/mrp-avulsas-api/email_test.ts'
+      - 'scripts/test_mrp_email_config.py'
+      - 'docs/NOTIFICACOES_SOLICITACOES_AVULSAS.md'
+      - '.github/workflows/mrp-email-destinatarios.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  email-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Testar separação versus entrega, CC e não duplicação
+        run: deno test supabase/functions/mrp-avulsas-api/email_test.ts
+      - name: Verificar tipos do módulo de e-mails
+        run: deno check supabase/functions/mrp-avulsas-api/email.ts

@@ -13,7 +13,8 @@ estoque ou a situação dos pedidos:
    apenas ao solicitante `@gruposetta.com` e registra status.
 3. **OPERADOR confirma ENTREGA** — RPC registra entrega e cria evento
    `ENTREGUE`; a função prepara e-mail para
-   `almoxarifado.energy@gruposetta.com`, com cópia ao solicitante. Assunto:
+   `almoxarifado.energy@gruposetta.com`, com cópia ao solicitante e a
+   `jessica.samara@gruposetta.com`. Assunto:
    `ENTREGA DE PEÇAS AVULSAS - <FINALIDADE>`.
    A mensagem inclui materiais, quantidade, último preço do CADASTROS, totais
    e OP(s), CR/aprovador ou filial conforme a finalidade.
@@ -57,8 +58,9 @@ Supabase -> projeto MRP -> Edge Functions -> Secrets.
 ```
 
 Na entrega, `tipo` é `ENTREGUE`, `para` é
-`almoxarifado.energy@gruposetta.com`, e `copia` contém um e-mail do
-solicitante. O MRP produz o HTML e a tabela, não é necessário construir
+`almoxarifado.energy@gruposetta.com`, e `copia` contém o e-mail do
+solicitante e `jessica.samara@gruposetta.com` (sem duplicatas). Na separação,
+`copia` permanece vazio. O MRP produz o HTML e a tabela, não é necessário construir
 layout do e-mail no Power Automate.
 
 ### Schema do corpo no Power Automate

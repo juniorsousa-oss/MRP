@@ -48,20 +48,6 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         else:
             # Tratativas parciais anteriores continuam aparecendo no acompanhamento.
             _legados_separados.append(_pedido_antigo)
-    # Indicador de materiais = linhas individuais de solicitação, não S.A.s
-    # nem soma de unidades físicas. Uma S.A. com 5 itens conta 5 materiais.
-    _ids_separados={
-        str(_p.get("id")) for _p in (_separados+_legados_separados)
-    }
-    _ids_entregues={str(_p.get("id")) for _p in _entregues}
-    _materiais_separados=sum(
-        1 for _i in itens if str(_i.get("pedido_id")) in _ids_separados
-        and str(_i.get("status") or "")=="ATENDIDA"
-    )
-    _materiais_entregues=sum(
-        1 for _i in itens if str(_i.get("pedido_id")) in _ids_entregues
-    )
-    _materiais_movimentados=_materiais_separados+_materiais_entregues
     _counters=st.columns(4 if perfil=="CONSULTA" else 3)
     if perfil=="CONSULTA":
         _counters[0].metric("MATERIAIS DISPONÍVEIS",len(materiais))
@@ -72,15 +58,6 @@ _pedido_nova_view = """def _mrp_avulsas_view():
         _counters[0].metric("AGUARDANDO SEPARAÇÃO",len(_pendentes)+len(_legados_pendentes))
         _counters[1].metric("SEPARADAS · NÃO ENTREGUES",len(_separados)+len(_legados_separados))
         _counters[2].metric("ENTREGUES",len(_entregues))
-    if perfil in {"ADMIN","OPERADOR"}:
-        st.caption("Os três indicadores acima contabilizam solicitações (S.A.s), não materiais.")
-    _card_mat,_legenda_mat=st.columns([1.15,2.85],gap="medium",vertical_alignment="center")
-    _card_mat.metric("MATERIAIS SEPARADOS E ENTREGUES",_materiais_movimentados)
-    _legenda_mat.caption(
-        str(_materiais_separados)+" material(is) separados, aguardando entrega · "+
-        str(_materiais_entregues)+" material(is) com entrega confirmada. "+
-        "Cada linha de material é contada uma única vez, independentemente da quantidade solicitada."
-    )
     st.markdown(
         '<div class="mrp-ped-meta"><b>MRP de referência #'
         +str(dados.get("snapshot_id") or "—")

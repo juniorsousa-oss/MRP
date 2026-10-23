@@ -1,5 +1,5 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { selectMaterial, availableAfterReservations, displayStatus, type MrpMaterial } from "./catalog.ts";
+import { selectMaterial, selectStockMaterial, availableAfterReservations, displayStatus, type MrpMaterial } from "./catalog.ts";
 import { notifyTeams, notifyTeamsTest, type TeamsItem } from "./teams.ts";
 import { notificarEmail } from "./email.ts";
 import { carregarCustos, type CustoCadastro } from "./custos.ts";
@@ -12,7 +12,7 @@ const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
 const fail = (message: string, status = 400) => json({ ok: false, error: message }, status);
 
-async function unpackMrp(snapshot: Record<string, unknown>): Promise<Map<string, MrpMaterial>> {
+async function unpackMrp(snapshot: Record<string, unknown>, includeReserved=false): Promise<Map<string, MrpMaterial>> {
   let rows: any[] = Array.isArray(snapshot.mrp_geral) ? snapshot.mrp_geral as any[] : [];
   if (typeof snapshot.compressed_payload === "string" && snapshot.compressed_payload) {
     const encoded = snapshot.compressed_payload;
@@ -25,7 +25,7 @@ async function unpackMrp(snapshot: Record<string, unknown>): Promise<Map<string,
   }
   const result = new Map<string, MrpMaterial>();
   for (const row of rows) {
-    const material=selectMaterial(row);
+    const material=includeReserved ? selectStockMaterial(row) : selectMaterial(row);
     if (!material) continue;
     if (result.has(material.codigo)) throw Error("MRP_CODIGO_DUPLICADO:" + material.codigo);
     result.set(material.codigo,material);
@@ -33,6 +33,23 @@ async function unpackMrp(snapshot: Record<string, unknown>): Promise<Map<string,
   return result;
 }
 
+
+/** Carrega o estoque físico da fotografia MRP na API; nunca aceita saldo do cliente. */
+async function materialExcecao(admin:any, codigo:string) {
+  const {data:latest,error}=await admin.from("mrp_snapshots")
+    .select("id,created_at,mrp_geral,compressed_payload")
+    .order("created_at",{ascending:false}).order("id",{ascending:false})
+    .limit(1).maybeSingle();
+  if(error||!latest)throw Error("FOTOGRAFIA_MRP_INDISPONIVEL");
+  const material=(await unpackMrp(latest,true)).get(codigo);
+  if(!material)throw Error("MATERIAL_SEM_ESTOQUE_FISICO");
+  return {snapshot_id:Number(latest.id),material};
+}
+function codigoMaterial(valor:unknown):string {
+  const code=String(valor??"").trim().replace(/\.0$/,"");
+  if(!/^\d{1,8}$/.test(code))throw Error("CODIGO_INVALIDO");
+  return code.padStart(8,"0");
+}
 
 type PendingBatchItem = TeamsItem & { limite: number; valor_unitario: number | null };
 async function sendBatchTeams(
@@ -107,6 +124,83 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = String(body?.action || "").trim();
     const input = body?.payload || {};
+
+    // Modalidade excepcional: request -> aprovação ADMIN -> regularização ERP -> S.A.
+    // A autorização normal (DIV positivo) permanece isolada desta trilha.
+    if (action==="exception_list") {
+      let q=admin.from("mrp_avulsas_excecoes").select(
+        "id,snapshot_id,criado_por,solicitante,codigo,descricao,quantidade,justificativa,finalidade,psys,cr,aprovador,saldo_fisico_referencia,div_referencia,situacao,autoridade_nome,autorizacao_referencia,projeto_op_impactado,administracao_observacao,decidido_em,regularizacao_referencia,regularizado_em,pedido_id,criado_em"
+      );
+      if(role==="CONSULTA")q=q.eq("criado_por",userId);
+      else if(role!=="ADMIN"&&role!=="OPERADOR")return fail("ACCESS_DENIED",403);
+      if(role==="OPERADOR")return json({ok:true,data:{solicitacoes:[]}});
+      const {data,error}=await q.order("criado_em",{ascending:false}).limit(300);
+      if(error)return fail("EXCECOES_INDISPONIVEIS",500);
+      return json({ok:true,data:{solicitacoes:data||[]}});
+    }
+    if(["exception_lookup","exception_submit","exception_decide","exception_regularize"].includes(action)){
+      const code=action==="exception_lookup"||action==="exception_submit"
+        ? codigoMaterial(input.codigo) : null;
+      if(action==="exception_lookup"){
+        if(role!=="CONSULTA")return fail("CONSULTA_REQUIRED",403);
+        const {snapshot_id,material}=await materialExcecao(admin,code!);
+        return json({ok:true,data:{snapshot_id,...material}});
+      }
+      if(action==="exception_submit"){
+        if(role!=="CONSULTA")return fail("CONSULTA_REQUIRED",403);
+        const reqId=String(input.id||"");
+        if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(reqId))return fail("ID_INVALIDO");
+        const qty=Number(input.quantidade);
+        if(!Number.isFinite(qty)||qty<=0||Math.abs(qty-Math.round(qty*1000)/1000)>1e-8)
+          return fail("QUANTIDADE_INVALIDA");
+        const {snapshot_id,material}=await materialExcecao(admin,code!);
+        if(qty>material.saldo)return fail("QUANTIDADE_SUPERIOR_ESTOQUE_FISICO",409);
+        const {data,error}=await admin.rpc("mrp_excecao_solicitar_seguro",{
+          p_id:reqId,p_snapshot_id:snapshot_id,p_actor:userId,
+          p_email:String(identity.user.email||"").toLowerCase(),
+          p_codigo:code,p_descricao:material.descricao,p_quantidade:qty,
+          p_saldo:material.saldo,p_div:material.div,
+          p_justificativa:String(input.justificativa||""),
+          p_finalidade:String(input.finalidade||""),
+          p_psys:String(input.psys||""),p_cr:String(input.cr||""),
+          p_aprovador:String(input.aprovador||""),
+        });
+        if(error)return fail(error.message,409);
+        return json({ok:true,data});
+      }
+      if(role!=="ADMIN")return fail("ADMIN_REQUIRED",403);
+      const reqId=String(input.id||"");
+      if(!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(reqId))return fail("ID_INVALIDO");
+      const {data:ex,error:exError}=await admin.from("mrp_avulsas_excecoes")
+        .select("codigo,situacao").eq("id",reqId).maybeSingle();
+      if(exError||!ex)return fail("EXCECAO_NAO_ENCONTRADA",404);
+      const stock=(action==="exception_decide"&&input.decisao==="RECUSAR")
+        ? {snapshot_id:0,material:{saldo:0}}
+        : await materialExcecao(admin,String(ex.codigo));
+      if(action==="exception_decide"){
+        const {data,error}=await admin.rpc("mrp_excecao_decidir_seguro",{
+          p_id:reqId,p_actor:userId,p_decisao:String(input.decisao||""),
+          p_autorizador:String(input.autorizador||""),
+          p_referencia:String(input.referencia||""),
+          p_projeto_op:String(input.projeto_op||""),
+          p_observacao:String(input.observacao||""),
+          p_snapshot_id:stock.snapshot_id,p_saldo:stock.material.saldo,
+        });
+        if(error)return fail(error.message,409);
+        return json({ok:true,data});
+      }
+      if(input.confirmacao!==true)return fail("CONFIRMACAO_REGULARIZACAO_OBRIGATORIA");
+      const {data,error}=await admin.rpc("mrp_excecao_regularizar_e_criar_seguro",{
+        p_id:reqId,p_actor:userId,p_referencia:String(input.documento||""),
+        p_snapshot_id:stock.snapshot_id,p_saldo:stock.material.saldo,
+      });
+      if(error)return fail(error.message,409);
+      // A S.A. entra na fila existente; só a partir daqui dispara Teams.
+      let teamsStatus="PENDENTE";
+      try {teamsStatus=await sendBatchTeams(admin,String(data.pedido_id),userId,role);}
+      catch {teamsStatus="FALHA";}
+      return json({ok:true,data:{...data,teams_status:teamsStatus}});
+    }
     if (action === "email_config_status") {
       if (role !== "ADMIN") return fail("ADMIN_REQUIRED", 403);
       // Nunca retornar o endpoint, sua assinatura, queries ou tokens.

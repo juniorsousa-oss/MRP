@@ -132,7 +132,13 @@ _pedido_nova_view = """def _mrp_avulsas_view():
             titulo=proto+" · "+_labels.get(str(p.get("finalidade")), "SOLICITAÇÃO ANTERIOR")
             _estado_tela=_situacao_pedido(p,filhos)
             titulo+=" · "+_estado_tela
+            if p.get("excecao_id"):
+                titulo+=" · EXCEÇÃO AUTORIZADA"
             with st.expander(titulo,expanded=False):
+                if p.get("excecao_id"):
+                    st.info("Uso excepcional de reserva aprovado e regularizado pelo ADMIN. "
+                        "A S.A. segue o fluxo convencional de separação e entrega; "
+                        "a autorização permanece registrada na central de exceções.")
                 _nome_col,_data_col,_situacao_col=st.columns([5,2.4,2.2],gap="medium")
                 with _nome_col:
                     st.caption("SOLICITANTE")
@@ -632,6 +638,23 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                                 except Exception as exc:
                                     st.error("Não foi possível registrar decisão: "+str(exc))
                         if _ex.get("situacao")=="APROVADA":
+                            with st.form("mrp_exc_revogar_"+_ex_id,enter_to_submit=False):
+                                _cancel_reason=st.text_input(
+                                    "MOTIVO PARA CANCELAR A AUTORIZAÇÃO (SE NECESSÁRIO)",
+                                    key="mrp_exc_cancel_reason_"+_ex_id)
+                                _cancel=st.form_submit_button(
+                                    "CANCELAR AUTORIZAÇÃO AINDA NÃO UTILIZADA",
+                                    use_container_width=True)
+                            if _cancel:
+                                try:
+                                    _mrp_avulsas_call("exception_decide",{
+                                        "id":_ex_id,"decisao":"RECUSAR",
+                                        "observacao":_cancel_reason.strip(),
+                                    })
+                                    st.session_state.pop("_mrp_exc_admin_data",None)
+                                    st.rerun()
+                                except Exception as exc:
+                                    st.error("Não foi possível cancelar: "+str(exc))
                             st.info("APROVADA. Projeto/OP afetado: "+
                                 str(_ex.get("projeto_op_impactado"))+
                                 ". Regularize a reserva original no Protheus antes de liberar.")

@@ -486,6 +486,184 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                             st.session_state["_mrp_cart_id"]=str(_av_uuid.uuid4())
                             st.rerun()
                         except Exception as exc:st.error("Pedido não registrado: "+str(exc))
+
+    # Exceções são rastreadas à parte e NUNCA ficam disponíveis ao operador antes
+    # da aprovação e regularização Protheus. S.A. só nasce na última etapa.
+    if perfil=="CONSULTA":
+        with st.expander("SOLICITAÇÃO EXCEPCIONAL · UTILIZAÇÃO DE MATERIAL RESERVADO",expanded=False):
+            st.warning("Esta modalidade NÃO libera automaticamente a reserva. "
+                "A solicitação passa pela autorização do ADMIN e só entra na separação "
+                "depois da confirmação de regularização da reserva no Protheus.")
+            _cod_ex=st.text_input("CÓDIGO DO MATERIAL",placeholder="Ex.: 50590",
+                key="mrp_exc_codigo")
+            if st.button("CONSULTAR ESTOQUE FÍSICO",key="mrp_exc_lookup"):
+                try:
+                    _local=_mrp_avulsas_call("exception_lookup",{"codigo":_cod_ex.strip()})
+                    st.session_state["_mrp_exc_material"]=_local
+                    st.session_state["_mrp_exc_codigo_consultado"]=_cod_ex.strip().lstrip("0")
+                except Exception as exc:
+                    st.session_state.pop("_mrp_exc_material",None)
+                    st.error("Consulta não realizada: "+str(exc))
+            _mat_ex=st.session_state.get("_mrp_exc_material")
+            if _mat_ex and _cod_ex.strip().lstrip("0")!=st.session_state.get("_mrp_exc_codigo_consultado"):
+                _mat_ex=None
+            if _mat_ex:
+                st.markdown("**"+str(_mat_ex.get("codigo") or "")+" · "+
+                            str(_mat_ex.get("descricao") or "")+"**")
+                _e1,_e2,_e3=st.columns(3)
+                _e1.metric("ESTOQUE FÍSICO",_mat_ex.get("saldo"))
+                _e2.metric("DIV / SOBRA",_mat_ex.get("div"))
+                _e3.metric("MRP REFERÊNCIA",str(_mat_ex.get("snapshot_id") or "—"))
+                with st.form("mrp_exc_pedido_form",enter_to_submit=False):
+                    _exc_qty=st.number_input("QUANTIDADE EXCEPCIONAL",
+                        min_value=0.001,max_value=max(0.001,float(_mat_ex.get("saldo") or 0)),
+                        value=min(1.0,float(_mat_ex.get("saldo") or 1)),
+                        step=0.001,format="%.3f")
+                    _exc_just=st.text_area("JUSTIFICATIVA DA UTILIZAÇÃO *",max_chars=1000,
+                        placeholder="Explique por que será necessário utilizar material comprometido")
+                    _exc_opts={"GARANTIA":"GARANTIA",
+                        "ACERTO GERENCIAL":"ACERTO_GERENCIAL",
+                        "TRANSFERÊNCIA ENTRE FILIAL":"TRANSFERENCIA"}
+                    _exc_finalidade=st.selectbox("FINALIDADE DA SOLICITAÇÃO",
+                        list(_exc_opts),index=None)
+                    _exc_psys=_exc_cr=_exc_ap=""
+                    if _exc_finalidade=="GARANTIA":
+                        _exc_psys=st.text_input("OP(s) DE GARANTIA",max_chars=1000)
+                    elif _exc_finalidade=="ACERTO GERENCIAL":
+                        _exc_cr=st.text_input("CR",max_chars=150)
+                        _exc_ap=st.text_input("APROVADOR DA FINALIDADE",max_chars=180)
+                    _exc_submit=st.form_submit_button("ENCAMINHAR PARA AUTORIZAÇÃO",
+                        type="primary",use_container_width=True)
+                if _exc_submit:
+                    if len(_exc_just.strip())<10:
+                        st.error("Justificativa obrigatória (mínimo de 10 caracteres).")
+                    elif not _exc_finalidade:
+                        st.error("Selecione a finalidade.")
+                    else:
+                        try:
+                            _resp=_mrp_avulsas_call("exception_submit",{
+                                "id":st.session_state.setdefault("_mrp_exc_uuid",str(_av_uuid.uuid4())),
+                                "codigo":_mat_ex["codigo"],"quantidade":_exc_qty,
+                                "justificativa":_exc_just.strip(),
+                                "finalidade":_exc_opts[_exc_finalidade],
+                                "psys":_exc_psys.strip(),"cr":_exc_cr.strip(),
+                                "aprovador":_exc_ap.strip(),
+                            })
+                            st.session_state["_mrp_exc_ultima"]=_resp
+                            st.session_state["_mrp_exc_uuid"]=str(_av_uuid.uuid4())
+                            st.session_state.pop("_mrp_exc_cache",None)
+                            st.rerun()
+                        except Exception as exc:
+                            st.error("Solicitação excepcional não registrada: "+str(exc))
+            _ultima_ex=st.session_state.pop("_mrp_exc_ultima",None)
+            if _ultima_ex:
+                st.success("Pedido excepcional registrado para análise do ADMIN. "
+                    "NÃO está liberado para separação. ID: "+str(_ultima_ex.get("id") or ""))
+            if st.button("CONSULTAR MINHAS EXCEÇÕES",key="mrp_exc_minhas"):
+                try:
+                    st.session_state["_mrp_exc_cache"]=_mrp_avulsas_call("exception_list").get("solicitacoes",[])
+                except Exception as exc:st.error(str(exc))
+            if "_mrp_exc_cache" in st.session_state:
+                _minhas_ex=st.session_state["_mrp_exc_cache"]
+                if _minhas_ex:
+                    st.dataframe(pd.DataFrame([{
+                        "SOLICITADO EM":_hora(e.get("criado_em")),
+                        "CÓDIGO":e.get("codigo"),"QUANTIDADE":e.get("quantidade"),
+                        "SITUAÇÃO":e.get("situacao"),
+                        "S.A.":str(e.get("pedido_id") or "AGUARDANDO LIBERAÇÃO"),
+                    } for e in _minhas_ex]),use_container_width=True,hide_index=True)
+                else:st.info("Nenhuma solicitação excepcional cadastrada.")
+    elif perfil=="ADMIN":
+        with st.expander("ADMINISTRAÇÃO · AUTORIZAÇÕES DE MATERIAIS RESERVADOS",expanded=False):
+            st.caption("Aprovação reserva capacidade física no MRP. Somente após comprovar "
+                "a regularização da reserva original no Protheus é criada uma S.A. "
+                "para a fila operacional. Autorizações antigas não passam automaticamente.")
+            _carregar_exc=st.button("CARREGAR / ATUALIZAR EXCEÇÕES",key="mrp_exc_admin_load")
+            if _carregar_exc or "_mrp_exc_admin_data" in st.session_state:
+                if _carregar_exc or "_mrp_exc_admin_data" not in st.session_state:
+                    try:
+                        st.session_state["_mrp_exc_admin_data"]=_mrp_avulsas_call(
+                            "exception_list").get("solicitacoes",[])
+                    except Exception as exc:st.error("Consulta indisponível: "+str(exc))
+                _ex_admin=st.session_state.get("_mrp_exc_admin_data",[])
+                _atencao_ex=[e for e in _ex_admin if e.get("situacao") in ("PENDENTE","APROVADA")]
+                st.metric("EXCEÇÕES AGUARDANDO TRATATIVA",len(_atencao_ex))
+                if not _atencao_ex:st.info("Nenhuma exceção aguardando atuação.")
+                for _ex in _atencao_ex:
+                    _ex_id=str(_ex["id"])
+                    _ex_codigo=str(_ex.get("codigo") or "")
+                    with st.expander(
+                        _ex_codigo+" · "+str(_ex.get("quantidade"))+" unidade(s) · "+
+                        str(_ex.get("situacao")),expanded=False):
+                        st.write("**Solicitante:** "+str(_ex.get("solicitante") or "—"))
+                        st.write("**Material:** "+str(_ex.get("descricao") or ""))
+                        st.write("**Justificativa:** "+str(_ex.get("justificativa") or ""))
+                        st.caption("Estoque na solicitação: "+str(_ex.get("saldo_fisico_referencia"))+
+                            " · DIV: "+str(_ex.get("div_referencia"))+
+                            " · MRP #"+str(_ex.get("snapshot_id")))
+                        if _ex.get("situacao")=="PENDENTE":
+                            with st.form("mrp_exc_approve_"+_ex_id,enter_to_submit=False):
+                                _ex_autorizador=st.text_input("GESTOR QUE AUTORIZOU *",
+                                    key="mrp_exc_author_"+_ex_id)
+                                _ex_ref=st.text_input("REFERÊNCIA DA AUTORIZAÇÃO *",
+                                    key="mrp_exc_ref_"+_ex_id)
+                                _ex_proj=st.text_input("PROJETO / OP COM RESERVA IMPACTADA *",
+                                    key="mrp_exc_project_"+_ex_id)
+                                _ex_obs=st.text_area("OBSERVAÇÕES (OPCIONAL)",
+                                    key="mrp_exc_obs_"+_ex_id,max_chars=1000)
+                                _ex_ok=st.form_submit_button("APROVAR EXCEÇÃO",
+                                    type="primary",use_container_width=True)
+                                _ex_no=st.form_submit_button("RECUSAR EXCEÇÃO",
+                                    use_container_width=True)
+                            if _ex_ok or _ex_no:
+                                try:
+                                    if _ex_no and len(_ex_obs.strip())<5:
+                                        st.error("Informe o motivo da recusa nas observações.")
+                                    else:
+                                        _mrp_avulsas_call("exception_decide",{
+                                            "id":_ex_id,"decisao":"APROVAR" if _ex_ok else "RECUSAR",
+                                            "autorizador":_ex_autorizador.strip(),
+                                            "referencia":_ex_ref.strip(),"projeto_op":_ex_proj.strip(),
+                                            "observacao":_ex_obs.strip(),
+                                        })
+                                        st.session_state.pop("_mrp_exc_admin_data",None)
+                                        st.success("Decisão registrada com rastreabilidade.")
+                                        st.rerun()
+                                except Exception as exc:
+                                    st.error("Não foi possível registrar decisão: "+str(exc))
+                        if _ex.get("situacao")=="APROVADA":
+                            st.info("APROVADA. Projeto/OP afetado: "+
+                                str(_ex.get("projeto_op_impactado"))+
+                                ". Regularize a reserva original no Protheus antes de liberar.")
+                            with st.form("mrp_exc_release_"+_ex_id,enter_to_submit=False):
+                                _ex_doc=st.text_input("REFERÊNCIA DO DOCUMENTO DE REGULARIZAÇÃO *",
+                                    key="mrp_exc_doc_"+_ex_id)
+                                _ex_check=st.checkbox(
+                                    "Confirmo que a reserva original foi regularizada no Protheus.",
+                                    key="mrp_exc_check_"+_ex_id)
+                                _ex_release=st.form_submit_button(
+                                    "CONFIRMAR REGULARIZAÇÃO E CRIAR S.A.",
+                                    type="primary",use_container_width=True)
+                            if _ex_release:
+                                if not _ex_check:
+                                    st.error("Confirme a regularização antes da liberação.")
+                                else:
+                                    try:
+                                        _resp=_mrp_avulsas_call("exception_regularize",{
+                                            "id":_ex_id,"documento":_ex_doc.strip(),
+                                            "confirmacao":True,
+                                        })
+                                        st.session_state.pop("_mrp_exc_admin_data",None)
+                                        st.session_state["_mrp_exc_admin_result"]=_resp
+                                        st.rerun()
+                                    except Exception as exc:
+                                        st.error("Liberação não concluída: "+str(exc))
+            _exc_done=st.session_state.pop("_mrp_exc_admin_result",None)
+            if _exc_done:
+                st.success("Exceção regularizada; S.A. "+
+                    ("SA-"+str(_exc_done["numero"]).zfill(6) if _exc_done.get("numero") is not None
+                     else str(_exc_done.get("pedido_id")))+
+                    " criada e disponibilizada ao almoxarifado.")
     st.divider()
     titulo="Minhas solicitações" if perfil=="CONSULTA" else "Fila operacional" if perfil=="OPERADOR" else "Acompanhamento geral"
     _c1,_c2=st.columns([5,1],vertical_alignment="center")

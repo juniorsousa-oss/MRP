@@ -557,7 +557,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                             })
                             st.session_state["_mrp_exc_ultima"]=_resp
                             st.session_state["_mrp_exc_uuid"]=str(_av_uuid.uuid4())
-                            st.session_state.pop("_mrp_exc_cache",None)
+                            st.session_state["_mrp_exc_cache"]=_mrp_avulsas_call(
+                                "exception_list").get("solicitacoes",[])
                             st.rerun()
                         except Exception as exc:
                             st.error("Solicitação excepcional não registrada: "+str(exc))
@@ -632,8 +633,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                                             "referencia":_ex_ref.strip(),"projeto_op":_ex_proj.strip(),
                                             "observacao":_ex_obs.strip(),
                                         })
-                                        st.session_state.pop("_mrp_exc_admin_data",None)
-                                        st.success("Decisão registrada com rastreabilidade.")
+                                        st.session_state["_mrp_exc_admin_data"]=_mrp_avulsas_call(
+                                            "exception_list").get("solicitacoes",[])
                                         st.rerun()
                                 except Exception as exc:
                                     st.error("Não foi possível registrar decisão: "+str(exc))
@@ -651,7 +652,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                                         "id":_ex_id,"decisao":"RECUSAR",
                                         "observacao":_cancel_reason.strip(),
                                     })
-                                    st.session_state.pop("_mrp_exc_admin_data",None)
+                                    st.session_state["_mrp_exc_admin_data"]=_mrp_avulsas_call(
+                                        "exception_list").get("solicitacoes",[])
                                     st.rerun()
                                 except Exception as exc:
                                     st.error("Não foi possível cancelar: "+str(exc))
@@ -676,7 +678,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                                             "id":_ex_id,"documento":_ex_doc.strip(),
                                             "confirmacao":True,
                                         })
-                                        st.session_state.pop("_mrp_exc_admin_data",None)
+                                        st.session_state["_mrp_exc_admin_data"]=_mrp_avulsas_call(
+                                            "exception_list").get("solicitacoes",[])
                                         st.session_state["_mrp_exc_admin_result"]=_resp
                                         st.rerun()
                                     except Exception as exc:

@@ -27,6 +27,20 @@ export function selectMaterial(row: Record<string, unknown>): MrpMaterial | null
     saldo:round3(saldo),div:round3(div),limite,
   };
 }
+/** Estoque comprometido: para consulta excepcional, sem alterar seleção por DIV. */
+export function selectStockMaterial(row: Record<string, unknown>): MrpMaterial | null {
+  const raw=String(row["Código"] ?? "").trim().replace(/\.0$/,"");
+  if(!/^\d+$/.test(raw))return null;
+  const saldo=numeric(row["Saldo em Estoque"]);
+  const div=numeric(row["DIV"]);
+  if(!Number.isFinite(saldo)||saldo<=0||!Number.isFinite(div))return null;
+  return {
+    codigo:raw.padStart(8,"0"),
+    descricao:String(row["Descrição"]??"").slice(0,500),
+    saldo:round3(saldo),div:round3(div),limite:round3(Math.max(0,Math.min(saldo,div))),
+    valor_unitario:0,
+  };
+}
 export function availableAfterReservations(limite: number, reservado: number): number {
   return Math.max(0,round3(limite-reservado));
 }

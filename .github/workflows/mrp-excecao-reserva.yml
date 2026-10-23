@@ -1,0 +1,32 @@
+name: MRP exceções de estoque reservado
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mrp_avulsas_fluxo_patch.py'
+      - 'supabase/functions/mrp-avulsas-api/index.ts'
+      - 'supabase/functions/mrp-avulsas-api/catalog.ts'
+      - 'supabase/functions/mrp-avulsas-api/catalog_exception_test.ts'
+      - 'supabase/migrations/20261023_mrp_excecoes_reserva_controlada.sql'
+      - 'scripts/test_mrp_excecao_reserva.py'
+      - '.github/workflows/mrp-excecao-reserva.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validacao:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validar compilação e autorização
+        run: python scripts/test_mrp_excecao_reserva.py
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Testar estoque físico sem alterar DIV
+        run: deno test supabase/functions/mrp-avulsas-api/catalog_exception_test.ts
+      - name: Verificar tipos da API
+        run: deno check supabase/functions/mrp-avulsas-api/index.ts

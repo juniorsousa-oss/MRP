@@ -571,7 +571,7 @@ Deno.serve(async (req) => {
     }));
     // Cabeçalho de pedidos: número único, finalidade, separação e entrega.
     let pedidosQuery=admin.from("mrp_avulsas_pedidos").select(
-      "id,numero,solicitante,criado_por,criado_em,finalidade,psys,cr,aprovador,destino,estado,separado_em,entregue_em,observacao_operador,teams_status"
+      "id,numero,solicitante,criado_por,criado_em,finalidade,psys,cr,aprovador,destino,estado,separado_em,entregue_em,observacao_operador,teams_status,excecao_id"
     );
     if(role==="CONSULTA")pedidosQuery=pedidosQuery.eq("criado_por",userId);
     const {data:pedidos,error:pedidosError}=await pedidosQuery

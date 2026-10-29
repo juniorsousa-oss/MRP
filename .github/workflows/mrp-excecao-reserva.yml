@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'mrp_avulsas_fluxo_patch.py'
+      - 'app_mrp_original.py'
+      - 'scripts/test_mrp_idioma_ptbr.py'
       - 'supabase/functions/mrp-avulsas-api/index.ts'
       - 'supabase/functions/mrp-avulsas-api/catalog.ts'
       - 'supabase/functions/mrp-avulsas-api/catalog_exception_test.ts'
@@ -27,6 +29,8 @@ jobs:
         run: python scripts/test_mrp_excecao_reserva.py
       - name: Verificar solicitante corporativo e responsável da autorização
         run: python scripts/test_mrp_excecao_identificacao.py
+      - name: Testar interface em português
+        run: python scripts/test_mrp_idioma_ptbr.py
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x

@@ -547,7 +547,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         "ACERTO GERENCIAL":"ACERTO_GERENCIAL",
                         "TRANSFERÊNCIA ENTRE FILIAL":"TRANSFERENCIA"}
                     _exc_finalidade=st.selectbox("FINALIDADE DA SOLICITAÇÃO",
-                        list(_exc_opts),index=None)
+                        list(_exc_opts),index=None,
+                        placeholder="Selecione a finalidade da solicitação")
                     _exc_psys=_exc_cr=_exc_ap=""
                     if _exc_finalidade=="GARANTIA":
                         _exc_psys=st.text_input("OP(s) DE GARANTIA",max_chars=1000)

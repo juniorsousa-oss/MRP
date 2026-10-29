@@ -6,6 +6,7 @@ on:
       - 'mrp_avulsas_final_admin_patch.py'
       - 'mrp_avulsas_fluxo_patch.py'
       - 'scripts/test_mrp_garantia_regularizacao.py'
+      - 'scripts/test_mrp_garantia_desbloqueio.py'
       - 'scripts/test_mrp_relatorio_realizado_data.py'
       - 'scripts/test_mrp_contadores_sa_materiais.py'
       - 'supabase/migrations/20261021_mrp_conferencia_simplificada.sql'
@@ -30,6 +31,8 @@ jobs:
         run: python scripts/test_mrp_conferencia_final_admin.py
       - name: Verificar garantia ASTEC, baixa/retorno e conferência
         run: python scripts/test_mrp_garantia_regularizacao.py
+      - name: Testar desbloqueio ASTEC sem documento (SA 000018)
+        run: python scripts/test_mrp_garantia_desbloqueio.py
       - name: Verificar status e datas do relatório e Excel
         run: python scripts/test_mrp_relatorio_realizado_data.py
       - name: Verificar contagem por S.A. e materiais

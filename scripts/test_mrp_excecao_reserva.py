@@ -22,7 +22,7 @@ for token in ("solicitação excepcional","exception_lookup","exception_submit",
  "projeto / op com reserva impactada"):
  assert token in content,token
 api=(root/"supabase/functions/mrp-avulsas-api/index.ts").read_text("utf-8")
-for term in ("mrp_excecao_solicitar_seguro","mrp_excecao_decidir_seguro",
+for term in ("mrp_excecao_solicitar_identificada_seguro","mrp_excecao_decidir_seguro",
  "mrp_excecao_regularizar_e_criar_seguro","input.confirmacao!==true",
  "materialExcecao(admin","role!==\"ADMIN\"","role!==\"CONSULTA\""):
  assert term in api,term

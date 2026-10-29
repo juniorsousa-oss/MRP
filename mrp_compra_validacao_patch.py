@@ -298,7 +298,9 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
             ])
             st.dataframe(todos,hide_index=True,use_container_width=True)
             if st.session_state.get("auth_role")=="ADMIN":
-                para_voltar=st.multiselect("Produtos a restaurar", sorted(excluidos),key=f"{prefixo}_compra_restaurar")
+                para_voltar=st.multiselect("Produtos a restaurar", sorted(excluidos),
+                    placeholder="Selecione os produtos que deseja restaurar",
+                    key=f"{prefixo}_compra_restaurar")
                 if st.button("RESTAURAR SELECIONADOS",disabled=not para_voltar,key=f"{prefixo}_compra_repor"):
                     try:
                         _compra_exclusoes_salvar({c:False for c in para_voltar})

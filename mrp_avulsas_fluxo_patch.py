@@ -527,12 +527,22 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 _e2.metric("DIV / SOBRA",_mat_ex.get("div"))
                 _e3.metric("MRP REFERÊNCIA",str(_mat_ex.get("snapshot_id") or "—"))
                 with st.form("mrp_exc_pedido_form",enter_to_submit=False):
+                    _exc_solicitante=st.text_input("E-MAIL DO SOLICITANTE *",
+                        value=str(st.session_state.get("auth_email") or ""),
+                        placeholder="nome.sobrenome@gruposetta.com",
+                        key="mrp_exc_solicitante_email")
                     _exc_qty=st.number_input("QUANTIDADE EXCEPCIONAL",
                         min_value=0.001,max_value=max(0.001,float(_mat_ex.get("saldo") or 0)),
                         value=min(1.0,float(_mat_ex.get("saldo") or 1)),
                         step=0.001,format="%.3f")
                     _exc_just=st.text_area("JUSTIFICATIVA DA UTILIZAÇÃO *",max_chars=1000,
                         placeholder="Explique por que será necessário utilizar material comprometido")
+                    _exc_responsavel=st.text_input(
+                        "RESPONSÁVEL QUE AUTORIZOU O USO DO MATERIAL EMPENHADO *",
+                        placeholder="Nome completo do gestor responsável pela autorização",
+                        max_chars=180,key="mrp_exc_autorizador_informado")
+                    st.caption("Informe quem já autorizou a utilização da reserva. "
+                        "O ADMIN confirmará a autorização antes de liberar a separação.")
                     _exc_opts={"GARANTIA":"GARANTIA",
                         "ACERTO GERENCIAL":"ACERTO_GERENCIAL",
                         "TRANSFERÊNCIA ENTRE FILIAL":"TRANSFERENCIA"}
@@ -547,7 +557,12 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                     _exc_submit=st.form_submit_button("ENCAMINHAR PARA AUTORIZAÇÃO",
                         type="primary",use_container_width=True)
                 if _exc_submit:
-                    if len(_exc_just.strip())<10:
+                    _exc_email=_exc_solicitante.strip().lower()
+                    if not _av_re.fullmatch(r"[a-z0-9][a-z0-9._%+-]*[.][a-z0-9._%+-]+@gruposetta[.]com",_exc_email):
+                        st.error("Informe o e-mail corporativo completo do solicitante: nome.sobrenome@gruposetta.com.")
+                    elif len(_exc_responsavel.strip())<3:
+                        st.error("Informe o nome do responsável que autorizou o uso do material empenhado.")
+                    elif len(_exc_just.strip())<10:
                         st.error("Justificativa obrigatória (mínimo de 10 caracteres).")
                     elif not _exc_finalidade:
                         st.error("Selecione a finalidade.")
@@ -555,6 +570,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         try:
                             _resp=_mrp_avulsas_call("exception_submit",{
                                 "id":st.session_state.setdefault("_mrp_exc_uuid",str(_av_uuid.uuid4())),
+                                "solicitante":_exc_email,
+                                "responsavel_autorizacao":_exc_responsavel.strip(),
                                 "codigo":_mat_ex["codigo"],"quantidade":_exc_qty,
                                 "justificativa":_exc_just.strip(),
                                 "finalidade":_exc_opts[_exc_finalidade],
@@ -581,6 +598,8 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                 if _minhas_ex:
                     st.dataframe(pd.DataFrame([{
                         "SOLICITADO EM":_hora(e.get("criado_em")),
+                        "SOLICITANTE":e.get("solicitante"),
+                        "AUTORIZAÇÃO INFORMADA":e.get("responsavel_autorizacao_informado") or "NÃO INFORMADA (ANTERIOR)",
                         "CÓDIGO":e.get("codigo"),"QUANTIDADE":e.get("quantidade"),
                         "SITUAÇÃO":e.get("situacao"),
                         "S.A.":str(e.get("pedido_id") or "AGUARDANDO LIBERAÇÃO"),
@@ -611,12 +630,15 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                         st.write("**Solicitante:** "+str(_ex.get("solicitante") or "—"))
                         st.write("**Material:** "+str(_ex.get("descricao") or ""))
                         st.write("**Justificativa:** "+str(_ex.get("justificativa") or ""))
+                        st.write("**Responsável indicado como autorizador:** "+
+                            str(_ex.get("responsavel_autorizacao_informado") or "NÃO INFORMADO (CADASTRO ANTERIOR)"))
                         st.caption("Estoque na solicitação: "+str(_ex.get("saldo_fisico_referencia"))+
                             " · DIV: "+str(_ex.get("div_referencia"))+
                             " · MRP #"+str(_ex.get("snapshot_id")))
                         if _ex.get("situacao")=="PENDENTE":
                             with st.form("mrp_exc_approve_"+_ex_id,enter_to_submit=False):
                                 _ex_autorizador=st.text_input("GESTOR QUE AUTORIZOU *",
+                                    value=str(_ex.get("responsavel_autorizacao_informado") or ""),
                                     key="mrp_exc_author_"+_ex_id)
                                 _ex_ref=st.text_input("REFERÊNCIA DA AUTORIZAÇÃO *",
                                     key="mrp_exc_ref_"+_ex_id)

@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'mrp_avulsas_fluxo_patch.py'
+      - 'mrp_compra_validacao_patch.py'
       - 'app_mrp_original.py'
       - 'scripts/test_mrp_idioma_ptbr.py'
       - 'supabase/functions/mrp-avulsas-api/index.ts'

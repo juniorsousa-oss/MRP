@@ -9,6 +9,8 @@ on:
       - 'supabase/functions/mrp-avulsas-api/catalog_exception_test.ts'
       - 'supabase/migrations/20261023_mrp_excecoes_reserva_controlada.sql'
       - 'scripts/test_mrp_excecao_reserva.py'
+      - 'scripts/test_mrp_excecao_identificacao.py'
+      - 'supabase/migrations/20261029_mrp_excecao_solicitante_responsavel.sql'
       - '.github/workflows/mrp-excecao-reserva.yml'
   workflow_dispatch:
 permissions:
@@ -23,6 +25,8 @@ jobs:
           python-version: '3.12'
       - name: Validar compilação e autorização
         run: python scripts/test_mrp_excecao_reserva.py
+      - name: Verificar solicitante corporativo e responsável da autorização
+        run: python scripts/test_mrp_excecao_identificacao.py
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x

@@ -1009,8 +1009,8 @@ macro_cols=["Código","Descrição","Tipo","Saldo em Estoque","Demanda","P.C.","
 with tab1:
     st.subheader(UI_CONFIG["title_demanda_geral"]); c1,c2,c3=st.columns(3)
     with c1: busca=st.text_input("Código / descrição")
-    with c2: status=st.multiselect("Status",["OK","CRIAR S.C."],default=["OK","CRIAR S.C."])
-    with c3: tipos=st.multiselect("Tipo",sorted([x for x in cad["Tipo"].unique() if x]))
+    with c2: status=st.multiselect("Status",["OK","CRIAR S.C."],default=["OK","CRIAR S.C."],placeholder="Selecione os status")
+    with c3: tipos=st.multiselect("Tipo",sorted([x for x in cad["Tipo"].unique() if x]),placeholder="Selecione os tipos")
     v=macro.copy()
     if busca:
         b=busca.strip(); v=v[v["Código"].astype(str).str.contains(b,na=False)|v["Descrição"].str.contains(b,case=False,na=False)]
@@ -1049,7 +1049,7 @@ with tab1:
 with tab2:
     st.subheader(UI_CONFIG["title_demanda_projeto"]); c1,c2=st.columns(2)
     with c1: busca2=st.text_input("Código / projeto")
-    with c2: semana_filtro=st.multiselect("Semanas",sorted(demanda_projeto["Semana de Necessidade"].unique().tolist()) if len(demanda_projeto) else [])
+    with c2: semana_filtro=st.multiselect("Semanas",sorted(demanda_projeto["Semana de Necessidade"].unique().tolist()) if len(demanda_projeto) else [],placeholder="Selecione as semanas")
     d=demanda_projeto.copy()
     if busca2:
         b2=busca2.strip(); d=d[d["Produto"].astype(str).str.contains(b2,na=False)|d["Projeto"].str.contains(b2,case=False,na=False)]

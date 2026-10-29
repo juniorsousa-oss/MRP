@@ -317,16 +317,22 @@ _pedido_nova_view = """def _mrp_avulsas_view():
                          if int(g.get("item_id") or 0)==_id_escolhido),
                         {},
                     )
-                    _astec_liberada=bool(_regularizacao_item.get("astec_documento"))
-                    _movimentacao_final=bool(_regularizacao_item.get("movimento_final_documento"))
+                    # Documento deixou de ser obrigatorio; a confirmacao e comprovada
+                    # por data/hora persistida e auditada, como no painel ADMIN e RPC.
+                    _astec_liberada=bool(_regularizacao_item.get("astec_confirmado_em"))
+                    _movimentacao_final=bool(_regularizacao_item.get("movimento_final_confirmado_em"))
                     if not _astec_liberada:
                         st.warning("Aguardando o gestor confirmar o endereçamento para ASTEC antes da decisão de uso/devolução.")
                     elif _movimentacao_final:
+                        _doc_mov=str(_regularizacao_item.get("movimento_final_documento") or "").strip()
                         st.success("Destino já regularizado no Protheus: "+
                                    str(_regularizacao_item.get("movimento_final_tipo") or "")+
-                                   " · Documento "+str(_regularizacao_item.get("movimento_final_documento") or ""))
+                                   " · Confirmado em "+(_hora(_regularizacao_item.get("movimento_final_confirmado_em")) or "—")+
+                                   (" · Documento "+_doc_mov if _doc_mov else ""))
                     else:
-                        st.info("ASTEC confirmada. Informe se o material foi UTILIZADO ou DEVOLVIDO SEM USO.")
+                        st.info("ASTEC confirmada em "+
+                                (_hora(_regularizacao_item.get("astec_confirmado_em")) or "—")+
+                                ". Informe se o material foi UTILIZADO ou DEVOLVIDO SEM USO.")
                     _opcoes=[
                         ("AGUARDANDO RETORNO","AGUARDANDO_RETORNO"),
                         ("UTILIZADO","UTILIZADO"),

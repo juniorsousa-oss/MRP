@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
     // A autorização normal (DIV positivo) permanece isolada desta trilha.
     if (action==="exception_list") {
       let q=admin.from("mrp_avulsas_excecoes").select(
-        "id,snapshot_id,criado_por,solicitante,codigo,descricao,quantidade,justificativa,finalidade,psys,cr,aprovador,saldo_fisico_referencia,div_referencia,situacao,autoridade_nome,autorizacao_referencia,projeto_op_impactado,administracao_observacao,decidido_em,regularizacao_referencia,regularizado_em,pedido_id,criado_em"
+        "id,snapshot_id,criado_por,solicitante,codigo,descricao,quantidade,justificativa,responsavel_autorizacao_informado,finalidade,psys,cr,aprovador,saldo_fisico_referencia,div_referencia,situacao,autoridade_nome,autorizacao_referencia,projeto_op_impactado,administracao_observacao,decidido_em,regularizacao_referencia,regularizado_em,pedido_id,criado_em"
       );
       if(role==="CONSULTA")q=q.eq("criado_por",userId);
       else if(role!=="ADMIN"&&role!=="OPERADOR")return fail("ACCESS_DENIED",403);
@@ -155,9 +155,16 @@ Deno.serve(async (req) => {
           return fail("QUANTIDADE_INVALIDA");
         const {snapshot_id,material}=await materialExcecao(admin,code!);
         if(qty>material.saldo)return fail("QUANTIDADE_SUPERIOR_ESTOQUE_FISICO",409);
-        const {data,error}=await admin.rpc("mrp_excecao_solicitar_seguro",{
+        const emailSolicitante=String(input.solicitante||"").trim().toLowerCase();
+        const responsavel=String(input.responsavel_autorizacao||"").trim();
+        if(!/^[a-z0-9][a-z0-9._%+-]*[.][a-z0-9._%+-]+@gruposetta[.]com$/.test(emailSolicitante)
+            || emailSolicitante.length>180)return fail("EMAIL_SOLICITANTE_INVALIDO",400);
+        if(responsavel.length<3||responsavel.length>180)
+          return fail("RESPONSAVEL_AUTORIZACAO_OBRIGATORIO",400);
+        const {data,error}=await admin.rpc("mrp_excecao_solicitar_identificada_seguro",{
           p_id:reqId,p_snapshot_id:snapshot_id,p_actor:userId,
-          p_email:String(identity.user.email||"").toLowerCase(),
+          p_email:emailSolicitante,
+          p_responsavel_autorizacao:responsavel,
           p_codigo:code,p_descricao:material.descricao,p_quantidade:qty,
           p_saldo:material.saldo,p_div:material.div,
           p_justificativa:String(input.justificativa||""),

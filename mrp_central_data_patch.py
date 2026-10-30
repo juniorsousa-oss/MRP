@@ -498,6 +498,35 @@ if _source.count(_load_old) != 1:
     raise RuntimeError("Chamada de leitura das cinco bases do MRP não encontrada.")
 _source = _source.replace(_load_old, _load_new, 1)
 
+# A última fotografia íntegra também fica protegida por sessão. Se uma leitura
+# do Supabase falhar, nunca trocar o painel por tabelas vazias na mesma sessão.
+_mrp_latest_old = '''def load_latest_snapshot():
+    rows=_sb_get({"select":"*","order":"created_at.desc","limit":"1"})
+    return rows[0] if rows else None'''
+_mrp_latest_new = '''def load_latest_snapshot():
+    try:
+        rows=_sb_get({"select":"*","order":"created_at.desc","limit":"1"})
+        snap=rows[0] if rows else None
+        if snap:
+            _geral=snap.get("mrp_geral")
+            _compra=snap.get("compra_mrp")
+            if not isinstance(_geral,list) or not _geral or not isinstance(_compra,list):
+                raise RuntimeError("Fotografia mais recente incompleta.")
+            st.session_state["_mrp_ultimo_snapshot_integro"]=snap
+        return snap
+    except Exception as _error:
+        _anterior=st.session_state.get("_mrp_ultimo_snapshot_integro")
+        if _anterior:
+            st.warning("Consulta temporariamente indisponível. "
+                       "Apresentando o último MRP íntegro desta sessão. "
+                       "Nenhuma informação será sobrescrita.")
+            return _anterior
+        raise'''
+if _source.count(_mrp_latest_old)!=1:
+    raise RuntimeError("Proteção do último MRP íntegro: âncora não encontrada.")
+_source=_source.replace(_mrp_latest_old,_mrp_latest_new,1)
+
+
 _publish_anchor = '# Salva apenas uma vez por conjunto de arquivos carregado.'
 _publish_code = r"""
 # Protege a última fotografia e a publicação contra resultados incompletos.

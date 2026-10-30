@@ -500,10 +500,10 @@ _source = _source.replace(_load_old, _load_new, 1)
 
 # A última fotografia íntegra também fica protegida por sessão. Se uma leitura
 # do Supabase falhar, nunca trocar o painel por tabelas vazias na mesma sessão.
-_mrp_latest_old = '''def load_latest_snapshot():
+_mrp_latest_old = """def load_latest_snapshot():
     rows=_sb_get({"select":"*","order":"created_at.desc","limit":"1"})
-    return rows[0] if rows else None'''
-_mrp_latest_new = '''def load_latest_snapshot():
+    return rows[0] if rows else None"""
+_mrp_latest_new = """def load_latest_snapshot():
     try:
         rows=_sb_get({"select":"*","order":"created_at.desc","limit":"1"})
         snap=rows[0] if rows else None
@@ -521,7 +521,7 @@ _mrp_latest_new = '''def load_latest_snapshot():
                        "Apresentando o último MRP íntegro desta sessão. "
                        "Nenhuma informação será sobrescrita.")
             return _anterior
-        raise'''
+        raise"""
 if _source.count(_mrp_latest_old)!=1:
     raise RuntimeError("Proteção do último MRP íntegro: âncora não encontrada.")
 _source=_source.replace(_mrp_latest_old,_mrp_latest_new,1)

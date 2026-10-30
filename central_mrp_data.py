@@ -508,6 +508,25 @@ def load_mrp_bundle(force_check: bool = False) -> dict:
             else:
                 bundle[key] = value
 
+    # A atualização das fontes pode ocorrer entre o download e a leitura dos
+    # metadados. Nunca entregar mistura de versões ao motor de cálculo.
+    _bundle_state_cached.clear()
+    latest = inspect_mrp_state()
+    if (
+        not latest.get("ready")
+        or latest.get("signature") != bundle.get("signature")
+        or latest.get("state_token") != bundle.get("state_token")
+    ):
+        raise RuntimeError(
+            "As fontes mudaram durante a leitura; mantendo a fotografia anterior. "
+            "O próximo carregamento validará o conjunto completo."
+        )
+    for key in ("cadastros_frame", *DERIVED_INPUTS):
+        frame = bundle.get(key)
+        if not isinstance(frame, pd.DataFrame) or frame.empty:
+            raise RuntimeError(
+                "A fonte "+key+" está vazia/incompleta; o MRP anterior foi preservado."
+            )
     return bundle
 
 

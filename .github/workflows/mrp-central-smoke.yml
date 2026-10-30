@@ -6,6 +6,10 @@ on:
     paths:
       - 'central_mrp_data.py'
       - 'mrp_central_data_patch.py'
+      - 'mrp_compra_validacao_patch.py'
+      - 'mrp_integridade_compra.py'
+      - 'mrp_filtros_tratativas_patch.py'
+      - 'scripts/test_mrp_auto_integridade.py'
       - 'requirements.txt'
       - '.github/workflows/mrp-central-smoke.yml'
   workflow_dispatch:
@@ -20,6 +24,8 @@ jobs:
           python-version: "3.11"
       - name: Instalar dependências
         run: pip install -r requirements.txt
+      - name: Testar integridade das descrições e recarga automática
+        run: PYTHONPATH=. python scripts/test_mrp_auto_integridade.py
       - name: Ler bases atuais da Central
         run: |
           python - <<'PY'

@@ -100,8 +100,7 @@ def _mrp_consulta_navigate(status_key, mostrar_nao_aptas):
     st.session_state["consulta_tabs_kpi"]=UI_CONFIG["title_demanda_projeto"]
     st.session_state["consulta_status_kpi"]=status_key
     st.session_state["consulta_mostrar_residuos"]=bool(mostrar_nao_aptas)
-    for _key in ("consulta_projeto_busca","consulta_produto_busca","consulta_projeto_descricao","consulta_semana"):
-        st.session_state.pop(_key,None)
+    # Preserva filtros de projeto, produto, descrição e semana do usuário.
 
 def _mrp_dashboard_card(col,titulo,valor,cor,subtitulo,key,status_key,mostrar_nao_aptas=False):
     html=(

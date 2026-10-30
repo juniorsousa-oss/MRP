@@ -207,23 +207,47 @@ _central_sidebar = r"""with st.sidebar:
             _mrp_cached_at = float(st.session_state.get("_mrp_central_bundle_at") or 0.0)
             _mrp_refresh_due = (
                 not isinstance(_mrp_cached_bundle, dict)
-                or (_mrp_now - _mrp_cached_at) >= 30.0
+                or (_mrp_now - _mrp_cached_at) >= 15.0
             )
             if _mrp_refresh_due:
+                # Consulta leve de METADADOS em toda abertura e atualização.
+                # Base pesada só é baixada quando a assinatura realmente muda.
                 _mrp_first_central_check = not bool(
                     st.session_state.get("_mrp_central_bootstrap_checked")
                 )
-                _central_bundle = _central_mrp.load_mrp_bundle(
+                _mrp_estado = _central_mrp.inspect_mrp_state(
                     force_check=_mrp_first_central_check
                 )
-                st.session_state["_mrp_central_bundle"] = _central_bundle
+                if _mrp_estado.get("ready"):
+                    if (
+                        isinstance(_mrp_cached_bundle,dict)
+                        and _mrp_cached_bundle.get("ready")
+                        and _mrp_cached_bundle.get("signature")==_mrp_estado.get("signature")
+                        and all(_mrp_cached_bundle.get(k) is not None for k in (
+                            "cadastros_frame","relatorio_geral_tratado",
+                            "estoque_tratado","compras_tratado","tctp_tratado"))
+                    ):
+                        _central_bundle = _mrp_cached_bundle
+                    else:
+                        # Publicação somente após TODO o download e a validação.
+                        _mrp_next_bundle=_central_mrp.load_mrp_bundle()
+                        if not _mrp_next_bundle.get("ready"):
+                            raise RuntimeError("Novas bases ainda não estão íntegras.")
+                        _central_bundle=_mrp_next_bundle
+                        st.session_state["_mrp_central_bundle"] = _central_bundle
+                else:
+                    # Nunca substituir a última base íntegra pela base parcial.
+                    # A visualização permanece no último MRP salvo no Supabase.
+                    _central_bundle=_mrp_estado
                 st.session_state["_mrp_central_bundle_at"] = _mrp_now
                 st.session_state["_mrp_central_bootstrap_checked"] = True
             else:
                 _central_bundle = _mrp_cached_bundle
         except Exception as _central_err:
-            st.error(f"Central indisponível: {_central_err}")
-            _central_bundle={}
+            st.warning("Atualização da Central não concluída: "+str(_central_err)+
+                       ". A última fotografia MRP permanece disponível.")
+            # Não recarregar neste rerun versões incompletas ou inválidas.
+            _central_bundle={"ready":False,"stale_inputs":{"atualizacao":{"reason":"ERRO"}}}
 
         _stale_inputs=_central_bundle.get("stale_inputs") or {}
         if _stale_inputs:
@@ -440,7 +464,10 @@ _load_new = """try:
             str(_central_bundle.get("signature") or ""),
         )
 except Exception as e:
-    st.error(f"Erro ao carregar as bases: {e}")
+    # Falha da atualização nunca pode transformar consulta anterior em tela vazia.
+    st.warning("Falha ao preparar novas bases: "+str(e)+
+               ". Exibindo o último MRP íntegro salvo.")
+    render_consulta_view()
     st.stop()"""
 if _source.count(_load_old) != 1:
     raise RuntimeError("Chamada de leitura das cinco bases do MRP não encontrada.")
@@ -448,6 +475,23 @@ _source = _source.replace(_load_old, _load_new, 1)
 
 _publish_anchor = '# Salva apenas uma vez por conjunto de arquivos carregado.'
 _publish_code = r"""
+# Protege a última fotografia e a publicação contra resultados incompletos.
+# Não publicar nem salvar uma versão em que as descrições desapareçam.
+from mrp_integridade_compra import descricoes_por_codigo as _mrp_descricao_codigo
+_mrp_descricoes_anteriores=_mrp_descricao_codigo(macro)
+_mrp_cadastro_desc=_mrp_descricao_codigo(cad)
+_mrp_compras_codes=set(compras_mrp["produto"].map(str).str.zfill(8)) if len(compras_mrp) else set()
+_mrp_sem_descricao=sorted(c for c in _mrp_compras_codes
+                        if c not in _mrp_cadastro_desc and c not in _mrp_descricoes_anteriores)
+if macro.empty or not len(demanda_projeto) or _mrp_sem_descricao:
+    st.error(
+        "MRP novo NÃO publicado: existem dados faltantes ou descrições inválidas. "+
+        ("Códigos: "+", ".join(_mrp_sem_descricao[:12]) if _mrp_sem_descricao else "")+
+        " A versão íntegra anterior continua no sistema."
+    )
+    render_consulta_view()
+    st.stop()
+
 # Publica automaticamente a Demanda_Projeto para os consumidores do Relatório MRP.
 if st.session_state.get("auth_role") == "ADMIN" and not _mrp_use_manual and _central_bundle.get("ready"):
     try:

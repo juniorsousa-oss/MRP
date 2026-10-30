@@ -237,15 +237,23 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
         return
     base=normalizar_compra_mrp(df)
     base=base[base["produto"].ne("")].copy()
-    if cad is not None and not cad.empty and "Código" in cad.columns:
-        _descs=cad.assign(_p=cad["Código"].map(_compra_codigo)).drop_duplicates("_p").set_index("_p")["Descrição"].to_dict()
-    else:
-        _descs={}
+    # CONSULTA: recebe MRP Geral da MESMA fotografia; antes recebia cad=None
+    # e apagava todas as descrições, mesmo com a base histórica íntegra.
+    # ADMIN: recebe o CADASTROS processado e íntegro no mesmo cálculo.
+    from mrp_integridade_compra import descricoes_por_codigo, preencher_descricoes_compra
+    _descs=descricoes_por_codigo(cad)
     por_produto=base.groupby("produto",sort=True,as_index=False).agg(
         Qtd=("qnt","sum"),Linhas=("qnt","size"),
         Prioridade=("prioridade",lambda s: "2" if (s=="2").any() else ("1" if (s=="1").any() else "")),
     ) if not base.empty else pd.DataFrame(columns=["produto","Qtd","Linhas","Prioridade"])
-    por_produto["Descrição"]=por_produto["produto"].map(lambda c:_descs.get(c,""))
+    por_produto, _sem_descricao = preencher_descricoes_compra(por_produto, cad)
+    if _sem_descricao:
+        st.error(
+            "INTEGRIDADE DO CADASTRO: há produtos sem descrição no MRP "
+            "(" + ", ".join(_sem_descricao[:15]) + "). "
+            "Não foi possível recuperar a descrição das bases de origem. "
+            "A exportação de compra permanecerá bloqueada até a correção."
+        )
     por_produto["Incluir na compra"]=por_produto["produto"].map(lambda c:not bool(exclusoes.get(c,{}).get("excluido",False)))
     por_produto=por_produto[["Incluir na compra","produto","Descrição","Qtd","Linhas","Prioridade"]]
     excluidos={c for c,v in exclusoes.items() if bool(v.get("excluido"))}
@@ -318,6 +326,9 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
         st.error("Existem itens sem prioridade valida. Processe novamente o MRP com o cadastro contendo a coluna AL (Entrega).")
         _compra_botao_finalizar(prefixo)
         return
+    if _sem_descricao:
+        _compra_botao_finalizar(prefixo)
+        return
     # Exige aprovacao explicita antes de disponibilizar qualquer arquivo de compra.
     import hashlib
     assinatura=hashlib.sha256((aptos.to_json(orient="records")+",".join(sorted(excluidos))).encode("utf-8")).hexdigest()
@@ -367,7 +378,7 @@ _compra_replace(
     '''if c4.button("ANÁLISE DE COMPRA",key="consulta_compra_abrir",use_container_width=True):
         _compra_abrir("consulta")
     if st.session_state.get("consulta_compra_aberta",False):
-        render_validacao_compra_mrp(comp,"consulta")''',
+        render_validacao_compra_mrp(comp,"consulta",mg)''',
     "Bloqueio download direto CONSULTA",
 )
 _compra_replace(

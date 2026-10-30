@@ -396,6 +396,27 @@ _central_sidebar = r"""with st.sidebar:
 _source = _source[:_sidebar_start] + _central_sidebar + "\n" + _source[_sidebar_end:]
 
 _status_helper = r"""
+@st.fragment(run_every="60s")
+def _mrp_monitor_automatico():
+    """Verificação leve enquanto a página está aberta, sem baixar as 5 bases."""
+    try:
+        _estado=_central_mrp.inspect_mrp_state(force_check=True)
+        _token=str(_estado.get("state_token") or "")
+        if not _token:
+            return
+        _anterior=st.session_state.get("_mrp_token_monitor")
+        st.session_state["_mrp_token_monitor"]=_token
+        if _anterior is not None and _anterior!=_token:
+            # O ADMIN recarrega e calcula automaticamente; perfis de consulta
+            # recebem a última fotografia publicada sem perder a tela.
+            st.session_state["_mrp_central_bundle_at"]=0.0
+            st.rerun()
+    except Exception:
+        # Nunca interromper a visualização devido a falha de monitoramento.
+        return
+
+_mrp_monitor_automatico()
+
 def _mrp_source_card_html(name,status,meta):
     version=meta.get("version")
     processed=meta.get("processed_at") or meta.get("last_update_at")

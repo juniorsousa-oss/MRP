@@ -398,7 +398,7 @@ _source = _source[:_sidebar_start] + _central_sidebar + "\n" + _source[_sidebar_
 _status_helper = r"""
 @st.fragment(run_every="60s")
 def _mrp_monitor_automatico():
-    """Verificação leve enquanto a página está aberta, sem baixar as 5 bases."""
+    # Verificação leve da Central, sem transferir as cinco bases.
     try:
         _estado=_central_mrp.inspect_mrp_state(force_check=True)
         _token=str(_estado.get("state_token") or "")

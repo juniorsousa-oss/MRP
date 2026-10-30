@@ -228,6 +228,10 @@ _central_sidebar = r"""with st.sidebar:
                             "estoque_tratado","compras_tratado","tctp_tratado"))
                     ):
                         _central_bundle = _mrp_cached_bundle
+                        # Metadados mudam sem exigir novo download das cinco bases.
+                        _central_bundle["output_meta"] = _mrp_estado.get("output_meta") or {}
+                        _central_bundle["output_stale"] = bool(_mrp_estado.get("output_stale"))
+                        _central_bundle["state_token"] = _mrp_estado.get("state_token")
                     else:
                         # Publicação somente após TODO o download e a validação.
                         _mrp_next_bundle=_central_mrp.load_mrp_bundle()
@@ -501,6 +505,8 @@ if st.session_state.get("auth_role") == "ADMIN" and not _mrp_use_manual and _cen
             _central_bundle.get("output_meta") or {},
         )
         _mrp_output_meta=_mrp_publish_result.get("meta") or _central_bundle.get("output_meta") or {}
+        _central_bundle["output_meta"]=_mrp_output_meta
+        _central_bundle["output_stale"]=False
         _mrp_output_when=_central_mrp.format_dt(_mrp_output_meta.get("processed_at"))
         _mrp_output_rows=_mrp_output_meta.get("rows_count")
         st.markdown(

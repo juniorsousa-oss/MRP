@@ -38,7 +38,10 @@ assert report_status({"finalidade":"GARANTIA","estado":"SEPARADA"},{} )=="AGUARD
 assert report_status({"finalidade":"ACERTO_GERENCIAL","estado":"ENTREGUE"},{} )=="NA"
 
 assert '\"CONDIÇÃO GARANTIA\":_condicao_garantia_relatorio(p,filho)' in src
-assert '"CONDIÇÃO GARANTIA":_condicao_garantia_relatorio(_pedido,_item)' in src
+# O relatório geral foi simplificado na conferência final: nele as colunas
+# condição de garantia foram substituídas por ASTEC e validação final.
+assert '"ASTEC REALIZADA": (' in src
+assert '"VALIDAÇÃO FINAL": (' in src
 assert '\"AGUARDANDO RETORNO\",\"AGUARDANDO_RETORNO\"' in src
 assert '\"UTILIZADO\",\"UTILIZADO\"' in src
 assert '\"DEVOLVIDO\",\"DEVOLVIDO\"' in src

@@ -27,6 +27,8 @@ jobs:
         run: python -m scripts.test_compra_mrp
       - name: Testar etapas e permissões das solicitações avulsas
         run: python -m scripts.test_mrp_avulsas
+      - name: Impedir campos provisórios e validar identificação obrigatória
+        run: python -m unittest discover -s tests -p 'test_avulsas_identificacao.py'
       - name: Testar recusa, liberação de reserva e bloqueio do Enter
         run: python -m scripts.test_mrp_avulsas_recusa
       - name: Testar hierarquia de perfis CONSULTA OPERADOR ADMIN

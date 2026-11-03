@@ -1,0 +1,34 @@
+name: Validar identificacao obrigatoria de S.A.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app_mrp.py'
+      - 'mrp_avulsas_identificacao_patch.py'
+      - 'mrp_avulsas_validacao.py'
+      - 'tests/test_avulsas_identificacao.py'
+      - 'supabase/functions/mrp-avulsas-api/index.ts'
+      - 'supabase/migrations/20261103_mrp_avulsas_identificacao_validacao.sql'
+      - '.github/workflows/mrp-avulsas-identificacao.yml'
+  workflow_dispatch:
+
+jobs:
+  validar-identificacao:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compilar código
+        run: python -m py_compile app_mrp.py mrp_avulsas_identificacao_patch.py mrp_avulsas_validacao.py
+      - name: Validar montagem do runtime
+        run: python scripts/validate_generated_mrp.py
+      - name: Validar bloqueios de campos provisórios
+        run: python -m unittest discover -s tests -p 'test_avulsas_identificacao.py'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Compilar API de solicitações
+        run: deno check supabase/functions/mrp-avulsas-api/index.ts

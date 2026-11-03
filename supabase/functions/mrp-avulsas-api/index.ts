@@ -45,6 +45,25 @@ async function materialExcecao(admin:any, codigo:string) {
   if(!material)throw Error("MATERIAL_SEM_ESTOQUE_FISICO");
   return {snapshot_id:Number(latest.id),material};
 }
+/** Rejeita identificadores vazios e textos que apenas adiam a informação obrigatória. */
+function identificacaoValida(valor: unknown, minimo = 1): boolean {
+  const v = String(valor ?? "").trim().toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+  if (v.length < minimo) return false;
+  const indevidos = new Set([
+    "n/a","na","n.a.","nao se aplica","s/n","sem dados","sem informacao",
+    "nao informado","nao sei","aguardando","pendente","a definir",
+    "a preencher","teste","test","xxx","xxxx","xxxxx",
+    "preencher depois","preencher na entrega","a preencher na entrega",
+    "sera informado","informar depois",
+  ]);
+  if (indevidos.has(v)) return false;
+  if (/^(a preencher|preencher na entrega|preencher depois|a definir|aguardando|pendente de|informar depois|sera informado|nao informado)([\s\W]|$)/.test(v)) return false;
+  if (/^[-_./x\s]+$/.test(v)) return false;
+  return true;
+}
+
 function codigoMaterial(valor:unknown):string {
   const code=String(valor??"").trim().replace(/\.0$/,"");
   if(!/^\d{1,8}$/.test(code))throw Error("CODIGO_INVALIDO");
@@ -272,6 +291,23 @@ Deno.serve(async (req) => {
         return fail("PEDIDO_NAO_ENCONTRADO",404);
       return json({ok:true,data:{pedido_id:id,teams_status:pedido.teams_status}});
     }
+    if (action === "pedido_regularizar") {
+      if (role !== "ADMIN" && role !== "CONSULTA")
+        return fail("PERFIL_SEM_PERMISSAO_PARA_REGULARIZAR", 403);
+      const pedidoId = String(input.pedido_id || "").trim();
+      if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(pedidoId))
+        return fail("PEDIDO_INVALIDO", 400);
+      const cr = String(input.cr || "").trim();
+      const aprovador = String(input.aprovador || "").trim();
+      const psys = String(input.psys || "").trim();
+      // A RPC valida o solicitante, a finalidade e o estado em transação única.
+      const {data,error}=await admin.rpc("mrp_avulsa_regularizar_identificacao_seguro",{
+        p_pedido_id:pedidoId,p_actor:userId,
+        p_cr:cr,p_aprovador:aprovador,p_psys:psys,
+      });
+      if(error)return fail(error.message,409);
+      return json({ok:true,data});
+    }
     if (action === "pedido_tratar") {
       if (role !== "OPERADOR") return fail("OPERADOR_REQUIRED",403);
       const pedidoId=String(input.pedido_id||"").trim();
@@ -475,6 +511,11 @@ Deno.serve(async (req) => {
       const cr = String(input.cr || "").trim();
       const aprovador = String(input.aprovador || "").trim();
       const pedidoId = String(input.pedido_id || "").trim();
+      if (finalidade === "ACERTO_GERENCIAL" &&
+          (!identificacaoValida(cr, 1) || !identificacaoValida(aprovador, 2)))
+        return fail("INFORME_CR_E_APROVADOR_VALIDOS", 400);
+      if (finalidade === "GARANTIA" && !identificacaoValida(psys, 2))
+        return fail("INFORME_OP_GARANTIA_VALIDA", 400);
       if (!Array.isArray(requested) || requested.length < 1 || requested.length > 30)
         return fail("PEDIDO_DEVE_CONTER_1_A_30_MATERIAIS");
       if (!solicitante || solicitante.length > 180) return fail("SOLICITANTE_OBRIGATORIO");

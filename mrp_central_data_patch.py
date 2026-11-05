@@ -547,10 +547,13 @@ if st.session_state.get("auth_role") == "ADMIN" and not _mrp_use_manual and _cen
             unsafe_allow_html=True,
         )
         if _mrp_publish_result.get("changed"):
-            # Atualizar os metadados sem recalcular novamente: o próximo run
-            # verá changed=False, e a sidebar nascerá com status ATUALIZADO.
-            _central_mrp.clear_state_cache()
-            st.rerun()
+            # Máximo de um rerun automático por assinatura das cinco bases:
+            # evita loop caso o backend demore a refletir o novo metadado.
+            _mrp_refresh_signature=str(_central_bundle.get("signature") or "")
+            if st.session_state.get("_mrp_status_refresh_token")!=_mrp_refresh_signature:
+                st.session_state["_mrp_status_refresh_token"]=_mrp_refresh_signature
+                _central_mrp.clear_state_cache()
+                st.rerun()
     except Exception as _publish_err:
         st.warning(f"MRP calculado, mas a publicação na Central falhou: {_publish_err}")
 

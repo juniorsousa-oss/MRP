@@ -157,7 +157,8 @@ with ZipFile(io.BytesIO(excel_binario)) as zip_excel:
 
     cell_xfs=estilos.find("m:cellXfs",ns)
     assert cell_xfs is not None
-    for idx,esperado in ((2,"04/12/2026"),(3,"25/11/2026")):
+    # A carga consolidada e ordenada por codigo, nao pela ordem da origem.
+    for idx,esperado in ((2,"25/11/2026"),(3,"04/12/2026")):
         celulas={c.attrib["r"]:c for c in linhas[idx-1].findall("m:c",ns)}
         c=celulas[f"C{idx}"]
         assert c.get("t")=="inlineStr",c.attrib

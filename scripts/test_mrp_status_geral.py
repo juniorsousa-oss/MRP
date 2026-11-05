@@ -13,6 +13,12 @@ assert 'mrp_reprocess_stale_report' in codigo
 assert '"_mrp_sidebar_page"]="MRP ATUAL"' in codigo
 assert '"_mrp_force_central_refresh"]=True' in codigo
 assert 'if _mrp_output_stale and _mrp_base_ok == _mrp_base_total:' in codigo
+assert 'st.session_state["_mrp_output_meta"]=_mrp_output_meta' in codigo
+assert 'st.session_state["_mrp_central_bundle"]=_central_bundle' in codigo
+assert 'if _mrp_publish_result.get("changed"):' in codigo
+assert '_central_mrp.clear_state_cache()' in codigo
+# A atualização visual só ocorre após nova publicação: sem mudança,
+# o resultado reaproveitado não deve causar rerun em loop.
 
 # A disponibilidade de 5/5 NÃO prova que o relatório derivado está atual.
 estado=next(n for n in ast.walk(arvore)

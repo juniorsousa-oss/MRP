@@ -17,6 +17,7 @@ assert 'st.session_state["_mrp_output_meta"]=_mrp_output_meta' in codigo
 assert 'st.session_state["_mrp_central_bundle"]=_central_bundle' in codigo
 assert 'if _mrp_publish_result.get("changed"):' in codigo
 assert '_central_mrp.clear_state_cache()' in codigo
+assert '_mrp_status_refresh_token' in codigo
 # A atualização visual só ocorre após nova publicação: sem mudança,
 # o resultado reaproveitado não deve causar rerun em loop.
 

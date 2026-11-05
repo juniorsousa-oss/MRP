@@ -65,6 +65,64 @@ def _preparar_compra_prioridades(df, cad):
         out.at[idx,"prj"]=""
     return out
 
+def _compra_agrupar_protheus(df):
+    """Consolida a carga do Protheus por produto, sem mudar demanda por OP.
+
+    Quantidade = soma integral das necessidades; data = menor data real;
+    OP = sempre vazia. Prioridade 2 prevalece quando qualquer demanda e
+    emergencial, que e o mesmo criterio da menor data de necessidade.
+    """
+    base=normalizar_compra_mrp(df)
+    if base.empty:
+        return base
+    if base["produto"].astype(str).str.strip().eq("").any():
+        raise ValueError("Compra MRP: existem produtos sem codigo.")
+    datas=pd.to_datetime(base["data"].astype(str),format="%d/%m/%Y",errors="coerce")
+    if datas.isna().any():
+        raise ValueError("Compra MRP: existem datas de necessidade invalidas.")
+    if not base["prioridade"].astype(str).isin(["1","2"]).all():
+        raise ValueError("Compra MRP: existem prioridades invalidas.")
+
+    base=base.assign(_data_necessidade=datas)
+    linhas=[]
+    for codigo, grupo in base.groupby("produto",sort=True):
+        origem=grupo.iloc[0].to_dict()
+        # Nao perder casas decimais nem repetir o produto por projeto/data.
+        quantidades=pd.to_numeric(grupo["qnt"],errors="coerce")
+        if quantidades.isna().any():
+            raise ValueError(f"Compra MRP: quantidade invalida no produto {codigo}.")
+        total=quantidades.sum()
+        origem["qnt"]=int(total) if float(total).is_integer() else float(total)
+        origem["data"]=grupo["_data_necessidade"].min().strftime("%d/%m/%Y")
+        origem["op"]=""
+        origem["prj"]=""
+        origem["prioridade"]="2" if grupo["prioridade"].astype(str).eq("2").any() else "1"
+
+        # Centro de custo/PSY distintos no mesmo produto nao podem ser
+        # descartados silenciosamente em uma unica carga do Protheus.
+        for campo in ("psy","cc"):
+            valores=list(dict.fromkeys(
+                str(valor).strip() for valor in grupo[campo].tolist()
+                if str(valor).strip()
+            ))
+            if len(valores)>1:
+                raise ValueError(
+                    f"Compra MRP: {campo} divergente para o produto {codigo}. "
+                    "Revise a origem antes de gerar uma unica linha."
+                )
+            origem[campo]=valores[0] if valores else ""
+
+        # A observacao continua registrando as origens, inclusive OPs TC/TP
+        # que antes eram agrupadas somente por data; nao inventar outra regra.
+        observacoes=list(dict.fromkeys(
+            str(valor).strip() for valor in grupo["obs"].tolist()
+            if str(valor).strip()
+        ))
+        origem["obs"]="; ".join(observacoes)
+        linhas.append(origem)
+    return normalizar_compra_mrp(pd.DataFrame(linhas))
+
+
 def _compra_excel_protheus(df):
     # Carga XLSX do STSUP25: C = texto DD/MM/AAAA; prioridade = J.
     # A rotina converte XLSX em CSV. Datas numericas podem ser
@@ -72,7 +130,7 @@ def _compra_excel_protheus(df):
     from xml.etree import ElementTree as ET
     from zipfile import ZipFile, ZIP_DEFLATED
 
-    base=normalizar_compra_mrp(df).copy()
+    base=_compra_agrupar_protheus(df)
     if not base.empty:
         if not base["produto"].astype(str).str.fullmatch(r"\d{8}").all():
             raise ValueError("Compra MRP: existem codigos invalidos.")
@@ -262,7 +320,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
     k1,k2,k3=st.columns(3)
     k1.metric("Produtos sugeridos",len(por_produto))
     k2.metric("Produtos excluidos",n_excluidos)
-    k3.metric("Linhas para exportar",len(aptos))
+    k3.metric("Linhas para exportar",int(aptos["produto"].nunique()))
     if not por_produto.empty:
         st.caption("A seleção vale para o código do material, inclusive em MRP futuros.")
         if st.session_state.get("auth_role")=="ADMIN":

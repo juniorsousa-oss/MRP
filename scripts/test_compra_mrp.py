@@ -20,6 +20,7 @@ names = {
     "_compra_codigo",
     "_preparar_compra_prioridades",
     "_compra_excel_protheus",
+    "_compra_agrupar_protheus",
     "excel_bytes",
     "_compra_abrir",
     "_compra_fechar",
@@ -48,6 +49,36 @@ result = calcular(base, cad)
 assert result["prioridade"].tolist() == ["2", "1", "1"], result["prioridade"].tolist()
 assert set(result["prj"]) == {""}
 assert result["produto"].tolist() == ["00140027", "00041212", "00800081"]
+
+# A consulta e o snapshot continuam por projeto; so a carga aprovada
+# para o Protheus consolida por codigo, antes de gravar o XLSX.
+assert 'comp = normalizar_compra_mrp(snapshot_df(snap, "compra_mrp"))' in source
+consolidar = namespace["_compra_agrupar_protheus"]
+duas_ops = pd.DataFrame([
+    {"produto":"00094444","qnt":2.50,"data":"04/12/2026","psy":"","cc":"600307","op":"26001101001","obs":"MRP","prioridade":"1"},
+    {"produto":"00094444","qnt":3.25,"data":"25/11/2026","psy":"","cc":"600307","op":"26001101002","obs":"MRP","prioridade":"2"},
+    {"produto":"00094444","qnt":1.00,"data":"25/11/2026","psy":"","cc":"600307","op":"26001101003","obs":"MRP","prioridade":"2"},
+    {"produto":"00084444","qnt":4.00,"data":"05/12/2026","psy":"","cc":"600307","op":"26001101004","obs":"MRP","prioridade":"1"},
+])
+linhas_consolidadas=consolidar(duas_ops)
+assert len(linhas_consolidadas)==2, linhas_consolidadas.to_dict("records")
+assert abs(linhas_consolidadas["qnt"].sum()-10.75)<1e-9
+c94444=linhas_consolidadas.loc[linhas_consolidadas["produto"]=="00094444"].iloc[0]
+assert c94444["qnt"]==6.75
+assert c94444["data"]=="25/11/2026", c94444["data"]
+assert c94444["op"]==""
+assert c94444["cc"]=="600307" and c94444["obs"]=="MRP"
+assert c94444["prioridade"]=="2"  # demanda mais urgente prevalece
+assert linhas_consolidadas["produto"].is_unique
+try:
+    consolidar(pd.DataFrame([
+        {"produto":"00094444","qnt":1,"data":"01/12/2026","cc":"600307","prioridade":"1"},
+        {"produto":"00094444","qnt":1,"data":"02/12/2026","cc":"700000","prioridade":"1"},
+    ]))
+except ValueError as exc:
+    assert "cc divergente" in str(exc)
+else:
+    raise AssertionError("Protheus nao pode juntar custos divergentes sem alerta")
 
 # A tela de validacao e carregada somente com o quarto botao e fica fechada
 # por padrao, tanto no painel administrativo como na consulta.
@@ -179,7 +210,8 @@ with ZipFile(io.BytesIO(excel_tc)) as zip_excel:
     ns={"m":"http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
     xml=ET.fromstring(zip_excel.read("xl/worksheets/sheet1.xml"))
     linhas=xml.findall("./m:sheetData/m:row",ns)
-    assert len(linhas)==4
+    # 80098 tinha 2 datas: agora exporta uma unica linha na data mais cedo.
+    assert len(linhas)==3
     data_c=next(c for c in linhas[1].findall("m:c",ns) if c.get("r")=="C2")
     campo_op=next(c for c in linhas[1].findall("m:c",ns) if c.get("r")=="F2")
     campo_obs=next(c for c in linhas[1].findall("m:c",ns) if c.get("r")=="G2")
@@ -188,8 +220,20 @@ with ZipFile(io.BytesIO(excel_tc)) as zip_excel:
     assert "".join(campo_op.find("m:is",ns).itertext())==""
     assert "26031401001" in "".join(campo_obs.find("m:is",ns).itertext())
     assert "26031401002" in "".join(campo_obs.find("m:is",ns).itertext())
+    assert "26031401003" in "".join(campo_obs.find("m:is",ns).itertext())
     assert "".join(campo_prio.find("m:is",ns).itertext()) in ("1","2")
-print("MRP_COMPRA_TCTP_OP_VAZIA_E_AGRUPAMENTO_OK")
+    # Quantidade do mesmo produto nas duas datas: 2 + 3 + 1 + 4 = 10.
+    from openpyxl import load_workbook
+    wb=load_workbook(io.BytesIO(excel_tc),read_only=True,data_only=True)
+    ws=wb.active
+    produtos={str(ws.cell(i,1).value): (ws.cell(i,2).value,ws.cell(i,3).value,ws.cell(i,6).value)
+              for i in range(2,ws.max_row+1)}
+    assert produtos["00080098"][0]==10
+    assert produtos["00080098"][1]=="06/11/2026"
+    assert produtos["00080098"][2] in (None,"")
+    assert produtos["00090017"][0]==5
+
+print("MRP_COMPRA_PROTHEUS_PRODUTO_UNICO_MENOR_DATA_OP_VAZIA_OK")
 
 print("MRP_COMPRA_EXCEL_DATA_TEXTO_DD_MM_AAAA_OK")
 print("MRP_COMPRA_LAYOUT_STSUP25_PRIORIDADE_J_OK")

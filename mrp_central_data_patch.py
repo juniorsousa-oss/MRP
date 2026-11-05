@@ -528,6 +528,12 @@ if st.session_state.get("auth_role") == "ADMIN" and not _mrp_use_manual and _cen
         _mrp_output_meta=_mrp_publish_result.get("meta") or _central_bundle.get("output_meta") or {}
         _central_bundle["output_meta"]=_mrp_output_meta
         _central_bundle["output_stale"]=False
+        # O menu lateral já foi montado antes da publicação. Atualizar o
+        # snapshot da sessão e reconstruir a tela se houve nova versão.
+        # Sem isso, ele fica em ATENÇÃO até o usuário recarregar a página,
+        # embora o MRP já esteja ATUALIZADO na Central.
+        st.session_state["_mrp_output_meta"]=_mrp_output_meta
+        st.session_state["_mrp_central_bundle"]=_central_bundle
         _mrp_output_when=_central_mrp.format_dt(_mrp_output_meta.get("processed_at"))
         _mrp_output_rows=_mrp_output_meta.get("rows_count")
         st.markdown(
@@ -540,6 +546,11 @@ if st.session_state.get("auth_role") == "ADMIN" and not _mrp_use_manual and _cen
             + '</div></div>',
             unsafe_allow_html=True,
         )
+        if _mrp_publish_result.get("changed"):
+            # Atualizar os metadados sem recalcular novamente: o próximo run
+            # verá changed=False, e a sidebar nascerá com status ATUALIZADO.
+            _central_mrp.clear_state_cache()
+            st.rerun()
     except Exception as _publish_err:
         st.warning(f"MRP calculado, mas a publicação na Central falhou: {_publish_err}")
 

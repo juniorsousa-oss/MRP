@@ -66,12 +66,9 @@ def _preparar_compra_prioridades(df, cad):
     return out
 
 def _compra_agrupar_protheus(df):
-    """Consolida a carga do Protheus por produto, sem mudar demanda por OP.
-
-    Quantidade = soma integral das necessidades; data = menor data real;
-    OP = sempre vazia. Prioridade 2 prevalece quando qualquer demanda e
-    emergencial, que e o mesmo criterio da menor data de necessidade.
-    """
+    # Consolida o XLSX do Protheus sem alterar a demanda por OP.
+    # Quantidade = soma; data = menor data real; OP = sempre vazio.
+    # Prioridade 2 prevalece se existir alguma demanda emergencial.
     base=normalizar_compra_mrp(df)
     if base.empty:
         return base

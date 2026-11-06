@@ -3,7 +3,7 @@ from datetime import date
 
 import pandas as pd
 
-from mrp_excedentes import calcular_excedentes
+from mrp_excedentes import calcular_excedentes, preparar_relatorio_enxuto, _excel_excedentes
 
 
 HOJE = date(2026, 11, 6)
@@ -98,6 +98,70 @@ class ExcedentesTests(unittest.TestCase):
         compras = compra()
         sc, pc = self.calcular(geral, compras, None)
         self.assertTrue(sc.empty and pc.empty)
+
+
+    def test_relatorio_enxuto_uma_linha_por_material_documento(self):
+        compras = pd.concat([
+            compra(pc=5, num_pc="034184"),
+            compra(pc=8, num_pc="034196"),
+        ], ignore_index=True)
+        sc, pc = self.calcular(base(pc=13), compras, proj())
+        rel = preparar_relatorio_enxuto(pc, "P.C.")
+        self.assertEqual(len(rel), 2)
+        self.assertEqual(rel["Nº P.C."].tolist(), ["034184", "034196"])
+        self.assertEqual(rel["Qtd. Cancelar"].tolist(), [5.0, 8.0])
+        self.assertNotIn("SF do material", rel)
+        self.assertNotIn("Quantidade em aberto", rel)
+        self.assertNotIn("Quantidade a manter", rel)
+
+    def test_relatorio_parcial_mostra_apenas_qtd_a_cancelar(self):
+        sc, pc = self.calcular(
+            base(estoque=4, demanda=7, sc=5),
+            compra(sc=5, num_sc="034257"),
+            proj(semana=202648, demanda=7),
+        )
+        rel = preparar_relatorio_enxuto(sc, "S.C.")
+        self.assertEqual(len(rel), 1)
+        self.assertEqual(rel.iloc[0]["Qtd. Cancelar"], 2)
+        self.assertEqual(rel.iloc[0]["Cancelamento"], "PARCIAL")
+
+    def test_base_antiga_documentos_agrupados_nao_inventa_quantidades(self):
+        sc, pc = self.calcular(base(sc=18.34),
+                               compra(sc=18.34, num_sc="034184, 034196"), proj())
+        self.assertEqual(pc.empty, True)
+        self.assertEqual(sc.iloc[0]["Quantidade cancelável"], 0)
+        self.assertIn("REPROCESSAR COMPRAS", sc.iloc[0]["Situação"])
+        self.assertTrue(preparar_relatorio_enxuto(sc, "S.C.").empty)
+
+    def test_parcelas_mesmo_documento_uma_linha_cancelamento_parcial(self):
+        compras = pd.concat([
+            compra(pc=3, num_pc="034184", sem_pc=202646),
+            compra(pc=2, num_pc="034184", sem_pc=202650),
+        ], ignore_index=True)
+        sc, pc = self.calcular(base(pc=5, demanda=3), compras,
+                               proj(semana=202648, demanda=3))
+        rel = preparar_relatorio_enxuto(pc, "P.C.")
+        self.assertEqual(len(rel), 1)
+        self.assertEqual(rel.iloc[0]["Qtd. Cancelar"], 2)
+        self.assertEqual(rel.iloc[0]["Cancelamento"], "PARCIAL")
+
+    def test_sem_previsao_nao_entra_no_relatorio_acionavel(self):
+        sc, pc = self.calcular(base(estoque=5, sc=5),
+                               compra(sc=5, sem_sc=None), None)
+        self.assertEqual(sc.iloc[0]["Situação"], "VALIDAR PREVISÃO")
+        self.assertTrue(preparar_relatorio_enxuto(sc, "S.C.").empty)
+
+    def test_excel_tem_duas_abas_com_colunas_enxutas(self):
+        from io import BytesIO
+        sc, pc = self.calcular(base(pc=3), compra(pc=3, num_pc="034257"), proj())
+        arquivo = _excel_excedentes(sc, pc, HOJE)
+        with pd.ExcelFile(BytesIO(arquivo)) as excel:
+            self.assertIn("Solicitações SC", excel.sheet_names)
+            self.assertIn("Pedidos PC", excel.sheet_names)
+            dados = pd.read_excel(excel, sheet_name="Pedidos PC")
+        self.assertEqual(len(dados), 1)
+        self.assertIn("Qtd. Cancelar", dados.columns)
+        self.assertNotIn("Quantidade em aberto", dados.columns)
 
 
 if __name__ == "__main__":

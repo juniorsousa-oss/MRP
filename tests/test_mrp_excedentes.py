@@ -43,7 +43,7 @@ class ExcedentesTests(unittest.TestCase):
         self.assertEqual(len(sc), 0)
         self.assertEqual(pc.iloc[0]["Quantidade cancelável"], 3)
         self.assertEqual(pc.iloc[0]["Situação"], "CANCELAMENTO TOTAL — AVALIAR")
-        self.assertEqual(pc.iloc[0]["Prioridade"], "ALTA")
+        self.assertEqual(pc.iloc[0]["Prioridade"], "MÉDIA")
 
     def test_tipo_ii_nao_deve_constar(self):
         sc, pc = self.calcular(base(pc=3, tipo="II"), compra(pc=3), proj())

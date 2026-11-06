@@ -348,12 +348,6 @@ def _excel_excedentes(sc, pc, hoje):
                 letra = coluna[0].column_letter
                 largura = min(62, max(14, max(len(str(c.value or "")) for c in coluna) + 2))
                 aba.column_dimensions[letra].width = largura
-        pd.DataFrame([
-            {"Campo": "Gerado em", "Informação": hoje.strftime("%d/%m/%Y")},
-            {"Campo": "Critério", "Informação": "SF positiva, Tipo diferente de II, respeito à projeção cronológica"},
-            {"Campo": "Prioridade", "Informação": "Proximidade do início da semana prevista; não é data exata de entrega"},
-            {"Campo": "Controle", "Informação": "Relatório indicativo; não cancela documentos automaticamente"},
-        ]).to_excel(writer, sheet_name="Critérios", index=False)
     return arquivo.getvalue()
 
 
@@ -381,14 +375,9 @@ def exibir_analise_excedentes(mrp, compras, projecao, prefixo, data_snapshot=Non
                 st.warning("O MRP consultado não foi atualizado hoje. Atualize a base antes de solicitar cancelamentos.")
 
     sc, pc = calcular_excedentes(mrp, compras, projecao)
-    candidatos = pd.concat([sc, pc], ignore_index=True)
-    validos = candidatos[candidatos["Quantidade cancelável"] > EPS] if not candidatos.empty else candidatos
-    a, b, c = st.columns(3)
     sc_cancelar = preparar_relatorio_enxuto(sc, "S.C.")
     pc_cancelar = preparar_relatorio_enxuto(pc, "P.C.")
-    a.metric("Documentos com excedentes", len(sc_cancelar) + len(pc_cancelar))
-    b.metric("S.C. com excedentes", len(sc_cancelar))
-    c.metric("P.C. com excedentes", len(pc_cancelar))
+    st.caption(f"{len(sc_cancelar)} S.C. e {len(pc_cancelar)} P.C. com quantidade cancelável.")
     antigos = pd.concat([sc, pc], ignore_index=True)
     antigos = antigos[
         antigos["Situação"].eq("REPROCESSAR COMPRAS — DOCUMENTOS AGRUPADOS")

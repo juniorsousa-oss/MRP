@@ -39,7 +39,8 @@ _source = _source.replace(
 
 _admin = '     render_validacao_compra_mrp(compras_mrp_export,"admin",cad)'
 if _source.count(_admin) != 1:
-    raise RuntimeError("Excedentes: integração da administração de compras não localizada.")
+    _pistas=[linha[:250] for linha in _source.splitlines() if "render_validacao_compra_mrp" in linha or "ANÁLISE DE COMPRA" in linha]
+    raise RuntimeError("Excedentes: integração ADMIN não localizada: "+repr(_pistas[:12]))
 _source = _source.replace(
     _admin,
     _admin + '\nexibir_analise_excedentes(macro,cp,proj,"admin")',

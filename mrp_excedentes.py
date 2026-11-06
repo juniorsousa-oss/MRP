@@ -299,6 +299,11 @@ def preparar_relatorio_enxuto(frame, sigla):
     if frame is None or frame.empty:
         return pd.DataFrame(columns=colunas)
     dados = frame.copy()
+    dados["_produto"] = dados["Código"].map(_codigo)
+    dados["_numero"] = dados["Documento"].astype(str).str.strip()
+    # A decisão TOTAL/PARCIAL compara a quantidade cancelável com TODAS
+    # as parcelas em aberto do documento, inclusive as não canceláveis.
+    totais = dados.groupby(["_produto", "_numero"], dropna=False)["Quantidade em aberto"].sum().to_dict()
     dados = dados[
         (pd.to_numeric(dados["Quantidade cancelável"], errors="coerce").fillna(0) > EPS)
         & (~dados["Documento"].astype(str).str.contains(r"[,;]", regex=True))
@@ -315,7 +320,7 @@ def preparar_relatorio_enxuto(frame, sigla):
     for _, grupo in dados.groupby(["_produto", "_numero"], sort=False, dropna=False):
         primeira = grupo.iloc[0]
         cancelar = float(pd.to_numeric(grupo["Quantidade cancelável"], errors="coerce").fillna(0).sum())
-        em_aberto = float(pd.to_numeric(grupo["Quantidade em aberto"], errors="coerce").fillna(0).sum())
+        em_aberto = float(totais.get((primeira["_produto"], primeira["_numero"]), 0.0))
         linhas.append({
             "Código": primeira["Código"],
             "Descrição": primeira["Descrição"],

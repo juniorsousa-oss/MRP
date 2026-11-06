@@ -306,6 +306,9 @@ def preparar_relatorio_enxuto(frame, sigla):
     totais = dados.groupby(["_produto", "_numero"], dropna=False)["Quantidade em aberto"].sum().to_dict()
     dados = dados[
         (pd.to_numeric(dados["Quantidade cancelável"], errors="coerce").fillna(0) > EPS)
+        & dados["Situação"].isin([
+            "CANCELAMENTO TOTAL — AVALIAR", "CANCELAMENTO PARCIAL — AVALIAR",
+        ])
         & (~dados["Documento"].astype(str).str.contains(r"[,;]", regex=True))
         & (~dados["Documento"].astype(str).str.strip().isin(["", "0", "NÃO INFORMADO"]))
     ].copy()

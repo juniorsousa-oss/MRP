@@ -174,7 +174,9 @@ def preparar_cancelamentos(snapshot, hoje=None):
 
 
 def _enderecos(raw):
-    candidatos = getaddresses([str(raw or "").replace(";", ",")])
+    if not str(raw or "").strip():
+        return []
+    candidatos = getaddresses([str(raw).replace(";", ",")])
     encontrados = []
     allowed = set(filter(None, re.split(r"[,;\s]+", os.getenv("MRP_CANCEL_ALLOWED_DOMAINS", "gruposetta.com").lower())))
     for _, addr in candidatos:

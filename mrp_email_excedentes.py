@@ -269,7 +269,12 @@ def _workflow_send(report, to, cc, subject, text, body, session):
     parsed = urlparse(url)
     if parsed.scheme != "https" or not parsed.hostname:
         raise RelatorioIndisponivel("Power Automate não configurado por URL HTTPS.")
+    # Compatibilidade com os webhooks Teams que a SETTA já usa para
+    # notificações de NFs e de S.A.: corpo JSON com campos de e-mail
+    # acessados via triggerBody(). A lista attachments vazia faz parte do
+    # envelope; o Excel segue em campo próprio para o Outlook.
     payload = {
+        "type": "message", "attachments": [],
         "tipo": "CANCELAMENTO_COMPRAS", "para": ";".join(to),
         "copia": cc, "assunto": subject,
         "texto": text, "html": body,
@@ -281,9 +286,12 @@ def _workflow_send(report, to, cc, subject, text, body, session):
         response = session.post(url, json=payload, timeout=65, allow_redirects=False)
     except requests.RequestException:
         raise RelatorioIndisponivel("Falha de comunicação com o serviço de envio.") from None
-    if response.status_code != 200:
+    # Os fluxos Teams já validados pela SETTA respondem HTTP 202 quando
+    # aceitam o disparo. Isso NÃO significa que o Outlook entregou o e-mail.
+    # Conferir execução no Power Automate e recebimento na homologação.
+    if response.status_code not in (200, 202):
         raise RelatorioIndisponivel(
-            f"O fluxo de e-mail não confirmou conclusão (HTTP {response.status_code})."
+            f"Webhook do Teams recusou a requisição (HTTP {response.status_code})."
         )
 
 

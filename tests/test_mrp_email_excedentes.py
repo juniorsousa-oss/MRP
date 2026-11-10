@@ -145,6 +145,47 @@ class CancelEmailTests(TestCase):
         send.assert_called_once()
         done.assert_called_once()
 
+    def test_webhook_teams_aceita_http_202_e_mantem_anexo(self):
+        from unittest.mock import Mock
+        from base64 import b64decode
+        preparado = report.preparar_cancelamentos(fixture(), HOJE)
+        conn = Mock()
+        conn.post.return_value.status_code = 202
+        with patch.dict(os.environ, {
+            "MRP_CANCEL_EMAIL_WORKFLOW_URL":
+                "https://example.com/endpoint-de-teste",
+        }):
+            report._workflow_send(
+                preparado, ["compras@gruposetta.com"], [], "Assunto",
+                "Texto", "<p>Corpo</p>", conn,
+            )
+        payload = conn.post.call_args.kwargs["json"]
+        self.assertEqual(payload["type"], "message")
+        self.assertEqual(payload["attachments"], [])
+        self.assertEqual(payload["para"], "compras@gruposetta.com")
+        self.assertEqual(payload["assunto"], "Assunto")
+        self.assertEqual(payload["html"], "<p>Corpo</p>")
+        self.assertEqual(b64decode(payload["anexo_base64"]), preparado["excel"])
+        self.assertTrue(payload["nome_anexo"].endswith(".xlsx"))
+        self.assertFalse(conn.post.call_args.kwargs["allow_redirects"])
+
+    def test_webhook_teams_rejeitado_http_401_gera_erro(self):
+        from unittest.mock import Mock
+        preparado = report.preparar_cancelamentos(fixture(), HOJE)
+        conn = Mock()
+        conn.post.return_value.status_code = 401
+        with patch.dict(os.environ, {
+            "MRP_CANCEL_EMAIL_WORKFLOW_URL":
+                "https://example.com/endpoint-de-teste",
+        }):
+            with self.assertRaisesRegex(
+                report.RelatorioIndisponivel, "HTTP 401",
+            ):
+                report._workflow_send(
+                    preparado, ["compras@gruposetta.com"], [], "Assunto",
+                    "Texto", "<p>Corpo</p>", conn,
+                )
+
     def test_email_conteudo_nao_ordenar_sc_antes_de_pc(self):
         subject, text, html_body = report._mensagem(
             report.preparar_cancelamentos(fixture(), HOJE)

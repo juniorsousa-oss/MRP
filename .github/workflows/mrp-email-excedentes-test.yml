@@ -1,7 +1,7 @@
 name: Validar envio de excedentes MRP
 on:
   push:
-    branches: [main, feat/email-excedentes-compras-diario-20261110]
+    branches: [main, feat/email-excedentes-compras-diario-20261110, fix/mrp-cancel-email-teams-webhook-20261110]
     paths:
       - mrp_email_excedentes.py
       - mrp_excedentes.py

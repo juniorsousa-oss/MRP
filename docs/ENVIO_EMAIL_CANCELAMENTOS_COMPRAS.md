@@ -95,14 +95,25 @@ No repositório `juniorsousa-oss/MRP`, Settings → Secrets and variables
 **Envio Power Automate:**
 
 Secret `MRP_CANCEL_EMAIL_WORKFLOW_URL`: URL HTTPS de um **novo fluxo
-corporativo exclusivo para compras**, configurado para retornar HTTP 200
-após a ação de envio do Outlook aceitar a mensagem. Não reutilizar a
-URL de Solicitações Avulsas sem atualizar o contrato do fluxo.
+corporativo exclusivo para compras** com gatilho
+`When a Teams webhook request is received (V2)`, no padrão já
+validado nos fluxos SETTA de NFs vencidas e de separação/entrega.
+Não reutilizar a URL de Solicitações Avulsas.
+
+Os fluxos existentes respondem **HTTP 202** ao aceitar o POST.
+O emissor aceita HTTP 200 ou 202, mas **isso não comprova que o Outlook
+enviou**; confirmar o histórico de execução e a caixa destinatária.
+Se o gatilho estiver limitado a usuários do locatário, as chamadas
+sem token Microsoft poderão receber HTTP 401/403. Replicar a política
+**aprovada** do fluxo funcional; não remover autenticação só para contornar
+falhas de chamada.
 
 Payload:
 
 ```json
 {
+  "type": "message",
+  "attachments": [],
   "tipo": "CANCELAMENTO_COMPRAS",
   "para": "compras@gruposetta.com",
   "copia": [],
@@ -114,11 +125,25 @@ Payload:
 }
 ```
 
-No **Send an email (V2)**, mapear To, CC, Subject, Body (HTML);
-criar anexo com Name = `nome_anexo` e ContentBytes a partir de
-`anexo_base64`. Configurar controle de acesso no gatilho e **Secure
-Inputs/Outputs** para não expor documentos nem URL assinada nos logs.
-Rejeitar chamadas fora da autenticação aprovada pela TI.
+No **Enviar um email (V2)**, reutilizar o padrão validado:
+- **Para:** `triggerBody()?['para']`
+- **Cc:** `join(coalesce(triggerBody()?['copia'],json('[]')),';')`
+- **Assunto:** `triggerBody()?['assunto']`
+- **Corpo:** `triggerBody()?['html']`
+- **Nome do anexo:** `triggerBody()?['nome_anexo']`
+- **Conteúdo do anexo:** `base64ToBinary(triggerBody()?['anexo_base64'])`
+
+O **anexo** diferencia esse fluxo dos alertas de NFs e entregas.
+Webhooks destinados a mensagens do Teams possuem limitações de formato
+e tamanho (a documentação menciona limite de **28 KB por mensagem**).
+**Antes de produção**, testar planilhas reais de diferentes tamanhos;
+um teste curto com arquivo pequeno não valida anexos maiores. Se exceder
+o limite da plataforma, usar armazenamento corporativo protegido para
+entregar o arquivo ao Outlook, mantendo o webhook apenas como gatilho.
+
+Configurar controle de acesso e **Secure Inputs/Outputs** para não
+expor documentos nem URL assinada nos logs. Rejeitar chamadas fora
+da autenticação aprovada pela TI.
 
 **Envio SMTP corporativo (alternativa):**
 

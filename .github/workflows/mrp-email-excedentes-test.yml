@@ -1,0 +1,30 @@
+name: Validar envio de excedentes MRP
+on:
+  push:
+    branches: [main, feat/email-excedentes-compras-diario-20261110]
+    paths:
+      - mrp_email_excedentes.py
+      - mrp_excedentes.py
+      - mrp_shadow_compare.py
+      - tests/test_mrp_email_excedentes.py
+      - .github/workflows/mrp-email-excedentes-diario.yml
+      - .github/workflows/mrp-email-excedentes-test.yml
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate-email:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar dependências de teste
+        run: python -m pip install 'pandas>=2.2,<3' 'openpyxl>=3.1,<4' 'requests>=2.32,<3'
+      - name: Conferir sintaxe e cálculos sem redes
+        run: |
+          python -m py_compile mrp_email_excedentes.py mrp_excedentes.py
+          python -m unittest discover -s tests -p 'test_mrp_excedentes.py' -v
+          python -m unittest discover -s tests -p 'test_mrp_email_excedentes.py' -v

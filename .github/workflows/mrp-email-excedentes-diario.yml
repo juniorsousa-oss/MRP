@@ -1,0 +1,49 @@
+name: SETTA MRP | E-mail de cancelamentos S.C. e P.C.
+on:
+  schedule:
+    # 08:30 Brasília (UTC-03); GitHub pode iniciar alguns minutos depois.
+    - cron: '30 11 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Somente validar os cálculos, sem enviar e-mail'
+        required: true
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: mrp-excedentes-email-diario
+  cancel-in-progress: false
+jobs:
+  cancellation-report:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.MRP_CANCEL_SEND_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      MRP_EMAIL_SUPABASE_URL: 'https://cuixazpxkvniqldmmnth.supabase.co'
+      MRP_EMAIL_SUPABASE_KEY: ${{ secrets.MRP_EMAIL_SUPABASE_KEY }}
+      MRP_CANCEL_EMAIL_TO: ${{ secrets.MRP_CANCEL_EMAIL_TO }}
+      MRP_CANCEL_EMAIL_CC: ${{ secrets.MRP_CANCEL_EMAIL_CC }}
+      MRP_CANCEL_EMAIL_FROM: ${{ secrets.MRP_CANCEL_EMAIL_FROM }}
+      MRP_CANCEL_SEND_ENABLED: ${{ vars.MRP_CANCEL_SEND_ENABLED }}
+      MRP_CANCEL_DELIVERY_MODE: ${{ vars.MRP_CANCEL_DELIVERY_MODE }}
+      MRP_CANCEL_EMAIL_WORKFLOW_URL: ${{ secrets.MRP_CANCEL_EMAIL_WORKFLOW_URL }}
+      MRP_CANCEL_SMTP_HOST: ${{ secrets.MRP_CANCEL_SMTP_HOST }}
+      MRP_CANCEL_SMTP_PORT: ${{ vars.MRP_CANCEL_SMTP_PORT }}
+      MRP_CANCEL_SMTP_USER: ${{ secrets.MRP_CANCEL_SMTP_USER }}
+      MRP_CANCEL_SMTP_PASSWORD: ${{ secrets.MRP_CANCEL_SMTP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Dependências para cálculo e planilha
+        run: python -m pip install 'pandas>=2.2,<3' 'openpyxl>=3.1,<4' 'requests>=2.32,<3'
+      - name: Executar modo simulado
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: python mrp_email_excedentes.py --dry-run
+      - name: Enviar resumo somente com snapshot válido e autorização explícita
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) }}
+        run: python mrp_email_excedentes.py

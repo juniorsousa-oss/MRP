@@ -17,8 +17,8 @@ HOJE = date(2026, 11, 10)
 def fixture():
     mrp = pd.DataFrame([
         {"Código": 50172, "Descrição": "FONTE TESTE", "Tipo": "MP",
-         "Saldo em Estoque": 0, "Demanda": 3, "P.C.": 5, "S.C.": 2,
-         "Produzindo": 0, "SF": 4},
+         "Saldo em Estoque": 3, "Demanda": 3, "P.C.": 5, "S.C.": 2,
+         "Produzindo": 0, "SF": 7},
         {"Código": 50173, "Descrição": "OUTRO MATERIAL", "Tipo": "II",
          "Saldo em Estoque": 0, "Demanda": 0, "P.C.": 5, "S.C.": 0,
          "Produzindo": 0, "SF": 5},
@@ -35,7 +35,7 @@ def fixture():
          "Nº S.C.": ""},
     ])
     proj = pd.DataFrame([
-        {"Código": 50172, "Semana": "2026-47", "Demanda": 3, "Produzindo": 0},
+        {"Código": 50172, "Semana": "2026-45", "Demanda": 3, "Produzindo": 0},
     ])
     return {
         "id": 105,
@@ -54,7 +54,7 @@ class CancelEmailTests(TestCase):
             self.assertEqual(excel.sheet_names, ["Solicitações SC", "Pedidos PC"])
             sc = pd.read_excel(excel, "Solicitações SC")
             pc = pd.read_excel(excel, "Pedidos PC")
-        self.assertEqual(sc["Qtd. Cancelar"].sum() + pc["Qtd. Cancelar"].sum(), 4)
+        self.assertEqual(sc["Qtd. Cancelar"].sum() + pc["Qtd. Cancelar"].sum(), 7)
         self.assertNotIn("Quantidade em aberto", sc.columns)
         self.assertNotIn("Quantidade a manter", pc.columns)
         self.assertFalse((pc["Nº P.C."].astype(str) == "888888").any())
@@ -151,7 +151,6 @@ class CancelEmailTests(TestCase):
         )
         self.assertIn("S.C. e P.C.", subject)
         self.assertIn("duas abas", text)
-        self.assertIn("Não", text) if False else None
         self.assertIn("Nenhuma compra será cancelada automaticamente", html_body)
 
 

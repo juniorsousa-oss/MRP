@@ -405,4 +405,4 @@ def exibir_analise_excedentes(mrp, compras, projecao, prefixo, data_snapshot=Non
         key=f"mrp_excedentes_excel_{prefixo}",
         use_container_width=True,
     )
-    st.caption("Envio automático de e-mail: não ativado nesta etapa de validação.")
+    st.caption("Relatório diário por e-mail: preparado para 08h30 (Brasília). O envio real permanece desabilitado até confirmar a caixa de Suprimentos e autorizar o canal corporativo no GitHub Actions.")

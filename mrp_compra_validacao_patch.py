@@ -307,7 +307,8 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
             "INTEGRIDADE DO CADASTRO: há produtos sem descrição no MRP "
             "(" + ", ".join(_sem_descricao[:15]) + "). "
             "Não foi possível recuperar a descrição das bases de origem. "
-            "A exportação de compra permanecerá bloqueada até a correção."
+            "A carga oficial de compra permanecerá bloqueada até a correção; "
+            "o relatório de pré-análise por OP continua disponível para revisão."
         )
     por_produto["Incluir na compra"]=por_produto["produto"].map(lambda c:not bool(exclusoes.get(c,{}).get("excluido",False)))
     por_produto=por_produto[["Incluir na compra","produto","Descrição","Qtd","Linhas","Prioridade"]]
@@ -373,6 +374,47 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
                         st.error(f"Falha ao restaurar: {exc}")
     st.markdown("**PREVIA DA CARGA APROVAVEL**")
     st.dataframe(aptos,hide_index=True,use_container_width=True)
+    # Relatório PREVIO por OP: exportacao de consulta permitida antes da
+    # aprovacao, sem liberar, registrar ou alterar o Excel STSUP25/Protheus.
+    with st.expander("RELATÓRIO PRÉVIO DE COMPRA POR OP — PARA ANÁLISE",expanded=True):
+        st.caption(
+            "Exporte a proposta por OP para revisão interna ou de terceiros. "
+            "Este arquivo NÃO é uma carga do Protheus, não libera compra "
+            "e respeita os materiais atualmente excluídos."
+        )
+        if aptos.empty:
+            st.info("Nenhum material apto para compor o relatório.")
+        else:
+            from mrp_compra_preanalise import (
+                construir_relatorio_compra_por_op,op_relatorio
+            )
+            op_opcoes=sorted({op_relatorio(x) for x in aptos["op"].tolist()})
+            escolhidas=st.multiselect(
+                "OPs para análise (sem seleção = todas)",
+                options=op_opcoes,default=[],
+                key=f"{prefixo}_compra_relatorio_ops",
+                help="Filtre uma ou mais OPs. Solicitações sem OP permanecem separadas em SEM OP VINCULADA.",
+            )
+            try:
+                planilhas=construir_relatorio_compra_por_op(
+                    aptos,_descs,escolhidas or None,
+                )
+                st.caption(
+                    f"{len(planilhas['RESUMO OP'])} OP(s) / grupo(s), "
+                    f"{len(planilhas['MATERIAIS OP'])} produto(s) por OP e "
+                    f"{len(planilhas['DETALHE OP'])} linha(s) de origem. "
+                    "Inclui resumo, materiais, detalhe e campos para parecer."
+                )
+                st.download_button(
+                    "EXPORTAR RELATÓRIO DE COMPRA POR OP — EXCEL",
+                    data=excel_bytes(planilhas),
+                    file_name="MRP_Pre_Analise_Compras_por_OP.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"{prefixo}_compra_relatorio_op_xlsx",
+                    use_container_width=True,
+                )
+            except Exception as exc:
+                st.error(f"Não foi possível preparar a pré-análise por OP: {exc}")
     if aptos.empty:
         st.info("Nenhum item apto para gerar a carga.")
         _compra_botao_finalizar(prefixo)

@@ -281,7 +281,7 @@ def _compra_botao_finalizar(prefixo):
         _compra_fechar(prefixo)
         st.rerun()
 
-def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
+def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None):
     st.markdown("### VALIDAÇÃO DA COMPRA MRP")
     st.caption("Retire produtos que nao devem ser comprados; a decisao fica salva e podera ser revertida. Nao altera a demanda calculada no MRP.")
     try:
@@ -397,14 +397,22 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None):
             )
             try:
                 planilhas=construir_relatorio_compra_por_op(
-                    aptos,_descs,escolhidas or None,
+                    aptos,_descs,escolhidas or None,solicitacoes,
                 )
                 st.caption(
                     f"{len(planilhas['RESUMO OP'])} OP(s) / grupo(s), "
                     f"{len(planilhas['MATERIAIS OP'])} produto(s) por OP e "
                     f"{len(planilhas['DETALHE OP'])} linha(s) de origem. "
-                    "Inclui resumo, materiais, detalhe e campos para parecer."
+                    "Inclui última solicitação por OP/material, resumo, "
+                    "detalhamento e campos para parecer."
                 )
+                sem_data = int(planilhas["DETALHE OP"]["Última solicitação"].eq("NI").sum())
+                if sem_data:
+                    st.warning(
+                        f"{sem_data} linha(s) sem data de última solicitação "
+                        "no Relatório Geral Tratado ou no snapshot da consulta. "
+                        "O campo será exibido como NI, sem inventar outra data."
+                    )
                 st.download_button(
                     "EXPORTAR RELATÓRIO DE COMPRA POR OP — EXCEL",
                     data=excel_bytes(planilhas),
@@ -475,7 +483,7 @@ _compra_replace(
     '''if c4.button("ANÁLISE DE COMPRA",key="consulta_compra_abrir",use_container_width=True):
         _compra_abrir("consulta")
     if st.session_state.get("consulta_compra_aberta",False):
-        render_validacao_compra_mrp(comp,"consulta",mg)''',
+        render_validacao_compra_mrp(comp,"consulta",mg,dem)''',
     "Bloqueio download direto CONSULTA",
 )
 _compra_replace(
@@ -484,7 +492,7 @@ _compra_replace(
     if st.button("ANÁLISE DE COMPRA",key="admin_compra_abrir",use_container_width=True):
         _compra_abrir("admin")
 if st.session_state.get("admin_compra_aberta",False):
-    render_validacao_compra_mrp(compras_mrp_export,"admin",cad)''',
+    render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg)''',
     "Bloqueio download direto ADMIN",
 )
 # Recalcular a compra e prioridades nas sessoes ainda abertas.

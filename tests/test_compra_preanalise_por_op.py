@@ -79,6 +79,99 @@ class CompraPreAnalisePorOpTests(unittest.TestCase):
         self.assertEqual(resultado["MATERIAIS OP"]["Quantidade"].sum(), 12)
         pd.testing.assert_frame_equal(self.entrada, anterior)
 
+    def test_data_ultima_solicitacao_vem_do_tratado_por_op_e_produto(self):
+        # A necessidade da compra é novembro; última solicitação é outubro.
+        # Uma solicitação de OUTRA OP para o mesmo material não contamina.
+        tratado = pd.DataFrame([
+            {"Projeto": "26007206007", "Código": 158,
+             "Data Solicitação": pd.Timestamp("2026-10-10")},
+            {"Projeto": "26007206007", "Código": 158.0,
+             "Data Solicitação": pd.Timestamp("2026-10-27")},
+            {"Projeto": "26031401001", "Código": 158,
+             "Data Solicitação": pd.Timestamp("2026-11-12")},
+            {"Projeto": "26031401001", "Código": 295,
+             "Data Solicitação": pd.Timestamp("2026-11-01")},
+        ])
+        resultado = construir_relatorio_compra_por_op(
+            self.entrada, self.desc, solicitacoes=tratado
+        )
+        d = resultado["DETALHE OP"]
+        a = d[(d["OP"] == "26007206007") & (d["Código"] == "00000158")]
+        b = d[(d["OP"] == "26031401001") & (d["Código"] == "00000158")]
+        self.assertEqual(a["Última solicitação"].tolist(),
+                         ["27/10/2026", "27/10/2026"])
+        self.assertEqual(b["Última solicitação"].tolist(), ["12/11/2026"])
+        self.assertEqual(a["Data de necessidade"].tolist(),
+                         ["13/11/2026", "20/11/2026"])
+        resumo = resultado["MATERIAIS OP"]
+        self.assertEqual(
+            resumo.loc[
+                (resumo["OP"] == "26007206007")
+                & (resumo["Código"] == "00000158"),
+                "Última solicitação",
+            ].iloc[0], "27/10/2026"
+        )
+        self.assertEqual(
+            resumo.loc[
+                (resumo["OP"] == "26031401001")
+                & (resumo["Código"] == "00000158"),
+                "Última solicitação",
+            ].iloc[0], "12/11/2026"
+        )
+        self.assertTrue(
+            d.loc[d["OP"] == OP_NAO_INFORMADA, "Última solicitação"]
+            .eq("NI").all()
+        )
+        self.assertEqual(
+            resultado["MATERIAIS OP"]["Quantidade"].sum(), 39
+        )
+
+    def test_data_ultima_solicitacao_vem_snapshot_consulta(self):
+        historico = pd.DataFrame([
+            {"Projeto": "26007206007", "Produto": 158,
+             "Última Solicitação": "30/10/2026"},
+            {"Projeto": "26031401001", "Produto": "00000158",
+             "Última Solicitação": "02/11/2026"},
+        ])
+        antes = historico.copy(deep=True)
+        resultado = construir_relatorio_compra_por_op(
+            self.entrada, self.desc, ["26007206007"], historico
+        )
+        self.assertEqual(
+            resultado["MATERIAIS OP"]["Última solicitação"].tolist(),
+            ["30/10/2026"]
+        )
+        pd.testing.assert_frame_equal(historico, antes)
+
+    def test_data_ausente_nao_substitui_pela_data_necessidade(self):
+        resultado = construir_relatorio_compra_por_op(
+            self.entrada, self.desc,
+            solicitacoes=pd.DataFrame([
+                {"Projeto": "26007206007", "Código": 158,
+                 "Data Solicitação": "NI"},
+            ])
+        )
+        self.assertTrue(resultado["DETALHE OP"]["Última solicitação"].eq("NI").all())
+        self.assertIn("Última solicitação", resultado["MATERIAIS OP"].columns)
+
+    def test_data_iso_normalizada_pela_chave_op_material(self):
+        tratado = pd.DataFrame([
+            {"Projeto": "26007206007", "Código": "00000158",
+             "Última solicitação": "2026-11-15T00:00:00Z"},
+            {"Projeto": "26007206007", "Código": "00000295",
+             "Última solicitação": "2026-11-16"},
+        ])
+        resultado = construir_relatorio_compra_por_op(
+            self.entrada, self.desc, solicitacoes=tratado
+        )
+        self.assertEqual(
+            resultado["MATERIAIS OP"].loc[
+                (resultado["MATERIAIS OP"]["OP"] == "26007206007")
+                & (resultado["MATERIAIS OP"]["Código"] == "00000158"),
+                "Última solicitação",
+            ].iloc[0], "15/11/2026"
+        )
+
     def test_campos_analise_nao_sao_carga_protheus(self):
         r = construir_relatorio_compra_por_op(self.entrada, self.desc)
         self.assertIn("INSTRUÇÕES", r)

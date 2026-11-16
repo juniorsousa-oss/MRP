@@ -5,7 +5,7 @@ Nao altera exclusoes, aprovacoes, snapshots ou quantidades de origem.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 import re
 from typing import Iterable, Mapping
 
@@ -35,10 +35,79 @@ def op_relatorio(valor) -> str:
     return value if value else OP_NAO_INFORMADA
 
 
+def _codigo_material(valor) -> str:
+    """Chave de material com oito dígitos, compatível com CADASTROS e MRP."""
+    texto = _texto(valor)
+    if re.fullmatch(r"\\d+(?:\\.0+)?", texto):
+        texto = texto.split(".")[0]
+    return texto.zfill(8) if texto.isdigit() and len(texto) <= 8 else texto
+
+
+def _data_solicitacao(valor) -> pd.Timestamp:
+    """Interpreta datas da base tratada/snapshot; não usa data de necessidade."""
+    if isinstance(valor, (datetime, date, pd.Timestamp)):
+        result = pd.Timestamp(valor)
+        return result.tz_localize(None).normalize() if pd.notna(result) else pd.NaT
+    texto = _texto(valor)
+    if texto.upper() in {"", "NI", "N/A", "NAN", "NAT", "NONE"}:
+        return pd.NaT
+    for formato in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            return pd.Timestamp(datetime.strptime(texto, formato))
+        except ValueError:
+            pass
+    resultado = pd.to_datetime(texto, errors="coerce", dayfirst=True)
+    if pd.isna(resultado):
+        return pd.NaT
+    resultado = pd.Timestamp(resultado)
+    return resultado.tz_localize(None).normalize()
+
+
+def _mapa_ultimas_solicitacoes(
+    solicitacoes: pd.DataFrame | None,
+) -> dict[tuple[str, str], str]:
+    """Relaciona a data pelo par OP+material; nunca pega data de outra OP.
+
+    ADMIN: rg oriundo do Relatório Geral Tratado.
+    CONSULTA: demanda_projeto do snapshot, que já inclui Última Solicitação
+    derivada da mesma fonte tratada na execução original.
+    """
+    if solicitacoes is None or solicitacoes.empty:
+        return {}
+    if "Projeto" not in solicitacoes.columns:
+        raise ValueError("Relatório tratado sem coluna Projeto para última solicitação.")
+    col_codigo = next(
+        (c for c in ("Código", "Produto") if c in solicitacoes.columns), None
+    )
+    col_data = next(
+        (c for c in ("Data Solicitação", "Última solicitação", "Última Solicitação")
+         if c in solicitacoes.columns), None
+    )
+    if col_codigo is None or col_data is None:
+        raise ValueError(
+            "Relatório tratado/snapshot sem código e data da última solicitação."
+        )
+
+    frame = solicitacoes[["Projeto", col_codigo, col_data]].copy()
+    frame["_op"] = frame["Projeto"].map(op_relatorio)
+    frame["_codigo"] = frame[col_codigo].map(_codigo_material)
+    frame["_data"] = frame[col_data].map(_data_solicitacao)
+    frame = frame[
+        frame["_op"].ne(OP_NAO_INFORMADA)
+        & frame["_codigo"].ne("")
+        & frame["_data"].notna()
+    ]
+    if frame.empty:
+        return {}
+    ultimas = frame.groupby(["_op", "_codigo"], sort=False)["_data"].max()
+    return {chave: data.strftime("%d/%m/%Y") for chave, data in ultimas.items()}
+
+
 def construir_relatorio_compra_por_op(
     compra: pd.DataFrame,
     descricoes: Mapping[str, str] | None = None,
     ops: Iterable[str] | None = None,
+    solicitacoes: pd.DataFrame | None = None,
 ) -> dict[str, pd.DataFrame]:
     """Produz 4 abas com rastreabilidade, sem gerar carga de importacao.
 
@@ -56,6 +125,14 @@ def construir_relatorio_compra_por_op(
     fonte["Descrição"] = fonte["Código"].map(
         lambda c: _excel_texto((descricoes or {}).get(c, ""))
     )
+    # A fonte da última solicitação é EXCLUSIVAMENTE o Relatório Tratado
+    # ou seu snapshot correspondente. A data da compra ("data") é a data
+    # de necessidade e NÃO deve substituir a data da solicitação.
+    mapa_solicitacoes = _mapa_ultimas_solicitacoes(solicitacoes)
+    fonte["Última solicitação"] = [
+        mapa_solicitacoes.get((op, _codigo_material(codigo)), "NI")
+        for op, codigo in zip(fonte["OP"], fonte["Código"])
+    ]
     fonte["Quantidade"] = pd.to_numeric(fonte["qnt"], errors="coerce")
     if fonte["Quantidade"].isna().any() or (fonte["Quantidade"] < 0).any():
         raise ValueError("Pre-analise: quantidade ausente, negativa ou invalida.")
@@ -80,8 +157,8 @@ def construir_relatorio_compra_por_op(
     detalhado = fonte.sort_values(
         ["OP", "Código", "_data_ordem", "_indice_origem"], kind="stable"
     )[[
-        "OP", "Código", "Descrição", "Quantidade", "Data de necessidade",
-        "Prioridade", "PSY", "Centro de custo", "Observação MRP",
+        "OP", "Código", "Descrição", "Quantidade", "Última solicitação",
+        "Data de necessidade", "Prioridade", "PSY", "Centro de custo", "Observação MRP",
     ]].copy()
     detalhado["Parecer do analista"] = ""
     detalhado["Observações da análise"] = ""
@@ -96,6 +173,7 @@ def construir_relatorio_compra_por_op(
         fonte.groupby(["OP", "Código", "Descrição"], sort=True, dropna=False)
         .agg(
             Quantidade=("Quantidade", "sum"),
+            Última_solicitação=("Última solicitação", "first"),
             Linhas=("Código", "size"),
             Data_mais_proxima=("_data_ordem", "min"),
             Prioridade=("Prioridade", lambda s: "2" if (s == "2").any()
@@ -105,6 +183,7 @@ def construir_relatorio_compra_por_op(
         )
         .reset_index()
         .rename(columns={
+            "Última_solicitação": "Última solicitação",
             "Linhas": "Linhas de demanda",
             "Data_mais_proxima": "Primeira necessidade",
             "Centro_de_custo": "Centro de custo",
@@ -144,7 +223,9 @@ def construir_relatorio_compra_por_op(
         ("SITUAÇÃO", "Documento de consulta; nenhum pedido, SC ou liberação é gerado pelo download."),
         ("ESCOPO", "Somente itens aptos na prévia de compra, após as exclusões vigentes."),
         ("CRITÉRIO", "Cada OP mantém seus materiais e respectivas quantidades; não mistura OPs."),
-        ("DETALHAMENTO", "Aba DETALHE OP mantém cada linha e data da prévia."),
+        ("ÚLTIMA SOLICITAÇÃO", "Data máxima registrada no Relatório Geral Tratado por OP + código de material; NI indica ausência de correspondência."),
+        ("DATAS DISTINTAS", "Última solicitação é a data de pedido do material; data de necessidade é a previsão de atendimento e não é usada como substituta."),
+        ("DETALHAMENTO", "Aba DETALHE OP mantém cada linha, a última solicitação da origem e a data de necessidade da compra."),
         ("CONSOLIDAÇÃO", "Aba MATERIAIS OP soma quantidades somente por OP e produto."),
         ("PRIORIDADE", "2 = emergencial; 1 = normal, conforme cálculo original do MRP."),
         ("SEM OP", "Demandas sem OP de origem são exibidas como SEM OP VINCULADA."),

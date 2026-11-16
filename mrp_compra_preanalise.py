@@ -38,7 +38,7 @@ def op_relatorio(valor) -> str:
 def _codigo_material(valor) -> str:
     """Chave de material com oito dígitos, compatível com CADASTROS e MRP."""
     texto = _texto(valor)
-    if re.fullmatch(r"\\d+(?:\\.0+)?", texto):
+    if re.fullmatch(r"\d+(?:\.0+)?", texto):
         texto = texto.split(".")[0]
     return texto.zfill(8) if texto.isdigit() and len(texto) <= 8 else texto
 
@@ -56,7 +56,9 @@ def _data_solicitacao(valor) -> pd.Timestamp:
             return pd.Timestamp(datetime.strptime(texto, formato))
         except ValueError:
             pass
-    resultado = pd.to_datetime(texto, errors="coerce", dayfirst=True)
+    # ISO com fuso e DD/MM/AAAA usam orientações distintas para o parser.
+    iso = bool(re.match(r"^\d{4}-\d{2}-\d{2}[T ]", texto))
+    resultado = pd.to_datetime(texto, errors="coerce", dayfirst=not iso)
     if pd.isna(resultado):
         return pd.NaT
     resultado = pd.Timestamp(resultado)

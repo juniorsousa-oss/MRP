@@ -46,7 +46,8 @@ for part in (
     "As fontes mudaram durante a leitura",
 ):
     assert part in central,part
-assert 'render_validacao_compra_mrp(comp,"consulta",mg)' in compra_patch
+assert 'render_validacao_compra_mrp(comp,"consulta",mg,dem)' in compra_patch
+assert 'render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg)' in compra_patch
 assert 'preencher_descricoes_compra(por_produto, cad)' in compra_patch
 assert 'if _sem_descricao:' in compra_patch
 assert 'st.session_state.pop(_key,None)' not in filtros

@@ -343,6 +343,16 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
     k1.metric("Produtos sugeridos",len(por_produto))
     k2.metric("Produtos excluidos",n_excluidos)
     k3.metric("Linhas para exportar",int(aptos["produto"].nunique()))
+    if not aptos.empty:
+        # Preço 0 do campo X não é cotação: informar antes da liberação.
+        _precos_aptos=pd.to_numeric(aptos["vunit"],errors="coerce").fillna(0)
+        _sem_preco=int(aptos.loc[_precos_aptos.le(0),"produto"].nunique())
+        if _sem_preco:
+            st.info(
+                f"{_sem_preco} produto(s) sem valor mínimo positivo no Relatório "
+                "Geral Tratado. O campo I (vunit) ficará em branco para estes "
+                "materiais; zero da origem não será tratado como preço cotado."
+            )
     if not por_produto.empty:
         st.caption("A seleção vale para o código do material, inclusive em MRP futuros.")
         if st.session_state.get("auth_role")=="ADMIN":

@@ -38,10 +38,9 @@ _compra_replace(
 )
 _compra_replace(
     '    return out[cols].reset_index(drop=True)',
-    '''    # vunit é numérico e opcional; ausência e zero não representam cotação.
-    out["vunit"]=pd.to_numeric(out["vunit"],errors="coerce").apply(
-        lambda x:float(x) if pd.notna(x) and x>0 else ""
-    )
+    '''    # A coluna I do Protheus recebe um número, INCLUSIVE zero.
+    # Preço ausente/negativo é normalizado como 0, nunca célula vazia.
+    out["vunit"]=pd.to_numeric(out["vunit"],errors="coerce").fillna(0).clip(lower=0).astype(float)
     return out[cols].reset_index(drop=True)''',
     "Preservar preço unitario opcional da compra",
 )
@@ -51,6 +50,12 @@ _helpers = '''def _compra_codigo(valor):
     texto=str(valor or "").strip().replace(".0", "")
     return texto.zfill(8) if texto.isdigit() and len(texto)<=8 else texto
 
+def _compra_menor_preco(valores):
+    # O valor por unidade é o menor POSITIVO; se todos forem zero, retornar 0.
+    numericos=pd.to_numeric(valores,errors="coerce")
+    positivos=numericos[numericos>0]
+    return float(positivos.min()) if not positivos.empty else 0.0
+
 def _preparar_compra_prioridades(df, cad, rg=None):
     out=normalizar_compra_mrp(df)
     if out.empty:
@@ -59,17 +64,30 @@ def _preparar_compra_prioridades(df, cad, rg=None):
         lookup=cad.assign(_codigo=cad["Código"].map(_compra_codigo)).drop_duplicates("_codigo").set_index("_codigo")["Lead Time (dias)"].to_dict()
     else:
         lookup={}
-    # O Relatório Geral Tratado é a única origem do valor mínimo encontrado.
-    # Consolidar pelo código do material: menor valor POSITIVO entre OPs/lotes.
-    # Não transformar um zero da coluna X em uma cotação válida no Protheus.
-    preco_lookup={}
+    # Na análise manter o valor da OP+produto; não atribuir o valor de
+    # outra OP. A escolha do menor positivo ENTRE OPs ocorre na geração
+    # da carga unificada STSUP25, nunca no quadro analítico.
+    preco_por_op={}
+    preco_por_produto={}
     if isinstance(rg,pd.DataFrame) and {"Código","Valor mínimo encontrado"}.issubset(rg.columns):
-        cotacoes=rg[["Código","Valor mínimo encontrado"]].copy()
+        colunas=["Código","Valor mínimo encontrado"]
+        if "Projeto" in rg.columns:
+            colunas.append("Projeto")
+        cotacoes=rg[colunas].copy()
         cotacoes["_codigo"]=cotacoes["Código"].map(_compra_codigo)
-        cotacoes["_vunit"]=pd.to_numeric(cotacoes["Valor mínimo encontrado"],errors="coerce")
-        cotacoes=cotacoes.loc[cotacoes["_vunit"]>0]
-        if not cotacoes.empty:
-            preco_lookup=cotacoes.groupby("_codigo",sort=False)["_vunit"].min().to_dict()
+        cotacoes["_vunit"]=pd.to_numeric(
+            cotacoes["Valor mínimo encontrado"],errors="coerce"
+        ).fillna(0).clip(lower=0)
+        preco_por_produto=cotacoes.groupby("_codigo",sort=False)["_vunit"].agg(
+            _compra_menor_preco
+        ).to_dict()
+        if "Projeto" in cotacoes.columns:
+            cotacoes["_op"]=cotacoes["Projeto"].map(
+                lambda x:str(x).strip().removesuffix(".0") if pd.notna(x) else ""
+            )
+            preco_por_op=cotacoes.groupby(["_op","_codigo"],sort=False)["_vunit"].agg(
+                _compra_menor_preco
+            ).to_dict()
     hoje=pd.Timestamp(date.today()).normalize()
     for idx,linha in out.iterrows():
         lead=max(0.0,float(pd.to_numeric(lookup.get(_compra_codigo(linha["produto"]),0),errors="coerce") or 0))
@@ -83,7 +101,15 @@ def _preparar_compra_prioridades(df, cad, rg=None):
             chegada=hoje+pd.Timedelta(days=lead)
             out.at[idx,"prioridade"]="2" if chegada>data_necessidade else "1"
         out.at[idx,"prj"]=""
-        out.at[idx,"vunit"]=float(preco_lookup[_compra_codigo(linha["produto"])]) if _compra_codigo(linha["produto"]) in preco_lookup else ""
+        codigo=_compra_codigo(linha["produto"])
+        op=str(linha.get("op") or "").strip().removesuffix(".0")
+        if op and preco_por_op:
+            # OP com preço 0 continua 0 mesmo que outra OP possua preço.
+            valor=preco_por_op.get((op,codigo),0.0)
+        else:
+            # TC/TP sem OP ou relatório legado sem coluna Projeto.
+            valor=preco_por_produto.get(codigo,0.0)
+        out.at[idx,"vunit"]=float(valor)
     return out
 
 def _compra_agrupar_protheus(df):
@@ -115,9 +141,7 @@ def _compra_agrupar_protheus(df):
         origem["op"]=""
         origem["prj"]=""
         origem["prioridade"]="2" if grupo["prioridade"].astype(str).eq("2").any() else "1"
-        precos=pd.to_numeric(grupo["vunit"],errors="coerce")
-        precos=precos[precos>0]
-        origem["vunit"]=float(precos.min()) if not precos.empty else ""
+        origem["vunit"]=_compra_menor_preco(grupo["vunit"])
 
         # Centro de custo/PSY distintos no mesmo produto nao podem ser
         # descartados silenciosamente em uma unica carga do Protheus.
@@ -324,7 +348,8 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
     por_produto=base.groupby("produto",sort=True,as_index=False).agg(
         Qtd=("qnt","sum"),Linhas=("qnt","size"),
         Prioridade=("prioridade",lambda s: "2" if (s=="2").any() else ("1" if (s=="1").any() else "")),
-    ) if not base.empty else pd.DataFrame(columns=["produto","Qtd","Linhas","Prioridade"])
+        **{"Valor mínimo encontrado":("vunit",_compra_menor_preco)},
+    ) if not base.empty else pd.DataFrame(columns=["produto","Qtd","Linhas","Prioridade","Valor mínimo encontrado"])
     por_produto, _sem_descricao = preencher_descricoes_compra(por_produto, cad)
     if _sem_descricao:
         st.error(
@@ -335,7 +360,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             "o relatório de pré-análise por OP continua disponível para revisão."
         )
     por_produto["Incluir na compra"]=por_produto["produto"].map(lambda c:not bool(exclusoes.get(c,{}).get("excluido",False)))
-    por_produto=por_produto[["Incluir na compra","produto","Descrição","Qtd","Linhas","Prioridade"]]
+    por_produto=por_produto[["Incluir na compra","produto","Descrição","Qtd","Valor mínimo encontrado","Linhas","Prioridade"]]
     excluidos={c for c,v in exclusoes.items() if bool(v.get("excluido"))}
     aptos=base[~base["produto"].isin(excluidos)].copy()
     n_excluidos=len(set(base["produto"])&excluidos)
@@ -344,24 +369,27 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
     k2.metric("Produtos excluidos",n_excluidos)
     k3.metric("Linhas para exportar",int(aptos["produto"].nunique()))
     if not aptos.empty:
-        # Preço 0 do campo X não é cotação: informar antes da liberação.
+        # Preço zero permanece VISÍVEL no relatório e na coluna I (vunit).
         _precos_aptos=pd.to_numeric(aptos["vunit"],errors="coerce").fillna(0)
         _sem_preco=int(aptos.loc[_precos_aptos.le(0),"produto"].nunique())
         if _sem_preco:
             st.info(
                 f"{_sem_preco} produto(s) sem valor mínimo positivo no Relatório "
-                "Geral Tratado. O campo I (vunit) ficará em branco para estes "
-                "materiais; zero da origem não será tratado como preço cotado."
+                "Geral Tratado. A análise exibirá 0 e a coluna I (vunit) "
+                "do Protheus receberá o valor numérico 0."
             )
     if not por_produto.empty:
         st.caption("A seleção vale para o código do material, inclusive em MRP futuros.")
         if st.session_state.get("auth_role")=="ADMIN":
             editado=st.data_editor(
                 por_produto,hide_index=True,use_container_width=True,num_rows="fixed",
-                disabled=["produto","Descrição","Qtd","Linhas","Prioridade"],
+                disabled=["produto","Descrição","Qtd","Valor mínimo encontrado","Linhas","Prioridade"],
                 column_config={
                     "Incluir na compra":st.column_config.CheckboxColumn("INCLUIR",help="Desmarque para armazenar o material na lista de exclusoes."),
                     "produto":st.column_config.TextColumn("PRODUTO"),
+                    "Valor mínimo encontrado":st.column_config.NumberColumn(
+                        "VALOR MÍNIMO ENCONTRADO",format="%.2f"
+                    ),
                 },
                 key=f"{prefixo}_revisao_editor",
             )
@@ -407,7 +435,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                     except Exception as exc:
                         st.error(f"Falha ao restaurar: {exc}")
     st.markdown("**PREVIA DA CARGA APROVAVEL**")
-    st.dataframe(aptos,hide_index=True,use_container_width=True)
+    st.dataframe(aptos.rename(columns={"vunit":"Valor mínimo encontrado"}),hide_index=True,use_container_width=True)
     # Relatório PREVIO por OP: exportacao de consulta permitida antes da
     # aprovacao, sem liberar, registrar ou alterar o Excel STSUP25/Protheus.
     with st.expander("RELATÓRIO PRÉVIO DE COMPRA POR OP — PARA ANÁLISE",expanded=True):

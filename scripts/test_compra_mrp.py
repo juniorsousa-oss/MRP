@@ -50,8 +50,8 @@ assert result["prioridade"].tolist() == ["2", "1", "1"], result["prioridade"].to
 assert set(result["prj"]) == {""}
 assert result["produto"].tolist() == ["00140027", "00041212", "00800081"]
 
-# Valor mínimo da coluna X: somente valores positivos são preços válidos.
-# O mesmo código em OPs distintas mantém o menor preço unitário encontrado.
+# Valor mínimo da coluna X: sempre informado, inclusive zero.
+# O mesmo código em OPs distintas usa o menor positivo SOMENTE na carga consolidada.
 tabela_precos=pd.DataFrame([
     {"Código":140027,"Valor mínimo encontrado":20.35},
     {"Código":140027,"Valor mínimo encontrado":18.90},
@@ -60,7 +60,7 @@ tabela_precos=pd.DataFrame([
 ])
 com_precos=calcular(base,cad,tabela_precos)
 assert "vunit" in com_precos.columns
-assert com_precos["vunit"].tolist()==[18.90,"",11.2345],com_precos["vunit"].tolist()
+assert com_precos["vunit"].tolist()==[18.90,0.0,11.2345],com_precos["vunit"].tolist()
 assert com_precos["qnt"].tolist()==result["qnt"].tolist()
 assert com_precos["prioridade"].tolist()==result["prioridade"].tolist()
 
@@ -79,8 +79,36 @@ with ZipFile(io.BytesIO(excel_precos)) as zipped:
         v=cells[f"I{numero}"].find("m:v",ns_preco)
         codigo_precos[cod]=float(v.text) if v is not None else None
     assert abs(codigo_precos["00140027"]-18.90)<1e-6,codigo_precos
-    assert codigo_precos["00041212"] is None,codigo_precos
+    assert codigo_precos["00041212"]==0.0,codigo_precos
     assert abs(codigo_precos["00800081"]-11.2345)<1e-6,codigo_precos
+
+# A análise precisa distinguir valores da mesma peça em OPs diferentes.
+# A unificação para o Protheus utiliza 0 apenas se TODAS as OPs forem zero.
+por_op=pd.DataFrame([
+    {"produto":"00094444","qnt":1,"data":"25/11/2026","cc":"600307","op":"26001101001","prioridade":"1"},
+    {"produto":"00094444","qnt":3,"data":"26/11/2026","cc":"600307","op":"26001101002","prioridade":"2"},
+    {"produto":"00094444","qnt":2,"data":"27/11/2026","cc":"600307","op":"26001101003","prioridade":"2"},
+    {"produto":"00084444","qnt":4,"data":"27/11/2026","cc":"600307","op":"26001101004","prioridade":"1"},
+])
+orcm=pd.DataFrame([
+    {"Projeto":"26001101001","Código":"00094444","Valor mínimo encontrado":0},
+    {"Projeto":"26001101002","Código":"00094444","Valor mínimo encontrado":39.90},
+    {"Projeto":"26001101002","Código":"00094444","Valor mínimo encontrado":31.25},
+    {"Projeto":"26001101003","Código":"00094444","Valor mínimo encontrado":27.50},
+    {"Projeto":"26001101004","Código":"00084444","Valor mínimo encontrado":0},
+])
+cad_orcm=pd.DataFrame([{"Código":"00094444","Lead Time (dias)":0},
+                       {"Código":"00084444","Lead Time (dias)":0}])
+com_ops=calcular(por_op,cad_orcm,orcm)
+assert com_ops["vunit"].tolist()==[0.0,31.25,27.50,0.0],com_ops["vunit"].tolist()
+agrupado_ops=namespace["_compra_agrupar_protheus"](com_ops)
+assert float(agrupado_ops.loc[agrupado_ops["produto"]=="00094444","vunit"].iloc[0])==27.50
+assert float(agrupado_ops.loc[agrupado_ops["produto"]=="00084444","vunit"].iloc[0])==0.0
+carga_ops=namespace["_compra_excel_protheus"](com_ops)
+carga_ops_df=pd.read_excel(io.BytesIO(carga_ops),dtype={"produto":str})
+assert float(carga_ops_df.loc[carga_ops_df["produto"]=="00094444","vunit"].iloc[0])==27.50
+assert float(carga_ops_df.loc[carga_ops_df["produto"]=="00084444","vunit"].iloc[0])==0.0
+assert float(carga_ops_df.loc[carga_ops_df["produto"]=="00094444","qnt"].iloc[0])==6.0
 
 # A consulta e o snapshot continuam por projeto; so a carga aprovada
 # para o Protheus consolida por codigo, antes de gravar o XLSX.
@@ -204,7 +232,7 @@ with ZipFile(io.BytesIO(excel_binario)) as zip_excel:
         assert conteudo(c)==esperado,(conteudo(c),esperado)
         assert cell_xfs[int(c.get("s"))].attrib["numFmtId"]=="49",c.attrib
         assert conteudo(celulas[f"J{idx}"]) in {"1","2"}
-        assert conteudo(celulas[f"I{idx}"])==""
+        assert float(conteudo(celulas[f"I{idx}"]))==0.0
         assert conteudo(celulas[f"K{idx}"])==""
     # Formato da data sera replicado literalmente na conversao da tabela
     # para CSV, nao havendo valor serial (46360) nem 12/4/2026.

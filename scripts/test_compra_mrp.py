@@ -19,6 +19,7 @@ names = {
     "formatar_data_br",
     "_compra_codigo",
     "_preparar_compra_prioridades",
+    "_compra_menor_preco",
     "_compra_excel_protheus",
     "_compra_agrupar_protheus",
     "excel_bytes",

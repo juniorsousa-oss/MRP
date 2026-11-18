@@ -6,6 +6,8 @@ on:
     paths:
       - 'central_mrp_data.py'
       - 'mrp_central_data_patch.py'
+      - 'mrp_fabricacao_vinculos.py'
+      - 'tests/test_mrp_fabricacao_vinculos.py'
       - 'mrp_compra_validacao_patch.py'
       - 'mrp_compra_preanalise.py'
       - 'tests/test_compra_preanalise_por_op.py'
@@ -30,6 +32,8 @@ jobs:
         run: PYTHONPATH=. python scripts/test_mrp_auto_integridade.py
       - name: Testar relatório consultivo de compras por OP
         run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_compra_preanalise_por_op.py' -v
+      - name: Garantir OP programada sem BOM e nenhuma demanda fictícia
+        run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_fabricacao_vinculos.py' -v
       - name: Ler bases atuais da Central
         run: |
           python - <<'PY'
@@ -67,6 +71,16 @@ jobs:
               frame = bundle.get(key)
               assert frame is not None and not frame.empty, key
               print(key, len(frame), list(frame.columns)[:5])
+          # Diagnóstico de regressão: OP 26-1120-01 do PMP programada em 18/11.
+          # A presença no TCTP significa que o carregador deve preservar a OP,
+          # ainda que a estrutura H001 esteja ausente.
+          tctp=bundle["tctp_tratado"]
+          df=tctp.copy()
+          if {"ORDEM DE PRODUÇÃO","CÓDIGO PRODUTO","MATERIAL"}.issubset(df.columns):
+              op=df[df["ORDEM DE PRODUÇÃO"].astype(str).str.strip().eq("26-1120-01")]
+              print("PMP_OP_26_1120_01_TCTP",len(op),op[
+                  ["ORDEM DE PRODUÇÃO","CÓDIGO PRODUTO","MATERIAL"]
+              ].head(8).to_dict("records"))
           print("dependency_versions", bundle.get("dependency_versions"))
           print("CENTRAL_MRP_OK")
           PY

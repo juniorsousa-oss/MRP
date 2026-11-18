@@ -172,6 +172,34 @@ class CompraPreAnalisePorOpTests(unittest.TestCase):
             ].iloc[0], "15/11/2026"
         )
 
+    def test_pre_analise_mostra_valor_zero_e_consolida_preco_por_op(self):
+        entrada=self.entrada.copy()
+        entrada["vunit"]=[0,19.5,32.8,0,0]
+        r=construir_relatorio_compra_por_op(entrada,self.desc)
+        detalhe=r["DETALHE OP"]
+        self.assertIn("Valor mínimo encontrado",detalhe.columns)
+        self.assertEqual(detalhe.loc[
+            (detalhe["OP"]=="26007206007")
+            & (detalhe["Código"]=="00000158"),
+            "Valor mínimo encontrado",
+        ].tolist(),[0.0,19.5])
+        m=r["MATERIAIS OP"]
+        self.assertEqual(m.loc[
+            (m["OP"]=="26007206007")
+            & (m["Código"]=="00000158"),
+            "Valor mínimo encontrado",
+        ].iloc[0],19.5)
+        self.assertEqual(m.loc[
+            m["Código"]=="00000295",
+            "Valor mínimo encontrado",
+        ].iloc[0],0)
+        self.assertEqual(m["Quantidade"].sum(),39)
+
+    def test_pre_analise_arquivo_legado_sem_vunit_exibe_zero(self):
+        r=construir_relatorio_compra_por_op(self.entrada,self.desc)
+        self.assertTrue(r["DETALHE OP"]["Valor mínimo encontrado"].eq(0).all())
+        self.assertTrue(r["MATERIAIS OP"]["Valor mínimo encontrado"].eq(0).all())
+
     def test_campos_analise_nao_sao_carga_protheus(self):
         r = construir_relatorio_compra_por_op(self.entrada, self.desc)
         self.assertIn("INSTRUÇÕES", r)

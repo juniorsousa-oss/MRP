@@ -89,6 +89,7 @@ def _mrp_load_sources_from_central(_bundle, signature):
         "Código":num(gr["Código"]),
         "Pendência":num(gr["Pendência"]).fillna(0),
         "Quantidade Solicitada":num(gr["Qtd. necessária"]).fillna(0),
+        "Valor mínimo encontrado":num(gr["Valor mínimo encontrado"]).fillna(0) if "Valor mínimo encontrado" in gr.columns else pd.Series(0.0,index=gr.index),
         "Data Solicitação":pd.to_datetime(gr["Última solicitação"],errors="coerce",dayfirst=True),
         "Data MRP":pd.to_datetime(gr["DATA MRP"],errors="coerce",dayfirst=True),
         "Data CM":pd.to_datetime(gr["DATA CM"],errors="coerce",dayfirst=True),

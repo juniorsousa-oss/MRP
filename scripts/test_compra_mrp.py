@@ -50,6 +50,38 @@ assert result["prioridade"].tolist() == ["2", "1", "1"], result["prioridade"].to
 assert set(result["prj"]) == {""}
 assert result["produto"].tolist() == ["00140027", "00041212", "00800081"]
 
+# Valor mínimo da coluna X: somente valores positivos são preços válidos.
+# O mesmo código em OPs distintas mantém o menor preço unitário encontrado.
+tabela_precos=pd.DataFrame([
+    {"Código":140027,"Valor mínimo encontrado":20.35},
+    {"Código":140027,"Valor mínimo encontrado":18.90},
+    {"Código":41212,"Valor mínimo encontrado":0},
+    {"Código":800081,"Valor mínimo encontrado":11.2345},
+])
+com_precos=calcular(base,cad,tabela_precos)
+assert "vunit" in com_precos.columns
+assert com_precos["vunit"].tolist()==[18.90,"",11.2345],com_precos["vunit"].tolist()
+assert com_precos["qnt"].tolist()==result["qnt"].tolist()
+assert com_precos["prioridade"].tolist()==result["prioridade"].tolist()
+
+# A coluna I precisa ser um NÚMERO na planilha, não texto/cabeçalho extra.
+excel_precos=namespace["_compra_excel_protheus"](com_precos)
+with ZipFile(io.BytesIO(excel_precos)) as zipped:
+    root=ET.fromstring(zipped.read("xl/worksheets/sheet1.xml"))
+    ns_preco={"m":"http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    row_cells=root.findall("./m:sheetData/m:row",ns_preco)
+    assert all(len(r.findall("m:c",ns_preco))==11 for r in row_cells)
+    codigo_precos={}
+    for linha in row_cells[1:]:
+        cells={c.attrib.get("r"):c for c in linha.findall("m:c",ns_preco)}
+        numero=linha.attrib["r"]
+        cod=next(c for c in cells[f"A{numero}"].iter() if c.tag.endswith("}t")).text
+        v=cells[f"I{numero}"].find("m:v",ns_preco)
+        codigo_precos[cod]=float(v.text) if v is not None else None
+    assert abs(codigo_precos["00140027"]-18.90)<1e-6,codigo_precos
+    assert codigo_precos["00041212"] is None,codigo_precos
+    assert abs(codigo_precos["00800081"]-11.2345)<1e-6,codigo_precos
+
 # A consulta e o snapshot continuam por projeto; so a carga aprovada
 # para o Protheus consolida por codigo, antes de gravar o XLSX.
 assert 'comp = normalizar_compra_mrp(snapshot_df(snap, "compra_mrp"))' in source
@@ -70,6 +102,13 @@ assert c94444["op"]==""
 assert c94444["cc"]=="600307" and c94444["obs"]=="MRP"
 assert c94444["prioridade"]=="2"  # demanda mais urgente prevalece
 assert linhas_consolidadas["produto"].is_unique
+# Na consolidação do Protheus o preço deve permanecer unitário e não ser
+# multiplicado pela quantidade, mesmo quando há mais de uma OP.
+duplicadas_com_preco=duas_ops.copy()
+duplicadas_com_preco["vunit"]=[24.50,22.25,0,0]
+agrupadas_preco=consolidar(duplicadas_com_preco)
+linha_preco=agrupadas_preco.loc[agrupadas_preco["produto"]=="00094444"].iloc[0]
+assert abs(float(linha_preco["vunit"])-22.25)<1e-6
 try:
     consolidar(pd.DataFrame([
         {"produto":"00094444","qnt":1,"data":"01/12/2026","cc":"600307","prioridade":"1"},

@@ -28,7 +28,7 @@ _source = _source.replace(_cad_old, _cad_new)
 
 _compra_replace(
     'cols=["produto","qnt","data","psy","cc","op","obs","prioridade"]',
-    'cols=["produto","qnt","data","psy","cc","op","obs","prioridade","prj"]',
+    'cols=["produto","qnt","data","psy","cc","op","obs","prioridade","prj","vunit"]',
     "Coluna PRJ no normalizador",
 )
 _compra_replace(
@@ -36,13 +36,22 @@ _compra_replace(
     'for c in ["psy","cc","op","obs","prioridade","prj"]:',
     "Normalizacao da PRJ",
 )
+_compra_replace(
+    '    return out[cols].reset_index(drop=True)',
+    '''    # vunit é numérico e opcional; ausência e zero não representam cotação.
+    out["vunit"]=pd.to_numeric(out["vunit"],errors="coerce").apply(
+        lambda x:float(x) if pd.notna(x) and x>0 else ""
+    )
+    return out[cols].reset_index(drop=True)''',
+    "Preservar preço unitario opcional da compra",
+)
 
 _helpers_anchor = 'def zip_bytes(files):'
 _helpers = '''def _compra_codigo(valor):
     texto=str(valor or "").strip().replace(".0", "")
     return texto.zfill(8) if texto.isdigit() and len(texto)<=8 else texto
 
-def _preparar_compra_prioridades(df, cad):
+def _preparar_compra_prioridades(df, cad, rg=None):
     out=normalizar_compra_mrp(df)
     if out.empty:
         return out
@@ -50,6 +59,17 @@ def _preparar_compra_prioridades(df, cad):
         lookup=cad.assign(_codigo=cad["Código"].map(_compra_codigo)).drop_duplicates("_codigo").set_index("_codigo")["Lead Time (dias)"].to_dict()
     else:
         lookup={}
+    # O Relatório Geral Tratado é a única origem do valor mínimo encontrado.
+    # Consolidar pelo código do material: menor valor POSITIVO entre OPs/lotes.
+    # Não transformar um zero da coluna X em uma cotação válida no Protheus.
+    preco_lookup={}
+    if isinstance(rg,pd.DataFrame) and {"Código","Valor mínimo encontrado"}.issubset(rg.columns):
+        cotacoes=rg[["Código","Valor mínimo encontrado"]].copy()
+        cotacoes["_codigo"]=cotacoes["Código"].map(_compra_codigo)
+        cotacoes["_vunit"]=pd.to_numeric(cotacoes["Valor mínimo encontrado"],errors="coerce")
+        cotacoes=cotacoes.loc[cotacoes["_vunit"]>0]
+        if not cotacoes.empty:
+            preco_lookup=cotacoes.groupby("_codigo",sort=False)["_vunit"].min().to_dict()
     hoje=pd.Timestamp(date.today()).normalize()
     for idx,linha in out.iterrows():
         lead=max(0.0,float(pd.to_numeric(lookup.get(_compra_codigo(linha["produto"]),0),errors="coerce") or 0))
@@ -63,6 +83,7 @@ def _preparar_compra_prioridades(df, cad):
             chegada=hoje+pd.Timedelta(days=lead)
             out.at[idx,"prioridade"]="2" if chegada>data_necessidade else "1"
         out.at[idx,"prj"]=""
+        out.at[idx,"vunit"]=float(preco_lookup[_compra_codigo(linha["produto"])]) if _compra_codigo(linha["produto"]) in preco_lookup else ""
     return out
 
 def _compra_agrupar_protheus(df):
@@ -94,6 +115,9 @@ def _compra_agrupar_protheus(df):
         origem["op"]=""
         origem["prj"]=""
         origem["prioridade"]="2" if grupo["prioridade"].astype(str).eq("2").any() else "1"
+        precos=pd.to_numeric(grupo["vunit"],errors="coerce")
+        precos=precos[precos>0]
+        origem["vunit"]=float(precos.min()) if not precos.empty else ""
 
         # Centro de custo/PSY distintos no mesmo produto nao podem ser
         # descartados silenciosamente em uma unica carga do Protheus.
@@ -151,7 +175,7 @@ def _compra_excel_protheus(df):
         "op":base["op"],
         "obs":base["obs"],
         "": [""] * len(base),
-        "vunit": [""] * len(base),
+        "vunit":base["vunit"],
         "prioridade":base["prioridade"].astype(str),
         "justificativa": [""] * len(base),
     })[colunas]
@@ -472,7 +496,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
 _compra_replace(_helpers_anchor,_helpers+_helpers_anchor,"Funcoes de compra/CSV")
 
 _fab_anchor='fab_det=op[["ORDEM DE PRODUÇÃO","Código Produto","Semana Entrega"]]'
-_compra_replace(_fab_anchor,'compras_mrp=_preparar_compra_prioridades(compras_mrp,cad)\n    '+_fab_anchor,"Prioridades antes de salvar no historico")
+_compra_replace(_fab_anchor,'compras_mrp=_preparar_compra_prioridades(compras_mrp,cad,rg)\n    '+_fab_anchor,"Prioridades e valores minimos antes de salvar no historico")
 
 # O resultado do MRP pode ser exportado livremente, mas a Compra MRP deve
 # passar pela aprovacao. Removemos caminhos alternativos de exportacao direta.

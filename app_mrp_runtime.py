@@ -298,6 +298,7 @@ _new_rg = '''    gr=pd.read_excel(BytesIO(gb),sheet_name="RelatorioTratado")
     rg=pd.DataFrame({
         "Código":num(gr.iloc[:,2]),
         "Pendência":num(gr.iloc[:,7]).fillna(0),
+        "Valor mínimo encontrado":num(gr["Valor mínimo encontrado"]).fillna(0) if "Valor mínimo encontrado" in gr.columns else pd.Series(0.0,index=gr.index),
         "Data Solicitação":pd.to_datetime(gr.iloc[:,4],errors="coerce",dayfirst=True),
         "Data MRP":pd.to_datetime(gr.iloc[:,12],errors="coerce",dayfirst=True),
         "Data CM":pd.to_datetime(gr.iloc[:,13],errors="coerce",dayfirst=True),

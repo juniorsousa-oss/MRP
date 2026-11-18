@@ -135,6 +135,12 @@ def construir_relatorio_compra_por_op(
         mapa_solicitacoes.get((op, _codigo_material(codigo)), "NI")
         for op, codigo in zip(fonte["OP"], fonte["Código"])
     ]
+    # Valor mínimo por linha de OP, inclusive 0, apenas informativo.
+    # A carga oficial escolhe o menor POSITIVO entre OPs ou 0 se nenhum.
+    fonte["Valor mínimo encontrado"] = pd.to_numeric(
+        fonte["vunit"] if "vunit" in fonte.columns else pd.Series(0,index=fonte.index),
+        errors="coerce",
+    ).fillna(0).clip(lower=0).astype(float)
     fonte["Quantidade"] = pd.to_numeric(fonte["qnt"], errors="coerce")
     if fonte["Quantidade"].isna().any() or (fonte["Quantidade"] < 0).any():
         raise ValueError("Pre-analise: quantidade ausente, negativa ou invalida.")
@@ -159,8 +165,9 @@ def construir_relatorio_compra_por_op(
     detalhado = fonte.sort_values(
         ["OP", "Código", "_data_ordem", "_indice_origem"], kind="stable"
     )[[
-        "OP", "Código", "Descrição", "Quantidade", "Última solicitação",
-        "Data de necessidade", "Prioridade", "PSY", "Centro de custo", "Observação MRP",
+        "OP", "Código", "Descrição", "Quantidade", "Valor mínimo encontrado",
+        "Última solicitação", "Data de necessidade", "Prioridade", "PSY",
+        "Centro de custo", "Observação MRP",
     ]].copy()
     detalhado["Parecer do analista"] = ""
     detalhado["Observações da análise"] = ""
@@ -175,6 +182,8 @@ def construir_relatorio_compra_por_op(
         fonte.groupby(["OP", "Código", "Descrição"], sort=True, dropna=False)
         .agg(
             Quantidade=("Quantidade", "sum"),
+            Valor_minimo_encontrado=("Valor mínimo encontrado",
+                lambda v: float(v[v>0].min()) if (v>0).any() else 0.0),
             Última_solicitação=("Última solicitação", "first"),
             Linhas=("Código", "size"),
             Data_mais_proxima=("_data_ordem", "min"),
@@ -186,6 +195,7 @@ def construir_relatorio_compra_por_op(
         .reset_index()
         .rename(columns={
             "Última_solicitação": "Última solicitação",
+            "Valor_minimo_encontrado": "Valor mínimo encontrado",
             "Linhas": "Linhas de demanda",
             "Data_mais_proxima": "Primeira necessidade",
             "Centro_de_custo": "Centro de custo",
@@ -230,6 +240,7 @@ def construir_relatorio_compra_por_op(
         ("DETALHAMENTO", "Aba DETALHE OP mantém cada linha, a última solicitação da origem e a data de necessidade da compra."),
         ("CONSOLIDAÇÃO", "Aba MATERIAIS OP soma quantidades somente por OP e produto."),
         ("PRIORIDADE", "2 = emergencial; 1 = normal, conforme cálculo original do MRP."),
+        ("VALOR MÍNIMO", "Mostra valor por OP e material, inclusive zero; a carga unificada usa o menor preço positivo entre OPs ou zero quando todos forem zero."),
         ("SEM OP", "Demandas sem OP de origem são exibidas como SEM OP VINCULADA."),
         ("PARECER", "Preencher as colunas de parecer e observações para devolver a análise."),
         ("IMPORTANTE", "Não utilizar este arquivo na rotina de importação STSUP25 do Protheus."),

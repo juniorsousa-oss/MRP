@@ -147,10 +147,12 @@ def _mrp_load_sources_from_central(_bundle, signature):
     })
     mt["Código Produto"]=mt["Código Produto"].fillna(0).astype("int64")
     mt["Material"]=mt["Material"].fillna(0).astype("int64")
-    mt=mt[
-        mt["Código Produto"].isin(_cad_valid_codes)
-        & mt["Material"].isin(_cad_valid_codes)
-    ].copy()
+    # OP PROGRAMADA/ATRASADA sem BOM H001: o Conversor conserva uma linha
+    # com MATERIAL=0 e QUANTIDADE=0. Ela NÃO representa demanda de insumos,
+    # mas representa 1 unidade do produto em fabricação. O filtro antigo
+    # exigia MATERIAL cadastrado, descartava a OP e criava SC indevida.
+    from mrp_fabricacao_vinculos import filtrar_tctp_para_mrp
+    mt=filtrar_tctp_para_mrp(mt,_cad_valid_codes)
 
     return cad,est,rg,rg_mrp,cp,mt
 

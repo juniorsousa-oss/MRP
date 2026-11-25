@@ -472,7 +472,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             import importlib
             import mrp_compra_preanalise as _preanalise
             # Streamlit pode manter módulos importados de um rerun anterior.
-            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v4":
+            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v5":
                 importlib.invalidate_caches()
                 _preanalise=importlib.reload(_preanalise)
             op_opcoes=sorted({_preanalise.op_relatorio(x) for x in aptos["op"].tolist()})
@@ -483,7 +483,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 help="Filtre uma ou mais OPs. Solicitações sem OP permanecem separadas em SEM OP VINCULADA.",
             )
             try:
-                if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v4":
+                if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v5":
                     raise RuntimeError("Versão antiga da pré-análise. Reinicie o aplicativo antes de baixar.")
                 try:
                     _historico=_historico_preanalise(snapshot_atual)
@@ -510,7 +510,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                     f"{len(planilhas['MATERIAIS OP'])} produto(s) por OP e "
                     f"{len(planilhas['DETALHE OP'])} linha(s) de origem. "
                     "Inclui última solicitação por OP/material, resumo, "
-                    "detalhamento, parecer automático e indícios de redistribuição para revisão."
+                    "parecer automático e indícios de redistribuição para revisão. O Excel contém RESUMO OP e MATERIAIS OP; linhas de origem múltiplas ficam no comentário da quantidade."
                 )
                 sem_data = int(planilhas["DETALHE OP"]["Última solicitação"].eq("NI").sum())
                 if sem_data:
@@ -521,7 +521,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                     )
                 st.download_button(
                     "EXPORTAR RELATÓRIO DE COMPRA POR OP — EXCEL",
-                    data=excel_bytes(planilhas),
+                    data=_preanalise.exportar_preanalise_formatada(planilhas),
                     file_name="MRP_Pre_Analise_Compras_por_OP.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"{prefixo}_compra_relatorio_op_xlsx",

@@ -86,14 +86,15 @@ body:has(.mrp-v2-header) [data-testid="stMain"] [data-testid="stMainBlockContain
   --v2-bg:#f0f3f8; --v2-navy:#142134; --v2-blue:#2158b3;
   background:var(--v2-bg)!important;padding:0 28px 24px!important;
 }
-body:has(.mrp-v2-header) [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(> [data-testid="stHtml"] > style):not(:has(.mrp-v2-header)) {
+/* O bootstrap executa JS, mas não é um bloco visual nem deve criar o gap da pilha. */
+body:has(.mrp-v2-header) [data-testid="stMainBlockContainer"] [data-testid="stElementContainer"]:has([data-mrp-shell-bootstrap]){
   display:none!important
 }
-body:has(.mrp-v2-header) [data-testid="stMainBlockContainer"] > [data-testid="stVerticalBlock"] > [data-testid="stElementContainer"]:has(> [data-testid="stHtml"]:empty){display:none!important}
 body:has(.mrp-v2-header) [data-testid="stMainMenu"]{color:#c1cee0!important}
 body:has(.mrp-v2-header) [data-testid="stMain"]{background:#f0f3f8!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"],body:has(.mrp-v2-header) [data-testid="stSidebarContent"]{
   background:#142134!important;color:#f0f5ff!important}
+body:has(.mrp-v2-header) section[data-testid="stSidebar"]{border-right:0!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] .sidebar-section-label{
   color:#a9bcd7!important;font-size:.67rem!important;letter-spacing:.12em!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button{
@@ -105,15 +106,26 @@ body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button p{color:inherit!important;text-transform:none!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] [data-testid="stIconMaterial"]{
   font-size:18px!important;color:inherit!important}
-body:has(.mrp-v2-header) [data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] button{
-  background:#263d61!important;color:#fff!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding-top:12px!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button::before{display:none!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button{padding-left:11px!important}
-body:has(.mrp-v2-header) [data-testid="stSidebar"] [data-mrp-toggle]{color:#fff!important;background:#263d61!important;border-color:#4b6385!important}
-body:has(.mrp-v2-header) [data-mrp-toggle="Menu"]{min-width:34px!important;width:34px!important;height:34px!important;min-height:34px!important}
-body:has(.mrp-v2-header) [data-mrp-toggle="Menu"]::after{display:none}
-body:has(.mrp-v2-header):has([data-testid="stSidebar"][aria-expanded="false"]) .mrp-v2-top{padding-left:64px}
+/* Ambos os controles nativos têm o mesmo alvo e não avançam sobre a marca. */
+body:has(.mrp-v2-header) :is([data-testid="stHeader"], [data-testid="stSidebar"]) button[data-mrp-toggle]{
+  display:grid!important;place-items:center;box-sizing:border-box!important;
+  width:44px!important;min-width:44px!important;max-width:44px!important;
+  height:44px!important;min-height:44px!important;padding:0!important;
+  color:#fff!important;background:#263d61!important;border:1px solid #4b6385!important;
+  border-radius:8px!important;box-shadow:none!important
+}
+body:has(.mrp-v2-header) button[data-mrp-toggle]:hover{background:#334e78!important}
+body:has(.mrp-v2-header) button[data-mrp-toggle]:focus-visible{outline:2px solid #dceaff!important;outline-offset:2px}
+body:has(.mrp-v2-header) [data-testid="stHeader"] button[data-mrp-toggle="Menu"]{
+  position:fixed!important;top:7px!important;left:12px!important;pointer-events:auto!important
+}
+body:has(.mrp-v2-header) button[data-mrp-toggle]::after{content:none}
+body:has(.mrp-v2-header) button[data-mrp-toggle="Recolher"]::before{content:"×";font-size:24px;line-height:1}
+body:has(.mrp-v2-header) button[data-mrp-toggle="Menu"]::before{font-size:20px;line-height:1}
+body:has(.mrp-v2-header):has([data-testid="stSidebar"][aria-expanded="false"]) .mrp-v2-top{padding-left:68px}
 @media(min-width:901px){
   body:has(.mrp-v2-header) [data-testid="stSidebar"][aria-expanded="true"]{
     width:220px!important;min-width:220px!important;max-width:220px!important
@@ -125,7 +137,7 @@ body:has(.mrp-v2-header):has([data-testid="stSidebar"][aria-expanded="false"]) .
 }
 .mrp-v2-header{color:#172435}
 .mrp-v2-top{min-height:58px;background:#142134;color:#fff;margin:0 -28px;
-  padding:8px 28px;display:flex;align-items:center;gap:13px;border-bottom:1px solid #35445b}
+  padding:8px 28px;display:flex;align-items:center;gap:13px}
 .mrp-v2-mark{display:grid;place-items:center;box-sizing:border-box;width:88px;height:38px;
   background:white;color:#142134;border-radius:6px;padding:3px 7px;flex:none}
 .mrp-v2-mark img{width:100%;height:100%;object-fit:contain}
@@ -154,7 +166,7 @@ body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] button{
   min-height:38px!important;border-radius:6px!important;box-shadow:none!important;text-transform:none!important}
 @media(max-width:700px){
   body:has(.mrp-v2-header) [data-testid="stMainBlockContainer"]{padding:0 12px 18px!important}
-  .mrp-v2-top{box-shadow:0 -16px 0 #142134;margin:0 -12px;padding:7px 12px 7px 64px;gap:8px;min-height:56px}
+  .mrp-v2-top{margin:0 -12px;padding:7px 12px 7px 68px;gap:8px;min-height:56px}
   .mrp-v2-mark{width:66px;height:30px;padding:2px 5px}
   .mrp-v2-account{font-size:.69rem;margin-left:auto;overflow:hidden;text-overflow:ellipsis}
   .mrp-v2-name,.mrp-v2-stamps{display:none}
@@ -174,7 +186,6 @@ body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] button{
     display:grid!important;grid-template-columns:minmax(0,1fr) 76px;gap:8px!important;align-items:end!important
   }
   body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] [data-testid="stPopoverButton"]{width:100%!important}
-  body:has(.mrp-v2-header) [data-testid="stHeader"] button[data-mrp-toggle="Menu"]{min-width:34px!important;background:#263d61!important;color:#fff!important;border-color:#4b6385!important}
 
 }
 </style>

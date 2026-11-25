@@ -64,7 +64,7 @@ td.op-missing{color:#a92631;font-weight:750}
   .op-item-values{display:flex;flex-wrap:wrap;gap:4px 9px;font-size:11px;color:#4d6077}
   .op-item-value b{margin-left:4px;color:#172435}
   .op-item-value.alert b{color:#a92631}
-  .op-item .op-detail{min-height:32px;min-width:55px;font-size:12px}
+  .op-item .op-detail{flex:none;min-height:32px;min-width:55px;font-size:12px}
   footer{gap:7px;padding:8px}
 }
 
@@ -152,9 +152,9 @@ export default function({data,parentElement,setTriggerValue}) {
       const bottom=make("div",undefined,"op-item-bottom"), meds=make("div",undefined,"op-item-values");
       const display=data.mobile[i];
       top.append(make("span",row[0],"op-id"));
-      const status=display[3];
+      const status=display[4];
       if(status) top.append(make("span",status,status==="CRIAR S.C."?"op-status risk":status==="OK"?"op-status ok":"op-status"));
-      ["Nec.","Estoque","Falta"].forEach((label,j)=>{
+      ["Nec.","Estoque","Falta","Produzindo"].forEach((label,j)=>{
         const value=display[j]||"—";
         const chip=make("span",label,"op-item-value"+(j===2 && Number(value.replace(",", "."))>0?" alert":""));
         chip.append(make("b",value));meds.append(chip);
@@ -192,7 +192,7 @@ def grade_resultado(frame, colunas, base_key):
             row[0] = row[0].split(".")[0].zfill(8)
     # O evento carrega a versão da grade para não selecionar outra linha
     # se a sessão tiver recebido bases ou filtros novos nesse intervalo.
-    mobile = frame.reindex(columns=["Demanda","Saldo em Estoque","Falta","Status"]).fillna("").astype(str).values.tolist()
+    mobile = frame.reindex(columns=["Demanda","Saldo em Estoque","Falta","Produzindo","Status"]).fillna("").astype(str).values.tolist()
     version=hashlib.blake2s(json.dumps([colunas,rows,mobile],ensure_ascii=False).encode(),digest_size=8).hexdigest()
     data={"columns":[{"key":c,"label":"Estoque" if c=="Saldo em Estoque" else "Necessidade" if c=="Demanda" else "Atendimento" if c=="Semana de Atendimento" else c}
                      for c in colunas], "rows":rows, "mobile":mobile, "version":version}

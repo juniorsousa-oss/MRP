@@ -64,7 +64,7 @@ UI_CONFIG={{"title_demanda_geral":"DEMANDA GERAL","title_demanda_projeto":"DEMAN
     "subsection_projection_title":"Projeção semanal","subsection_demand_title":"Demanda por projeto",
     "subsection_purchases_title":"Compras"}}
 macro=pd.DataFrame({{"Código":[42,43],"Descrição":["Cabo para teste","Motor para teste"],"Tipo":["MP","PI"],
-    "Saldo em Estoque":[1,4],"Demanda":[4,2],"P.C.":[0,0],"S.C.":[0,0],"Produzindo":[0,0],
+    "Saldo em Estoque":[1,4],"Demanda":[4,2],"P.C.":[0,0],"S.C.":[0,0],"Produzindo":[7,0],
     "DIV":[-3,2],"Status":["CRIAR S.C.","OK"],"Semana de Atendimento":["NN","202648"], "Período de Atendimento":["",""]}})
 compras_mrp=macro
 cad=macro
@@ -92,6 +92,17 @@ def check(browser, width, height):
         expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
         assert p.evaluate("document.documentElement.scrollWidth") <= width+2
         expect(p.get_by_role("table")).to_be_visible() if width>700 else expect(p.locator(".op-item").first).to_be_visible()
+        if width>700:
+            expect(p.get_by_role("columnheader").filter(has_text="Produzindo")).to_be_visible()
+            first_row=p.get_by_role("row").filter(has_text="Cabo para teste")
+            expect(first_row.get_by_role("cell",name="7",exact=True)).to_be_visible()
+            p.get_by_role("button",name="Produzindo",exact=True).click()
+            expect(p.get_by_role("row").nth(1)).to_contain_text("Motor para teste")
+        else:
+            first_card=p.locator(".op-item").filter(has_text="Cabo para teste")
+            expect(first_card.locator(".op-item-value").filter(has_text="Produzindo")).to_have_text("Produzindo7")
+            second_card=p.locator(".op-item").filter(has_text="Motor para teste")
+            expect(second_card.locator(".op-item-value").filter(has_text="Produzindo")).to_have_text("Produzindo0")
         expect(p.get_by_text("Fluxo de compra de teste")).to_have_count(0)
         expect(p.get_by_text("Fluxo de excedentes de teste")).to_have_count(0)
         if os.environ.get("MRP_LAYOUT_CAPTURES"):

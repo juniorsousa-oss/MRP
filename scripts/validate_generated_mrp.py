@@ -34,7 +34,7 @@ for token in [
     'projeto_admin != "TODOS"',
     'produto_admin != "TODOS"',
     'QUANTIDADE PARA ADICIONAR',
-    'PENDENTES (',
+    '_av_fila_view(_dataset,',
     'CONFIRMAR MATERIAL SEPARADO',
     'MINHAS SOLICITAÇÕES',
     'SOBRA (DIV)',

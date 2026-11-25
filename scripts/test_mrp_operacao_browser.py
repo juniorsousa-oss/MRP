@@ -86,15 +86,15 @@ def check(browser, width, height):
         expect(p.get_by_text("1 materiais",exact=False)).to_be_visible()
         if width>900:
             grid=p.get_by_test_id("stDataFrame").first
-            canvas=grid.locator("canvas").first
+            canvas=grid.locator(".dvn-scroller").first
             expect(canvas).to_be_visible()
-            canvas.click(position={"x":15,"y":46})
+            canvas.click(position={"x":15,"y":50},timeout=5000)
             dlg=p.get_by_role("dialog")
             expect(dlg.get_by_text("Cabo para teste")).to_be_visible()
             assert abs(dlg.bounding_box()["x"]+dlg.bounding_box()["width"]-width)<3
             dlg.get_by_role("button",name="Voltar à consulta").click()
             expect(dlg).not_to_be_visible()
-            canvas.click(position={"x":15,"y":46})
+            canvas.click(position={"x":15,"y":50},timeout=5000)
             expect(dlg).to_be_visible()
             p.keyboard.press("Escape")
             expect(dlg).not_to_be_visible()

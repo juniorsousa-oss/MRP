@@ -83,7 +83,7 @@ with _filtro_area:
 with _colunas_area:
     with st.popover("Colunas", icon=":material/view_column:", width="stretch"):
         _opc=[c for c in {_cols} if c not in ("Código","Descrição")]
-        _extras=st.multiselect("Colunas visíveis", _opc, default=[c for c in ("Demanda","Saldo em Estoque","S.C.","P.C.","Status","Semana de Atendimento") if c in _opc], key="{_prefix}_operacao_colunas", format_func=lambda c:"SF" if c=="DIV" else c)
+        _extras=st.multiselect("Colunas visíveis", _opc, default=[c for c in ("Demanda","Saldo em Estoque","S.C.","P.C.","Status","Semana de Atendimento") if c in _opc], key="{_prefix}_operacao_colunas", placeholder="Selecione as colunas", format_func=lambda c:"SF" if c=="DIV" else c)
 _colunas=["Código","Descrição"]+_extras
 """
     # O formato da expressão do conjunto é gerado literalmente, sem depender da sessão.

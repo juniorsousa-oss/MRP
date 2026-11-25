@@ -12,7 +12,7 @@ class DetalheTests(unittest.TestCase):
     @patch("mrp_operacao_ui.st.dataframe")
     def test_oculta_identidade_e_vazios_sem_remover_zeros_ou_alterar_origem(self, dataframe):
         original = pd.DataFrame({
-            "Código Produto":[42,42,42,42], "Descrição":["Material"]*4,
+            "Código Produto":[42,42,42,42], "Descrição":["Material"]*4, "Tipo":["MP"]*4,
             "ORDEM DE PRODUÇÃO":["OP-1","  ","OP-2",None],
             "Quantidade":[0,None,None,None]
         })

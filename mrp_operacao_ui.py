@@ -157,7 +157,7 @@ def operacao_busca(frame, termo, codigo_mask):
 _COLUNAS_IDENTIDADE_DETALHE = frozenset({
     "código", "codigo", "produto", "código produto", "codigo produto",
     "código do produto", "codigo do produto", "descrição", "descricao",
-    "descrição do produto", "descricao do produto",
+    "descrição do produto", "descricao do produto", "tipo",
 })
 
 

@@ -391,5 +391,90 @@ class ParecerAutomaticoTests(unittest.TestCase):
         validar_pareceres_exportacao(r, referencia="2026-11-25")
 
 
+    def test_prioridade_1_nao_exige_parecer_nem_observacao(self):
+        from mrp_compra_preanalise import validar_pareceres_exportacao
+        compra = self.compra()
+        compra["prioridade"] = "1"
+        r = self.analisar([compra], [
+            self.linha(self.ANTIGO, "25/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650")
+        ])
+        for aba in ["MATERIAIS OP", "DETALHE OP"]:
+            self.assertEqual(r[aba].iloc[0]["Parecer do analista"], "")
+            self.assertEqual(r[aba].iloc[0]["Observações da análise"], "")
+        validar_pareceres_exportacao(r, referencia="2026-11-25")
+
+    def test_prioridade_mista_preserva_emergencial_no_consolidado(self):
+        normal = self.compra(quantidade=2)
+        normal["prioridade"] = "1"
+        r = self.analisar([normal, self.compra(quantidade=3)], [
+            self.linha(self.ANTIGO, "25/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650")
+        ])
+        d = r["DETALHE OP"].set_index("Prioridade")
+        self.assertEqual(d.loc["1", "Parecer do analista"], "")
+        self.assertEqual(d.loc["2", "Parecer do analista"], "NOVA DEMANDA")
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "NOVA DEMANDA")
+
+    def test_caso_703747_cm_ni_na_mesma_semana(self):
+        codigo = "00703747"
+        recente = "26007206007"
+        vitima = "26032202002"
+        normal = "26029101001"
+        aloc = [
+            self.linha(recente, "24/11/2026", "17/11/2026", 202647, 9, "P.C. 9 (sem. 202649)"),
+            self.linha("26031201001", "10/11/2026", "19/11/2026", 202647, 13, "P.C. 13 (sem. 202649)"),
+            self.linha(vitima, "10/11/2026", "NI", 202647, 8, "CRIAR S.C. 8 para semana 202647"),
+            self.linha(normal, "07/10/2026", "NI", 202650, 1, "CRIAR S.C. 1 para semana 202650"),
+        ]
+        for linha in aloc:
+            linha["Produto"] = 703747
+        a,b = self.compra(vitima,8), self.compra(normal,1)
+        a["produto"] = b["produto"] = codigo
+        b["prioridade"] = "1"
+        r = self.analisar([a,b], aloc)["MATERIAIS OP"].set_index("OP")
+        self.assertIn(recente, r.loc[vitima,"Observações da análise"])
+        self.assertIn("8 UN.", r.loc[vitima,"Observações da análise"])
+        self.assertEqual(r.loc[normal,"Parecer do analista"], "")
+        self.assertEqual(r.loc[normal,"Observações da análise"], "")
+
+    def test_caso_6050235_perda_liquida_estoque_com_historico(self):
+        codigo = "06050235"
+        alvo = "26022703006"
+        op1 = "26032201001"
+        op2 = "26030701001"
+        demais = "26025101001"
+        old = [
+            self.linha(op1, "17/11/2026", "26/11/2026", 202647, 5, "Estoque 2; P.C. 3 (sem. 202649)"),
+            self.linha(op2, "13/11/2026", "01/12/2026", 202647, 2, "P.C. 2 (sem. 202649)"),
+            self.linha(demais, "14/10/2026", "10/12/2026", 202647, 10, "P.C. 10 (sem. 202649)"),
+            self.linha(alvo, "13/11/2026", "04/12/2026", 202648, 2, "P.C. 2 (sem. 202649)"),
+        ]
+        new = [
+            self.linha(op1, "17/11/2026", "26/11/2026", 202647, 5, "P.C. 5 (sem. 202649)"),
+            self.linha(op2, "13/11/2026", "01/12/2026", 202647, 1, "P.C. 1 (sem. 202649)"),
+            self.linha(demais, "14/10/2026", "10/12/2026", 202647, 10, "P.C. 10 (sem. 202649)"),
+            self.linha(alvo, "13/11/2026", "04/12/2026", 202648, 2, "P.C. 1 (sem. 202649); CRIAR S.C. 1 para semana 202648"),
+        ]
+        for linha in old + new:
+            linha["Produto"] = 6050235
+        def macro(estoque, demanda):
+            return pd.DataFrame([{"Código": 6050235, "Saldo em Estoque": estoque,
+                                  "Demanda": demanda, "P.C.": 17, "S.C.": 0, "Produzindo": 0}])
+        hist = {"macro_anterior": macro(2,19), "alocacoes_anterior": pd.DataFrame(old),
+                "macro_referencia": macro(0,18), "alocacoes_referencia": pd.DataFrame(new)}
+        compra = self.compra(alvo,1)
+        compra["produto"] = codigo
+        r = self.analisar([compra], new, macro_atual=macro(0,18), historico=hist)
+        for aba in ["MATERIAIS OP", "DETALHE OP"]:
+            obs = r[aba].iloc[0]["Observações da análise"]
+            self.assertIn("ESTOQUE DE 2 UN.", obs)
+            self.assertIn("DEMANDA DE 1 UN.", obs)
+            self.assertIn("NECESSIDADE ADICIONAL DE 1 UN.", obs)
+        # Não usar uma fotografia de referência diferente da atual.
+        r = self.analisar([compra], new, macro_atual=macro(0,19), historico=hist)
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Observações da análise"], "")
+
+
 if __name__ == "__main__":
     unittest.main()

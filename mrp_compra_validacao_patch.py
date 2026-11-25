@@ -355,8 +355,10 @@ def _historico_preanalise(snapshot_atual=None):
 
 def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None, alocacoes=None, macro_atual=None, snapshot_atual=None):
     import hashlib
-    st.markdown("### VALIDAÇÃO DA COMPRA MRP")
-    st.caption("Retire produtos que nao devem ser comprados; a decisao fica salva e podera ser revertida. Nao altera a demanda calculada no MRP.")
+    from mrp_interface_visual import etapa_compra_html
+    st.subheader("Análise de Compra")
+    st.html(etapa_compra_html(1,"Revisar materiais"))
+    st.caption("Revise os itens sugeridos. Inclusões e exclusões salvas não alteram a demanda calculada no MRP.")
     try:
         exclusoes=_compra_exclusoes_ler()
     except Exception as exc:
@@ -460,15 +462,27 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                         st.rerun()
                     except Exception as exc:
                         st.error(f"Falha ao restaurar: {exc}")
-    st.markdown("**PREVIA DA CARGA APROVAVEL**")
-    st.dataframe(aptos.rename(columns={"vunit":"Valor mínimo encontrado"}),hide_index=True,use_container_width=True)
+    st.markdown("**Materiais selecionados para compra**")
+    mostrar_tecnicos=st.toggle("Mostrar campos técnicos",key=f"{prefixo}_compra_campos_tecnicos")
+    _nomes_compra={
+        "produto":"Material", "qnt":"Quantidade", "data":"Necessidade", "op":"OP",
+        "prioridade":"Prioridade", "vunit":"Valor mínimo", "psy":"PSY",
+        "cc":"Centro de custo", "obs":"Observação", "prj":"PRJ",
+    }
+    _colunas_compra=["produto","qnt","data","op","prioridade","vunit"]
+    if mostrar_tecnicos:
+        _colunas_compra+=["psy","cc","obs","prj"]
+    st.dataframe(
+        aptos[_colunas_compra].rename(columns=_nomes_compra),
+        hide_index=True,use_container_width=True,
+        column_config={"Valor mínimo":st.column_config.NumberColumn(format="%.2f")},
+    )
     # Relatório PREVIO por OP: exportacao de consulta permitida antes da
     # aprovacao, sem liberar, registrar ou alterar o Excel STSUP25/Protheus.
-    with st.expander("RELATÓRIO PRÉVIO DE COMPRA POR OP — PARA ANÁLISE",expanded=True):
+    st.html(etapa_compra_html(2,"Exportar prévia por OP"))
+    with st.expander("Relatório para revisão",expanded=True):
         st.caption(
-            "Exporte a proposta por OP para revisão interna ou de terceiros. "
-            "Este arquivo NÃO é uma carga do Protheus, não libera compra "
-            "e respeita os materiais atualmente excluídos."
+            "Gere o Excel com os itens selecionados. A prévia não libera compra e não é uma carga do Protheus."
         )
         _chave_preparada=f"{prefixo}_compra_preparada"
         if aptos.empty:
@@ -580,10 +594,11 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
         _compra_botao_finalizar(prefixo)
         return
     # Exige aprovacao explicita antes de disponibilizar qualquer arquivo de compra.
+    st.html(etapa_compra_html(3,"Liberar carga oficial do Protheus"))
     assinatura=hashlib.sha256((aptos.to_json(orient="records")+",".join(sorted(excluidos))).encode("utf-8")).hexdigest()
     # O Protheus importa XLSX e converte internamente para CSV.
     # Exibir apenas a planilha compatibilizada com a rotina STSUP25.
-    col_confirmar,col_excel,col_finalizar=st.columns([1.8,1.45,1.6])
+    col_confirmar,col_excel,col_finalizar=st.columns([1.8,1.45,1.6],gap="small")
     with col_confirmar:
         if st.button("CONFIRMAR ANÁLISE E LIBERAR ARQUIVOS",key=f"{prefixo}_compra_confirmar",type="primary",use_container_width=True):
             st.session_state[f"{prefixo}_compra_confirmada"]=assinatura
@@ -624,7 +639,7 @@ _compra_replace('        "Compra_MRP": comp,\n','',"Remover compra do ZIP da con
 _compra_replace('"Compra_MRP":compras_mrp_export,','',"Remover compra do ZIP e Excel geral ADMIN")
 _compra_replace(
     'c4.download_button("BAIXAR COMPRA MRP", data=compra_excel_consulta, file_name="Compra_MRP.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)',
-    '''if c4.button("ANÁLISE DE COMPRA",key="consulta_compra_abrir",use_container_width=True):
+    '''if c4.button("ANÁLISE DE COMPRA",key="consulta_compra_abrir",type="primary",use_container_width=True):
         _compra_abrir("consulta")
     if st.session_state.get("consulta_compra_aberta",False):
         render_validacao_compra_mrp(comp,"consulta",mg,dem,dem,mg,snap)''',
@@ -633,7 +648,7 @@ _compra_replace(
 _compra_replace(
     'with b4: st.download_button("BAIXAR COMPRA MRP",compra_excel_data,"Compra_MRP.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True)',
     '''with b4:
-    if st.button("ANÁLISE DE COMPRA",key="admin_compra_abrir",use_container_width=True):
+    if st.button("ANÁLISE DE COMPRA",key="admin_compra_abrir",type="primary",use_container_width=True):
         _compra_abrir("admin")
 if st.session_state.get("admin_compra_aberta",False):
     render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg,demanda_projeto,macro)''',

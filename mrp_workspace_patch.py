@@ -105,7 +105,10 @@ _source = _ws_replace(
     'st.caption(operacao_rotulo_grade(len(v)))\n        v = workspace_falta(v)')
 _source = _ws_replace(
     '_idx=operacao_grade(_df_exibicao_br(v[macro_cols]),',
-    '_idx=operacao_grade(_df_exibicao_br(v[macro_cols+["Falta"]]),')
+    '_idx=operacao_grade(v[macro_cols+["Falta"]],')
+_source = _ws_replace(
+    '_idx=operacao_grade(_df_exibicao_br(f),',
+    '_idx=operacao_grade(f,')
 _source = _ws_replace(
     'from mrp_workspace import workspace_pages, workspace_sidebar, WorkspaceSection, workspace_header, WORKSPACE_V2_CSS',
     'from mrp_workspace import workspace_pages, workspace_sidebar, WorkspaceSection, workspace_header, workspace_falta, WORKSPACE_V2_CSS')

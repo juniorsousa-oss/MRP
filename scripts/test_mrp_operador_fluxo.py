@@ -25,7 +25,7 @@ for required in (
 assert 'if p.get("finalidade")=="GARANTIA":' in s
 assert 'elif p.get("finalidade")=="ACERTO_GERENCIAL":' in s
 assert 'len(_psys.strip())<2' in s
-assert 'not _cr.strip()' in s
+assert 'not identificacao_valida(_cr,1)' in s
 
 # Verificar que cada formulario foi colocado na funcao que renderiza os detalhes,
 # e não na barra de acompanhamento da fila.

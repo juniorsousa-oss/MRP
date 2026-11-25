@@ -17,7 +17,7 @@ for token in (
     '"✕"','"LIMPAR LISTA"','"create_batch"',
     '"pedido_tratar"','"SEPARAR"','"RECUSAR"','"ENTREGAR"',
     '"garantia_resultado"','"UTILIZADO"','"DEVOLVIDO"',
-    '"RECUSADAS ("','"ENTREGUES ("','"SEPARADAS ("',
+    '"RECUSADA"','"ENTREGUE"','"SEPARADA"',
     '"ATUALIZAR STATUS"',
 ):assert token in view,token
 # Seleção independente do formulário; a troca de material atualiza o limite.

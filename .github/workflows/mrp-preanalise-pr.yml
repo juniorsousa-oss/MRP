@@ -7,6 +7,7 @@ on:
       - 'mrp_compra_validacao_patch.py'
       - 'mrp_excedentes_patch.py'
       - 'tests/test_compra_preanalise_por_op.py'
+      - 'tests/test_mrp_exportacao_sob_demanda.py'
       - '.github/workflows/mrp-preanalise-pr.yml'
   workflow_dispatch:
 
@@ -26,3 +27,5 @@ jobs:
         run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_compra_preanalise_por_op.py' -v
       - name: Validar integração dos patches no runtime
         run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_engine_extract.py' -v
+      - name: Validar exportação sob demanda na interface
+        run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_exportacao_sob_demanda.py' -v

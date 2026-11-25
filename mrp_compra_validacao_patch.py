@@ -317,6 +317,7 @@ def _compra_abrir(prefixo):
 
 def _compra_fechar(prefixo):
     # Excluidos persistem no Supabase; fecha somente a analise e a liberacao.
+    st.session_state.pop(f"{prefixo}_compra_preparada",None)
     st.session_state[f"{prefixo}_compra_aberta"]=False
     st.session_state.pop(f"{prefixo}_compra_confirmada",None)
 
@@ -352,6 +353,7 @@ def _historico_preanalise(snapshot_atual=None):
     }
 
 def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None, alocacoes=None, macro_atual=None, snapshot_atual=None):
+    import hashlib
     st.markdown("### VALIDAÇÃO DA COMPRA MRP")
     st.caption("Retire produtos que nao devem ser comprados; a decisao fica salva e podera ser revertida. Nao altera a demanda calculada no MRP.")
     try:
@@ -423,6 +425,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 if futuro!=atual:
                     mudancas[cod]=futuro
             if mudancas:
+                st.session_state.pop(f"{prefixo}_compra_preparada",None)
                 st.warning(f"{len(mudancas)} alteracao(oes) pendente(s). Salve as decisoes antes de exportar.")
                 if st.button("SALVAR INCLUSOES / EXCLUSOES",type="primary",key=f"{prefixo}_compra_salvar",use_container_width=True):
                     try:
@@ -466,7 +469,9 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             "Este arquivo NÃO é uma carga do Protheus, não libera compra "
             "e respeita os materiais atualmente excluídos."
         )
+        _chave_preparada=f"{prefixo}_compra_preparada"
         if aptos.empty:
+            st.session_state.pop(_chave_preparada,None)
             st.info("Nenhum material apto para compor o relatório.")
         else:
             import importlib
@@ -478,23 +483,55 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             op_opcoes=sorted({_preanalise.op_relatorio(x) for x in aptos["op"].tolist()})
             escolhidas=st.multiselect(
                 "OPs para análise (sem seleção = todas)",
-                options=op_opcoes,default=[],
+                options=op_opcoes,default=[],placeholder="Escolha uma ou mais OPs",
                 key=f"{prefixo}_compra_relatorio_ops",
                 help="Filtre uma ou mais OPs. Solicitações sem OP permanecem separadas em SEM OP VINCULADA.",
             )
-            try:
-                if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v4":
-                    raise RuntimeError("Versão antiga da pré-análise. Reinicie o aplicativo antes de baixar.")
-                try:
-                    _historico=_historico_preanalise(snapshot_atual)
-                except Exception as exc:
-                    _historico=None
-                    st.caption("Histórico comparativo indisponível; mantida a análise da alocação atual.")
-                planilhas=_preanalise.construir_relatorio_compra_por_op(
-                    aptos,_descs,escolhidas or None,solicitacoes,alocacoes,
-                    macro_atual=macro_atual,historico=_historico,
+            from datetime import datetime
+            from zoneinfo import ZoneInfo
+            _hoje=datetime.now(ZoneInfo("America/Sao_Paulo")).date()
+            _preparar=st.button(
+                "PREPARAR RELATÓRIO POR OP", key=f"{prefixo}_compra_preparar",
+                use_container_width=True,
+            )
+            _pronto=st.session_state.get(_chave_preparada)
+            if _preparar or _pronto is not None:
+                _calculo=st.session_state.get("_mrp_compute_cache",{}) if prefixo=="admin" else {}
+                _assinatura_previa=(
+                    getattr(_preanalise,"PREANALISE_VERSAO",None), _calculo.get("key"),
+                    st.session_state.get("auth_user_id"), (snapshot_atual or {}).get("id"),
+                    _hoje, tuple(sorted(escolhidas)),
+                    hashlib.sha256(aptos.to_json(orient="records").encode("utf-8")).hexdigest(),
                 )
-                _preanalise.validar_pareceres_exportacao(planilhas)
+                if _pronto is not None and _pronto[0]!=_assinatura_previa:
+                    st.session_state.pop(_chave_preparada,None)
+                    _pronto=None
+            if _preparar:
+                st.session_state.pop(_chave_preparada,None)
+                _pronto=None
+                try:
+                    with st.spinner("Preparando relatório por OP..."):
+                        if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v4":
+                            raise RuntimeError("Versão antiga da pré-análise. Reinicie o aplicativo antes de baixar.")
+                        _historico_indisponivel=False
+                        try:
+                            _historico=_historico_preanalise(snapshot_atual)
+                        except Exception:
+                            _historico=None
+                            _historico_indisponivel=True
+                        planilhas=_preanalise.construir_relatorio_compra_por_op(
+                            aptos,_descs,escolhidas or None,solicitacoes,alocacoes,
+                            referencia=_hoje,macro_atual=macro_atual,historico=_historico,
+                        )
+                        _preanalise.validar_pareceres_exportacao(planilhas,referencia=_hoje)
+                        _pronto=(_assinatura_previa,planilhas,excel_bytes(planilhas),_historico_indisponivel)
+                        st.session_state[_chave_preparada]=_pronto
+                except Exception as exc:
+                    st.error(f"Não foi possível preparar a pré-análise por OP: {exc}")
+            if _pronto is not None:
+                _,planilhas,_xlsx_previa,_historico_indisponivel=_pronto
+                if _historico_indisponivel:
+                    st.caption("Histórico comparativo indisponível; mantida a análise da alocação atual.")
                 _parecer=planilhas["MATERIAIS OP"]["Parecer do analista"]
                 _obs=planilhas["MATERIAIS OP"]["Observações da análise"]
                 st.caption(
@@ -521,14 +558,13 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                     )
                 st.download_button(
                     "EXPORTAR RELATÓRIO DE COMPRA POR OP — EXCEL",
-                    data=excel_bytes(planilhas),
+                    data=_xlsx_previa,
+                    on_click="ignore",
                     file_name="MRP_Pre_Analise_Compras_por_OP.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     key=f"{prefixo}_compra_relatorio_op_xlsx",
                     use_container_width=True,
                 )
-            except Exception as exc:
-                st.error(f"Não foi possível preparar a pré-análise por OP: {exc}")
     if aptos.empty:
         st.info("Nenhum item apto para gerar a carga.")
         _compra_botao_finalizar(prefixo)
@@ -541,7 +577,6 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
         _compra_botao_finalizar(prefixo)
         return
     # Exige aprovacao explicita antes de disponibilizar qualquer arquivo de compra.
-    import hashlib
     assinatura=hashlib.sha256((aptos.to_json(orient="records")+",".join(sorted(excluidos))).encode("utf-8")).hexdigest()
     # O Protheus importa XLSX e converte internamente para CSV.
     # Exibir apenas a planilha compatibilizada com a rotina STSUP25.
@@ -608,4 +643,32 @@ _source=_source.replace(
     'MRP-SNAPSHOT-V9-COMPRA-TCTP-GRUPO-OP-OBS',
     1,
 )
+# O Streamlit 1.55 aceita um gerador sem argumentos no download.
+# Os três arquivos gerais são independentes da aprovação de compra.
+# Cada botão mantém o mesmo conteúdo, sem calcular os demais arquivos.
+for _export_old, _export_new in (
+    ('data=excel_bytes(sheets), file_name="MRP_Consulta.xlsx"', 'data=lambda s=sheets: excel_bytes(s), on_click="ignore", file_name="MRP_Consulta.xlsx"'),
+    ('data=zip_bytes({f"{k}.csv": csv_bytes(v) for k,v in sheets.items()}), file_name="MRP_Consulta_CSV.zip"', 'data=lambda s=sheets: zip_bytes({f"{k}.csv": csv_bytes(v) for k,v in s.items()}), on_click="ignore", file_name="MRP_Consulta_CSV.zip"'),
+    ('data=csv_bytes(mg), file_name="MRP_Geral.csv"', 'data=lambda mg=mg: csv_bytes(mg), on_click="ignore", file_name="MRP_Geral.csv"'),
+    ('    compra_excel_consulta = excel_bytes({"Compra_MRP": comp})\n', ''),
+    ('excel_data=excel_bytes(sheets); zip_data=zip_bytes({name+".csv":csv_bytes(df) for name,df in sheets.items()})\n', ''),
+    ('compra_excel_data=excel_bytes({"Compra_MRP":compras_mrp_export})\n', ''),
+    ('compra_csv_data=csv_bytes(compras_mrp)\n', ''),
+    ('"BAIXAR TODOS — EXCEL",excel_data,"MRP_Relatorios_Completos.xlsx"', '"BAIXAR TODOS — EXCEL",lambda s=sheets: excel_bytes(s),"MRP_Relatorios_Completos.xlsx"'),
+    ('"BAIXAR TODOS — ZIP/CSV",zip_data,"MRP_Relatorios_Completos.zip"', '"BAIXAR TODOS — ZIP/CSV",lambda s=sheets: zip_bytes({name+".csv":csv_bytes(df) for name,df in s.items()}),"MRP_Relatorios_Completos.zip"'),
+    ('"BAIXAR MRP GERAL — CSV",csv_bytes(export_macro),"MRP_Geral.csv"', '"BAIXAR MRP GERAL — CSV",lambda export_macro=export_macro: csv_bytes(export_macro),"MRP_Geral.csv"'),
+):
+    _compra_replace(_export_old,_export_new,"Exportação sob demanda")
+for _arquivo_geral in ("MRP_Relatorios_Completos.xlsx","MRP_Relatorios_Completos.zip","MRP_Geral.csv"):
+    _compra_replace(
+        f'"{_arquivo_geral}",'+{
+            ".xlsx":'"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"',
+            ".zip":'"application/zip"',".csv":'"text/csv"',
+        }[Path(_arquivo_geral).suffix]+',use_container_width=True)',
+        f'"{_arquivo_geral}",'+{
+            ".xlsx":'"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"',
+            ".zip":'"application/zip"',".csv":'"text/csv"',
+        }[Path(_arquivo_geral).suffix]+',use_container_width=True,on_click="ignore")',
+        "Evitar recarga após download ADMIN",
+    )
 """

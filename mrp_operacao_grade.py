@@ -6,6 +6,12 @@ from numbers import Integral
 
 import streamlit as st
 
+METRICAS_DEMANDA = (
+    ("Demanda", "Necessidade"), ("Saldo em Estoque", "Estoque"),
+    ("P.C.", "P.C."), ("S.C.", "S.C."),
+    ("Produzindo", "Produzindo"), ("Falta", "Falta"),
+)
+
 HTML = """
 <section class="op-grid" aria-label="Materiais do MRP">
   <div class="op-scroll" tabindex="0" aria-label="Tabela de materiais, com rolagem horizontal">
@@ -39,7 +45,8 @@ tr:hover td{background:#eef4fb}
 td.op-id{color:#213e60;font:600 12px ui-monospace,monospace;white-space:nowrap}
 td.op-name{min-width:218px;max-width:440px}
 td.op-name span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.op-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.op-num{text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
+.op-center,.op-action{text-align:center}
 .op-status{display:inline-flex;gap:5px;align-items:center;white-space:nowrap;
   padding:3px 8px;border-radius:5px;background:#edf1f6;color:#465a71;font-size:11px;font-weight:650}
 .op-status.risk{background:#fbe9ec;color:#9e293b}.op-status.ok{background:#e8f3ed;color:#246549}
@@ -61,8 +68,10 @@ td.op-missing{color:#a92631;font-weight:750}
   .op-item{padding:10px 12px;border-bottom:1px solid #e5eaf1;overflow:hidden}
   .op-item-top,.op-item-bottom{display:flex;gap:7px;align-items:center;justify-content:space-between}
   .op-item-name{font-weight:750;font-size:13px;margin:4px 0;word-break:break-word}
-  .op-item-values{display:flex;flex-wrap:wrap;gap:4px 9px;font-size:11px;color:#4d6077}
-  .op-item-value b{margin-left:4px;color:#172435}
+  .op-item-values{flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:5px 4px;font-size:11px;color:#4d6077}
+  .op-item-value{text-align:center;overflow-wrap:anywhere}
+  .op-item-value b{display:block;color:#172435;font-variant-numeric:tabular-nums}
   .op-item-value.alert b{color:#a92631}
   .op-item .op-detail{flex:none;min-height:32px;min-width:55px;font-size:12px}
   footer{gap:7px;padding:8px}
@@ -74,6 +83,9 @@ JS = r"""
 const states = new WeakMap();
 const count = new Intl.NumberFormat("pt-BR"), lex = new Intl.Collator("pt-BR",{numeric:true,sensitivity:"base"});
 const numbers = new Set(["Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","SF","Falta"]);
+function columnClass(key) {
+  return numbers.has(key) ? "op-num" : key==="Código" || key==="Descrição" ? "" : "op-center";
+}
 function make(tag,value,cls) {
   const el = document.createElement(tag);
   if (value !== undefined) el.textContent = value;
@@ -107,7 +119,7 @@ export default function({data,parentElement,setTriggerValue}) {
     const start=s.page*s.size, view=ordered.slice(start,start+s.size);
     const h=make("tr");
     columns.forEach((col,i)=>{
-      const th=make("th",undefined,numbers.has(col.key)?"op-num":"");
+      const th=make("th",undefined,columnClass(col.key));
       th.scope="col";
       if(s.sort===i) th.setAttribute("aria-sort",s.desc?"descending":"ascending");
       const b=make("button",col.label);b.type="button";
@@ -130,7 +142,7 @@ export default function({data,parentElement,setTriggerValue}) {
       columns.forEach((col,j)=>{
         const value=row[j]||"—", td=make("td");
         if(col.key==="Código") td.className="op-id";
-        else if(numbers.has(col.key)) td.className="op-num";
+        else td.className=columnClass(col.key);
         if(col.key==="Falta" && Number(value.replace(",", "."))>0) td.classList.add("op-missing");
         if(col.key==="Descrição") {
           td.className="op-name";const label=make("span",value);label.title=value;td.append(label);
@@ -152,11 +164,11 @@ export default function({data,parentElement,setTriggerValue}) {
       const bottom=make("div",undefined,"op-item-bottom"), meds=make("div",undefined,"op-item-values");
       const display=data.mobile[i];
       top.append(make("span",row[0],"op-id"));
-      const status=display[4];
+      const status=display.at(-1);
       if(status) top.append(make("span",status,status==="CRIAR S.C."?"op-status risk":status==="OK"?"op-status ok":"op-status"));
-      ["Nec.","Estoque","Falta","Produzindo"].forEach((label,j)=>{
+      data.metrics.forEach(({key,label},j)=>{
         const value=display[j]||"—";
-        const chip=make("span",label,"op-item-value"+(j===2 && Number(value.replace(",", "."))>0?" alert":""));
+        const chip=make("span",label,"op-item-value"+(key==="Falta" && Number(value.replace(",", "."))>0?" alert":""));
         chip.append(make("b",value));meds.append(chip);
       });
       const detail=make("button","Detalhe ›","op-detail");
@@ -185,6 +197,11 @@ def _component():
 
 def grade_resultado(frame, colunas, base_key):
     colunas = ["SF" if c == "DIV" else c for c in colunas]
+    labels = dict(METRICAS_DEMANDA)
+    fixed = [c for c in ("Código", "Descrição") if c in colunas]
+    colunas = fixed + [c for c in labels if c in colunas] + [
+        c for c in colunas if c not in fixed and c not in labels
+    ]
     visual = frame.rename(columns={"DIV":"SF"}).reindex(columns=colunas)
     rows = visual.fillna("").astype(str).values.tolist()
     for row in rows:
@@ -192,10 +209,11 @@ def grade_resultado(frame, colunas, base_key):
             row[0] = row[0].split(".")[0].zfill(8)
     # O evento carrega a versão da grade para não selecionar outra linha
     # se a sessão tiver recebido bases ou filtros novos nesse intervalo.
-    mobile = frame.reindex(columns=["Demanda","Saldo em Estoque","Falta","Produzindo","Status"]).fillna("").astype(str).values.tolist()
+    mobile = frame.reindex(columns=[*labels, "Status"]).fillna("").astype(str).values.tolist()
     version=hashlib.blake2s(json.dumps([colunas,rows,mobile],ensure_ascii=False).encode(),digest_size=8).hexdigest()
-    data={"columns":[{"key":c,"label":"Estoque" if c=="Saldo em Estoque" else "Necessidade" if c=="Demanda" else "Atendimento" if c=="Semana de Atendimento" else c}
-                     for c in colunas], "rows":rows, "mobile":mobile, "version":version}
+    data={"columns":[{"key":c,"label":labels.get(c,"Atendimento" if c=="Semana de Atendimento" else c)}
+                     for c in colunas], "rows":rows, "mobile":mobile, "version":version,
+          "metrics":[{"key":k,"label":label} for k,label in METRICAS_DEMANDA]}
     result=_component()(key=f"{base_key}_operacao", data=data)
     event=getattr(result,"detail",None)
     if not isinstance(event,dict) or event.get("version")!=version:

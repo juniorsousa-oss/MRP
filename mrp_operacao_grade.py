@@ -10,6 +10,7 @@ HTML = """
 <section class="op-grid" aria-label="Materiais do MRP">
   <div class="op-scroll" tabindex="0" aria-label="Tabela de materiais, com rolagem horizontal">
     <table><thead></thead><tbody></tbody></table>
+    <div class="op-mobile"></div>
   </div>
   <footer>
     <span class="op-range" aria-live="polite"></span>
@@ -26,14 +27,14 @@ HTML = """
 CSS = """
 :host{display:block}
 .op-grid{font-family:inherit;color:#172437;background:#fff;border:1px solid #dce3ec;
-  border-radius:0 0 9px 9px;overflow:hidden;width:100%;box-sizing:border-box;font-size:13px}
+  border-radius:9px;overflow:hidden;width:100%;box-sizing:border-box;font-size:13px}
 .op-scroll{container-type:inline-size;overflow:auto;max-height:66vh;min-height:48px}
 table{border-collapse:separate;border-spacing:0;width:100%;min-width:715px}
-th,td{padding:0 12px;height:35px;border-bottom:1px solid #e2e8f0;vertical-align:middle;text-align:left}
-th{position:sticky;top:0;background:#eaf0f6;color:#213e60;z-index:1;height:36px;white-space:nowrap}
+th,td{padding:0 12px;height:43px;border-bottom:1px solid #e2e8f0;vertical-align:middle;text-align:left}
+th{position:sticky;top:0;background:#f4f7fb;color:#213e60;z-index:1;height:36px;white-space:nowrap}
 th button{padding:0;color:inherit;background:transparent;border:0;font:inherit;font-weight:700;text-align:inherit;cursor:pointer}
 th button .op-arrow{color:#4e637d;margin-left:5px}
-tr:nth-child(even) td{background:#f9fbfd}
+tr:nth-child(even) td{background:#fff}
 tr:hover td{background:#eef4fb}
 td.op-id{color:#213e60;font:600 12px ui-monospace,monospace;white-space:nowrap}
 td.op-name{min-width:218px;max-width:440px}
@@ -45,27 +46,34 @@ td.op-name span{display:block;overflow:hidden;text-overflow:ellipsis;white-space
 .op-status:before{content:"";background:currentColor;width:5px;height:5px;border-radius:50%}
 .op-detail,.op-pages button{background:#fff;color:#213e60;border:1px solid #dce3ec;
   border-radius:5px;font:inherit;font-weight:700;min-width:29px;height:28px;cursor:pointer}
-.op-detail{font-size:17px;line-height:20px}.op-detail:hover,.op-pages button:hover{background:#e9f0fa}
+.op-detail{font-size:12px;line-height:20px;padding:0 8px;white-space:nowrap}.op-detail:hover,.op-pages button:hover{background:#e9f0fa}
 .op-grid button:focus-visible,.op-grid select:focus-visible,.op-scroll:focus-visible{outline:2px solid #315983;outline-offset:-1px}
 footer,.op-pages,footer label{display:flex;align-items:center;gap:10px}
 footer{padding:10px 12px;justify-content:space-between;flex-wrap:wrap;color:#4d6075;min-height:25px}
 footer select{font:inherit;color:#213e60;background:#fff;border:1px solid #dce3ec;padding:3px;border-radius:4px}
 .op-pages button:disabled{opacity:.45;cursor:default}
 .op-empty{text-align:center;color:#4d6075;height:85px}
+td.op-missing{color:#a92631;font-weight:750}
+.op-mobile{display:none}
 @container (max-width:700px){
-  th.op-action,td.op-action{position:sticky;right:0;z-index:2;box-shadow:-1px 0 #dce3ec}
-  th.op-action{z-index:3}
-  td.op-action{background:#fff}
-  tr:nth-child(even) td.op-action{background:#f9fbfd}
-  tr:hover td.op-action{background:#eef4fb}
-  .op-detail{min-width:40px;min-height:34px}
+  table{display:none}
+  .op-mobile{display:block}
+  .op-item{padding:10px 12px;border-bottom:1px solid #e5eaf1;overflow:hidden}
+  .op-item-top,.op-item-bottom{display:flex;gap:7px;align-items:center;justify-content:space-between}
+  .op-item-name{font-weight:750;font-size:13px;margin:4px 0;word-break:break-word}
+  .op-item-values{display:flex;flex-wrap:wrap;gap:4px 9px;font-size:11px;color:#4d6077}
+  .op-item-value b{margin-left:4px;color:#172435}
+  .op-item-value.alert b{color:#a92631}
+  .op-item .op-detail{min-height:32px;min-width:55px;font-size:12px}
+  footer{gap:7px;padding:8px}
 }
+
 """
 
 JS = r"""
 const states = new WeakMap();
 const count = new Intl.NumberFormat("pt-BR"), lex = new Intl.Collator("pt-BR",{numeric:true,sensitivity:"base"});
-const numbers = new Set(["Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","SF"]);
+const numbers = new Set(["Saldo em Estoque","Demanda","P.C.","S.C.","Produzindo","SF","Falta"]);
 function make(tag,value,cls) {
   const el = document.createElement(tag);
   if (value !== undefined) el.textContent = value;
@@ -79,7 +87,7 @@ export default function({data,parentElement,setTriggerValue}) {
     : {version:data.version,page:0,size:10,sort:null,desc:false};
   if(s.sort!==null && s.sort>=columns.length) s.sort=null;
   states.set(root,s);
-  const header=root.querySelector("thead"), body=root.querySelector("tbody");
+  const header=root.querySelector("thead"), body=root.querySelector("tbody"), mobile=root.querySelector(".op-mobile");
   const size=root.querySelector("select");size.value=String(s.size);
   const pages=[...root.querySelectorAll("[data-step]")];
   function render() {
@@ -123,6 +131,7 @@ export default function({data,parentElement,setTriggerValue}) {
         const value=row[j]||"—", td=make("td");
         if(col.key==="Código") td.className="op-id";
         else if(numbers.has(col.key)) td.className="op-num";
+        if(col.key==="Falta" && Number(value.replace(",", "."))>0) td.classList.add("op-missing");
         if(col.key==="Descrição") {
           td.className="op-name";const label=make("span",value);label.title=value;td.append(label);
         } else if(col.key==="Status" && row[j]) {
@@ -130,12 +139,33 @@ export default function({data,parentElement,setTriggerValue}) {
         } else td.textContent=value;
         tr.append(td);
       });
-      const cell=make("td",undefined,"op-action"), detail=make("button","›","op-detail");
+      const cell=make("td",undefined,"op-action"), detail=make("button","Detalhe ›","op-detail");
       detail.type="button";detail.setAttribute("aria-label","Detalhar material "+row[0]);
       detail.onclick=()=>setTriggerValue("detail",{index:i,version:data.version});
       cell.append(detail);tr.append(cell);content.append(tr);
     }
     body.replaceChildren(content);
+    const cards=document.createDocumentFragment();
+    if(!view.length) cards.append(make("p","Nenhum material encontrado.","op-empty"));
+    for(const {row,i} of view){
+      const item=make("article",undefined,"op-item"), top=make("div",undefined,"op-item-top");
+      const bottom=make("div",undefined,"op-item-bottom"), meds=make("div",undefined,"op-item-values");
+      const display=data.mobile[i];
+      top.append(make("span",row[0],"op-id"));
+      const status=display[3];
+      if(status) top.append(make("span",status,status==="CRIAR S.C."?"op-status risk":status==="OK"?"op-status ok":"op-status"));
+      ["Nec.","Estoque","Falta"].forEach((label,j)=>{
+        const value=display[j]||"—";
+        const chip=make("span",label,"op-item-value"+(j===2 && Number(value.replace(",", "."))>0?" alert":""));
+        chip.append(make("b",value));meds.append(chip);
+      });
+      const detail=make("button","Detalhe ›","op-detail");
+      detail.type="button";detail.setAttribute("aria-label","Detalhar material "+row[0]);
+      detail.onclick=()=>setTriggerValue("detail",{index:i,version:data.version});
+      bottom.append(meds,detail);
+      item.append(top,make("div",row[1]||"—","op-item-name"),bottom);cards.append(item);
+    }
+    mobile.replaceChildren(cards);
     root.querySelector(".op-range").textContent=ordered.length ?
       count.format(start+1)+"–"+count.format(start+view.length)+" de "+count.format(ordered.length)+" materiais" : "0 materiais";
     root.querySelector(".op-page").textContent=(s.page+1)+" / "+(last+1);
@@ -162,9 +192,10 @@ def grade_resultado(frame, colunas, base_key):
             row[0] = row[0].split(".")[0].zfill(8)
     # O evento carrega a versão da grade para não selecionar outra linha
     # se a sessão tiver recebido bases ou filtros novos nesse intervalo.
-    version=hashlib.blake2s(json.dumps([colunas,rows],ensure_ascii=False).encode(),digest_size=8).hexdigest()
-    data={"columns":[{"key":c,"label":"Estoque" if c=="Saldo em Estoque" else "Atendimento" if c=="Semana de Atendimento" else c}
-                     for c in colunas], "rows":rows, "version":version}
+    mobile = frame.reindex(columns=["Demanda","Saldo em Estoque","Falta","Status"]).fillna("").astype(str).values.tolist()
+    version=hashlib.blake2s(json.dumps([colunas,rows,mobile],ensure_ascii=False).encode(),digest_size=8).hexdigest()
+    data={"columns":[{"key":c,"label":"Estoque" if c=="Saldo em Estoque" else "Necessidade" if c=="Demanda" else "Atendimento" if c=="Semana de Atendimento" else c}
+                     for c in colunas], "rows":rows, "mobile":mobile, "version":version}
     result=_component()(key=f"{base_key}_operacao", data=data)
     event=getattr(result,"detail",None)
     if not isinstance(event,dict) or event.get("version")!=version:

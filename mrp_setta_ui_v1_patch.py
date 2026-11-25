@@ -606,35 +606,35 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
    Deixar o shell e o documento crescer com ele esticava a sidebar e
    criava rolagem depois do fim do conteúdo. Não afeta a tela de login. */
 @media screen{
-html:has(.mrp-workspace-head),body:has(.mrp-workspace-head),
-body:has(.mrp-workspace-head) #root{
+html:has(:is(.mrp-workspace-head,.mrp-v2-header)),body:has(:is(.mrp-workspace-head,.mrp-v2-header)),
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) #root{
   height:100%!important;min-height:0!important;overflow:hidden!important;
 }
-body:has(.mrp-workspace-head) .stApp,
-body:has(.mrp-workspace-head) [data-testid="stAppViewContainer"]{
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) .stApp,
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="stAppViewContainer"]{
   height:100vh!important;height:100dvh!important;min-height:0!important;
   overflow:hidden!important;
 }
-body:has(.mrp-workspace-head) [data-testid="stMain"]{
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="stMain"]{
   height:100%!important;min-height:0!important;overflow-y:auto!important;
 }
-body:has(.mrp-workspace-head) [data-testid="stMainBlockContainer"]{
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="stMainBlockContainer"]{
   min-height:0!important;flex-shrink:0!important;padding-bottom:24px!important;
 }
-body:has(.mrp-workspace-head) section[data-testid="stSidebar"]{
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) section[data-testid="stSidebar"]{
   height:100vh!important;height:100dvh!important;min-height:0!important;
 }
-body:has(.mrp-workspace-head) [data-testid="stHeader"]{pointer-events:none!important}
-body:has(.mrp-workspace-head) [data-testid="stSidebarCollapseButton"]{
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="stHeader"]{pointer-events:none!important}
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="stSidebarCollapseButton"]{
   visibility:visible!important;
 }
-body:has(.mrp-workspace-head) section[data-testid="stSidebar"][aria-expanded="true"]{
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) section[data-testid="stSidebar"][aria-expanded="true"]{
   z-index:2001!important;
 }
 }
-body:has(.mrp-workspace-head) [data-testid="stHeader"] [data-testid="stExpandSidebarButton"],
-body:has(.mrp-workspace-head) [data-testid="stSidebarCollapsedControl"] button,
-body:has(.mrp-workspace-head) [data-testid="collapsedControl"] button{
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="stHeader"] [data-testid="stExpandSidebarButton"],
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="stSidebarCollapsedControl"] button,
+body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="collapsedControl"] button{
   min-width:74px!important;min-height:38px!important;
   border:1px solid #e5e8ee!important;border-radius:8px!important;background:#fff!important;
 }
@@ -642,7 +642,7 @@ button[data-mrp-toggle] > *{display:none!important}
 button[data-mrp-toggle]::after{content:attr(data-mrp-toggle);font-size:13px;font-weight:650}
 button[data-mrp-toggle="Menu"]::before{content:"☰";font-size:14px}
 @media(max-width:900px){
-  body:has(.mrp-workspace-head) [data-testid="stMainBlockContainer"]{
+  body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="stMainBlockContainer"]{
     padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))!important;
   }
 }
@@ -687,6 +687,12 @@ _setta_close_on_navigation = r"""<script>
       '[data-testid="stSidebarCollapsedControl"] button,' +
       '[data-testid="collapsedControl"] button'
     ), "Menu", "Abrir menu lateral");
+    sidebar()?.querySelectorAll('[class*="st-key-mrp_nav_btn_"] button').forEach(button => {
+      const name = button.querySelector("p")?.textContent?.trim();
+      if (name) button.setAttribute("aria-label", name);
+      if (button.dataset.testid === "stBaseButton-primary") button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    });
     if (initial && sidebar()?.querySelector('[class*="st-key-mrp_nav_btn_"] button')) {
       initial = false;
       if (mobile.matches && sidebar().getAttribute("aria-expanded") === "true") close?.click();

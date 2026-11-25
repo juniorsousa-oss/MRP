@@ -13,7 +13,7 @@ assert 'with st.sidebar:' in generated
 assert 'with st.popover("☰"' not in generated
 assert 'st.container(key="setta_custom_navigation")' not in generated
 assert 'initial_sidebar_state="auto"' in generated
-assert 'key=f"mrp_nav_btn_{_nav_index}"' in generated
+assert 'workspace_sidebar(st,_mrp_pages,_mrp_page,_mrp_set_sidebar_page)' in generated
 assert 'unsafe_allow_javascript=True' in generated
 assert 'window.__settaMenuCloseOnNavV1' in generated
 assert '[class*="st-key-mrp_nav_btn_"] button' in generated

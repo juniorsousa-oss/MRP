@@ -506,5 +506,64 @@ class ParecerAutomaticoTests(unittest.TestCase):
             self.assertIn(f"PROJETO {self.OUTRO} (SOLICITAÇÃO: 25/11/2026)", linha["Observações da análise"])
 
 
+class LayoutPreAnaliseTests(unittest.TestCase):
+    def setUp(self):
+        CompraPreAnalisePorOpTests.setUp(self)
+
+    def test_excel_formatado_duas_abas_e_integridade(self):
+        from io import BytesIO
+        from datetime import datetime
+        from openpyxl import load_workbook
+        from mrp_compra_preanalise import exportar_preanalise_formatada, PREANALISE_VERSAO
+        entrada = self.entrada.copy()
+        entrada["vunit"] = [0, 19.5, 32.8, 0, 0]
+        planilhas = construir_relatorio_compra_por_op(entrada, self.desc)
+        bytes_xlsx = exportar_preanalise_formatada(planilhas)
+        wb = load_workbook(BytesIO(bytes_xlsx))
+        self.assertEqual(wb.sheetnames, ["RESUMO OP", "MATERIAIS OP"])
+        self.assertEqual(wb.active.title, "MATERIAIS OP")
+        ws = wb["MATERIAIS OP"]
+        self.assertEqual(ws.freeze_panes, "C6")
+        self.assertEqual(ws.auto_filter.ref, "A5:M9")
+        self.assertFalse(ws.sheet_view.showGridLines)
+        self.assertIn(PREANALISE_VERSAO, ws["A2"].value)
+        self.assertEqual(ws["A5"].value, "OP")
+        self.assertEqual(ws["L5"].value, "Parecer do analista")
+        self.assertEqual(ws["M5"].value, "Observações da análise")
+        self.assertGreaterEqual(ws.column_dimensions["M"].width, 60)
+        self.assertTrue(ws["M6"].alignment.wrap_text)
+        self.assertEqual(len(ws.data_validations.dataValidation), 1)
+        self.assertEqual(len(ws.conditional_formatting), 2)
+        esperado = planilhas["MATERIAIS OP"]
+        for i, linha in enumerate(esperado.to_dict("records"), 6):
+            for j, nome in ((1,"OP"),(2,"Código"),(4,"Quantidade"),(5,"Valor mínimo encontrado"),(9,"Prioridade"),(12,"Parecer do analista"),(13,"Observações da análise")):
+                valor = ws.cell(i,j).value
+                self.assertEqual(valor if valor is not None else "", linha[nome])
+            self.assertIsInstance(ws.cell(i,8).value, datetime)
+        linha_multi = next(i for i in range(6,10) if ws.cell(i,7).value == 2)
+        self.assertIn("9 un.", ws.cell(linha_multi,4).comment.text)
+        self.assertIn("3 un.", ws.cell(linha_multi,4).comment.text)
+        self.assertIn("prioridade 1", ws.cell(linha_multi,4).comment.text)
+        resumo = wb["RESUMO OP"]
+        self.assertEqual(resumo.freeze_panes, "B11")
+        self.assertEqual(resumo.auto_filter.ref, "A10:I13")
+        self.assertEqual(resumo["I7"].value, '=COUNTIF(\'MATERIAIS OP\'!$L$6:$L$9,"VERIFICAR")')
+        self.assertEqual(resumo["F11"].value, "=COUNTIFS('MATERIAIS OP'!$A$6:$A$9,$A11,'MATERIAIS OP'!$L$6:$L$9,F$10)")
+        self.assertTrue(wb.calculation.fullCalcOnLoad)
+        self.assertEqual(wb.calculation.calcMode, "auto")
+        self.assertEqual(ws["B6"].data_type, "s")
+
+    def test_excel_preserva_texto_sem_transformar_em_formula(self):
+        from io import BytesIO
+        from openpyxl import load_workbook
+        from mrp_compra_preanalise import exportar_preanalise_formatada
+        p = construir_relatorio_compra_por_op(self.entrada, self.desc)
+        p["MATERIAIS OP"].loc[0,"Observações da análise"] = '=HYPERLINK("https://example.com")'
+        p["MATERIAIS OP"].loc[0,"Descrição"] = "Descrição longa " * 30
+        w = load_workbook(BytesIO(exportar_preanalise_formatada(p)))["MATERIAIS OP"]
+        self.assertEqual(w["M6"].data_type, "s")
+        self.assertGreater(w.row_dimensions[6].height, 23)
+
+
 if __name__ == "__main__":
     unittest.main()

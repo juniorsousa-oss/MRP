@@ -14,7 +14,7 @@ import pandas as pd
 
 CAMPOS = {"produto", "qnt", "data", "psy", "cc", "op", "obs", "prioridade"}
 OP_NAO_INFORMADA = "SEM OP VINCULADA"
-PREANALISE_VERSAO = "2026-11-25-v5"
+PREANALISE_VERSAO = "2026-11-25-v6"
 
 
 def _texto(valor) -> str:
@@ -298,10 +298,39 @@ def _mapa_faltas(alocacoes):
     return {k: v for k, v in out.items() if k not in invalidos}
 
 
+def ids_comparacao_diaria(meta, atual):
+    """Último snapshot do dia anterior disponível + último intradiário."""
+    if not atual or atual.get("id") is None:
+        return []
+    def instante(registro):
+        return pd.to_datetime(registro.get("created_at"), errors="coerce", utc=True)
+    ref = instante(atual)
+    if pd.isna(ref):
+        return []
+    dia_ref = ref.tz_convert("America/Sao_Paulo").date()
+    anteriores = []
+    for registro in meta or []:
+        ts = instante(registro)
+        if registro.get("id") is not None and int(registro["id"]) != int(atual["id"]) and pd.notna(ts) and ts < ref:
+            anteriores.append((ts, int(registro["id"])))
+    anteriores.sort(reverse=True)
+    diario = next((id_ for ts,id_ in anteriores
+                   if ts.tz_convert("America/Sao_Paulo").date() < dia_ref), None)
+    imediato = anteriores[0][1] if anteriores else None
+    return list(dict.fromkeys(x for x in (diario, imediato) if x is not None))
+
+
 def _observacoes_perda_estoque(alocacoes, macro_atual, historico):
     """Compara fotografias consecutivas; não infere movimento físico do ERP."""
     if not isinstance(historico, dict):
         return {}
+    if "comparativos" in historico:
+        # A base diária precede a intradiária; não duplicar o mesmo diagnóstico.
+        resultado = {}
+        for comparativo in historico["comparativos"]:
+            for chave, valor in _observacoes_perda_estoque(alocacoes, macro_atual, comparativo).items():
+                resultado.setdefault(chave, valor)
+        return resultado
     atual = _mapa_macro(macro_atual)
     anterior = _mapa_macro(historico.get("macro_anterior"))
     referencia = _mapa_macro(historico.get("macro_referencia"))
@@ -340,7 +369,7 @@ def _observacoes_perda_estoque(alocacoes, macro_atual, historico):
         if not isclose(sum(aumentos.values()), delta, rel_tol=1e-7, abs_tol=1e-7):
             continue
         for op, qtd in aumentos.items():
-            out[(op,codigo)] = (fa[op][2], f"REDUÇÃO DE ESTOQUE DE {perda:g} UN. COM REDUÇÃO DE DEMANDA DE {reducao:g} UN. — NECESSIDADE ADICIONAL DE {qtd:g} UN. (COMPARATIVO MRP)")
+            out[(op,codigo)] = (fa[op][2], f"POSSÍVEL ERRO DE ESTOQUE — REDUÇÃO DE ESTOQUE DE {perda:g} UN. COM REDUÇÃO DE DEMANDA DE {reducao:g} UN. — NECESSIDADE ADICIONAL DE {qtd:g} UN. (COMPARATIVO MRP; CONFERIR AJUSTE NO ERP)")
     return out
 
 
@@ -629,15 +658,16 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
         c.alignment = Alignment(horizontal="left", vertical="center", indent=1)
         sheet.row_dimensions[row].height = altura
 
-    def preparar(sheet, titulo, subtitulo, n, widths, zoom=85):
+    def preparar(sheet, titulo, n, widths, zoom=85):
         sheet.sheet_view.showGridLines = False
         sheet.sheet_view.zoomScale = zoom
         sheet.sheet_properties.pageSetUpPr.fitToPage = True
         sheet.sheet_properties.outlinePr.summaryRight = False
         faixa(sheet,1,1,n,titulo,azul,branco,19,36)
         faixa(sheet,2,1,n,f"SETTA  |  {gerado}  |  Versão {PREANALISE_VERSAO}",azul2,branco,10,23)
-        faixa(sheet,3,1,n,subtitulo,cinza,tinta,10,24)
-        sheet.row_dimensions[4].height = 8
+        # Sem texto descritivo: apenas uma separação visual após o título.
+        sheet.row_dimensions[3].height = 7
+        sheet.row_dimensions[4].hidden = True
         for col,width in enumerate(widths,1):
             sheet.column_dimensions[get_column_letter(col)].width = width
         sheet.print_options.horizontalCentered = True
@@ -661,9 +691,10 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
     def corpo(c, row, alin="left", wrap_text=False):
         c.font = Font(name="Calibri", size=11, color=tinta)
         c.fill = fill(branco if row % 2 == 0 else "F5F8FB")
-        c.border = Border(bottom=Side(style="hair",color=linha))
+        c.border = Border(left=Side(style="thin",color=linha), right=Side(style="thin",color=linha),
+                          top=Side(style="thin",color=linha), bottom=Side(style="thin",color=linha))
         c.alignment = Alignment(horizontal=alin,vertical="center",wrap_text=wrap_text,
-                                indent=1 if alin == "left" else 0)
+                                indent=(2 if wrap_text and alin == "left" else 1) if alin in ("left","right") else 0)
 
     def data(c, valor):
         d = _data_solicitacao(valor)
@@ -682,8 +713,8 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
             "Última solicitação","Linhas de demanda","Primeira necessidade",
             "Prioridade","PSY","Centro de custo","Parecer do analista","Observações da análise"]
     preparar(ws, "PRÉ-ANÁLISE DE COMPRAS  /  MATERIAIS POR OP",
-             "Uso consultivo • Não é carga do Protheus • Edite o parecer e a observação; VERIFICAR exige análise manual.",
-             len(cols), [16,13,49,12,17,17,12,17,12,11,14,21,70], 85)
+             len(cols), [17,14,52,13,19,18,13,18,13,12,15,22,73], 85)
+    ws["A1"].comment = Comment("Relatório consultivo; não é carga do Protheus.", "SETTA | MRP")
     cabecalho(ws,5,cols)
     ws.freeze_panes = "C6"
     ws.sheet_properties.tabColor = "234C69"
@@ -708,7 +739,7 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
             elif j == 5:
                 c.number_format = '"R$" #,##0.00'
             elif j in (4,7):
-                c.number_format = "#,##0.###"
+                c.number_format = "#,##0" if float(v).is_integer() else "#,##0.###"
             if j in (12,13):
                 c.font = Font(name="Calibri",size=11,color=tinta,bold=j==12)
         chave = (_texto(registro["OP"]),_texto(registro["Código"]))
@@ -720,10 +751,10 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
             nota = Comment("\n".join(partes), "SETTA | MRP")
             nota.width, nota.height = 430, min(450,50+30*len(origens))
             ws.cell(i,4).comment = nota
-        n = max(altura_texto(registro["Descrição"],43),
-                altura_texto(registro["Observações da análise"],63),
+        n = max(altura_texto(registro["Descrição"],42),
+                altura_texto(registro["Observações da análise"],61),
                 altura_texto(registro["Centro de custo"],12))
-        ws.row_dimensions[i].height = max(23, min(409, 15*n+8))
+        ws.row_dimensions[i].height = max(28, min(409, 15*n+12))
     fim = max(6,5+len(material))
     ws.auto_filter.ref = f"A5:M{fim}"
     ws.print_area = f"A1:M{fim}"
@@ -744,8 +775,7 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
 
     # Resumo gerencial: indicadores e pareceres por OP atualizam após edição no Excel.
     preparar(resumo,"RESUMO GERENCIAL  /  PRÉ-ANÁLISE DE COMPRAS",
-             "Contagem por material/OP consolidado • Os indicadores de parecer acompanham suas alterações na aba MATERIAIS OP.",
-             9,[18,17,17,17,19,18,18,18,18],90)
+             9,[19,18,18,18,20,18,18,18,18],90)
     resumo.sheet_properties.tabColor = "142B43"
     ref = "'MATERIAIS OP'!"
     status_ref = f"{ref}$L$6:$L${fim}"
@@ -793,7 +823,7 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
                 c.number_format="@"
             elif j!=5:
                 c.number_format="#,##0"
-        resumo.row_dimensions[i].height=24
+        resumo.row_dimensions[i].height=28
     sfim=max(11,10+len(base))
     resumo.freeze_panes="B11"
     resumo.auto_filter.ref=f"A10:I{sfim}"

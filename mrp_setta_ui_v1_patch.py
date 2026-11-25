@@ -619,7 +619,7 @@ body:has(.mrp-workspace-head) [data-testid="stMain"]{
   height:100%!important;min-height:0!important;overflow-y:auto!important;
 }
 body:has(.mrp-workspace-head) [data-testid="stMainBlockContainer"]{
-  min-height:0!important;padding-bottom:24px!important;
+  min-height:0!important;flex-shrink:0!important;padding-bottom:24px!important;
 }
 body:has(.mrp-workspace-head) section[data-testid="stSidebar"]{
   height:100vh!important;height:100dvh!important;min-height:0!important;

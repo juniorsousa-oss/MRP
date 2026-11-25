@@ -28,7 +28,7 @@ _source = _source.replace(
     1,
 )
 
-_consulta = '        render_validacao_compra_mrp(comp,"consulta",mg,dem)'
+_consulta = '        render_validacao_compra_mrp(comp,"consulta",mg,dem,dem,mg,snap)'
 if _source.count(_consulta) != 1:
     raise RuntimeError("Excedentes: integração da consulta de compras não localizada.")
 _source = _source.replace(
@@ -37,7 +37,7 @@ _source = _source.replace(
     1,
 )
 
-_admin = '    render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg,demanda_projeto)'
+_admin = '    render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg,demanda_projeto,macro)'
 if _source.count(_admin) != 1:
     _pistas=[linha[:250] for linha in _source.splitlines() if "render_validacao_compra_mrp" in linha or "ANÁLISE DE COMPRA" in linha]
     raise RuntimeError("Excedentes: integração ADMIN não localizada: "+repr(_pistas[:12]))

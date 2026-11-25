@@ -14,7 +14,7 @@ import pandas as pd
 
 CAMPOS = {"produto", "qnt", "data", "psy", "cc", "op", "obs", "prioridade"}
 OP_NAO_INFORMADA = "SEM OP VINCULADA"
-PREANALISE_VERSAO = "2026-11-25-v2"
+PREANALISE_VERSAO = "2026-11-25-v3"
 
 
 def _texto(valor) -> str:
@@ -181,6 +181,9 @@ def _prioridade_anterior(a, b) -> bool:
         return False
     if a["semana"] != b["semana"]:
         return a["semana"] < b["semana"]
+    # O motor usa na_position="last": Data CM válida vem antes de NI.
+    if pd.notna(a["cm"]) and pd.isna(b["cm"]):
+        return True
     return (pd.notna(a["cm"]) and pd.notna(b["cm"]) and a["cm"] < b["cm"])
 
 
@@ -259,9 +262,92 @@ def _redistribuicoes(alocacoes, mapa_solicitacoes, janela):
     return resultado
 
 
-def _analise_previa(fonte, mapa_solicitacoes, alocacoes, referencia, feriados_adicionais):
+def _mapa_macro(macro):
+    campos = ("Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo")
+    if not isinstance(macro, pd.DataFrame) or not {"Código", *campos}.issubset(macro.columns):
+        return {}
+    out = {}
+    for _, linha in macro.iterrows():
+        codigo = _codigo_material(linha["Código"])
+        valores = pd.to_numeric(linha[list(campos)], errors="coerce")
+        if codigo and valores.notna().all() and all(isfinite(float(v)) and v >= 0 for v in valores):
+            if codigo in out:
+                out[codigo] = None
+            else:
+                out[codigo] = tuple(float(v) for v in valores)
+    return {k: v for k, v in out.items() if v is not None}
+
+
+def _mapa_faltas(alocacoes):
+    campos = {"Projeto", "Produto", "Necessidade", "Ação"}
+    if not isinstance(alocacoes, pd.DataFrame) or not campos.issubset(alocacoes.columns):
+        return {}
+    out, invalidos = {}, set()
+    for _, linha in alocacoes.iterrows():
+        codigo = _codigo_material(linha["Produto"])
+        op = op_relatorio(linha["Projeto"])
+        necessidade = pd.to_numeric(linha["Necessidade"], errors="coerce")
+        if pd.notna(necessidade) and necessidade == 0:
+            continue
+        recurso = (_recursos_e_falta(linha["Ação"], float(necessidade))
+                   if pd.notna(necessidade) and isfinite(necessidade) and necessidade > 0 else None)
+        if recurso is None or op == OP_NAO_INFORMADA or not codigo or op in out.get(codigo, {}):
+            invalidos.add(codigo)
+            continue
+        out.setdefault(codigo, {})[op] = (float(necessidade), *recurso)
+    return {k: v for k, v in out.items() if k not in invalidos}
+
+
+def _observacoes_perda_estoque(alocacoes, macro_atual, historico):
+    """Compara fotografias consecutivas; não infere movimento físico do ERP."""
+    if not isinstance(historico, dict):
+        return {}
+    atual = _mapa_macro(macro_atual)
+    anterior = _mapa_macro(historico.get("macro_anterior"))
+    referencia = _mapa_macro(historico.get("macro_referencia"))
+    faltas = _mapa_faltas(alocacoes)
+    faltas_ant = _mapa_faltas(historico.get("alocacoes_anterior"))
+    faltas_ref = _mapa_faltas(historico.get("alocacoes_referencia"))
+    out = {}
+    for codigo, novo in atual.items():
+        velho = anterior.get(codigo)
+        # ADMIN deve corresponder ao snapshot atual; não misturar cálculos.
+        if velho is None or novo != referencia.get(codigo) or faltas.get(codigo) != faltas_ref.get(codigo):
+            continue
+        if codigo not in faltas or codigo not in faltas_ant:
+            continue
+        perda = velho[0] - novo[0]
+        reducao = velho[1] - novo[1]
+        if perda <= 1e-7 or reducao < -1e-7 or perda <= reducao + 1e-7:
+            continue
+        if any(not isclose(a, b, rel_tol=1e-7, abs_tol=1e-7) for a,b in zip(velho[2:],novo[2:])):
+            continue
+        antes = max(0.0, velho[1] - velho[0] - sum(velho[2:]))
+        depois = max(0.0, novo[1] - novo[0] - sum(novo[2:]))
+        delta = depois - antes
+        if delta <= 1e-7 or not isclose(delta, perda-reducao, rel_tol=1e-7, abs_tol=1e-7):
+            continue
+        # Confirmar que a falta global e as faltas por projeto se reconciliam.
+        # TC/TP e origens sem OP não podem ser atribuídas por engano.
+        fa, fb = faltas[codigo], faltas_ant[codigo]
+        if not (isclose(sum(x[0] for x in fa.values()), novo[1], rel_tol=1e-7, abs_tol=1e-7)
+                and isclose(sum(x[0] for x in fb.values()), velho[1], rel_tol=1e-7, abs_tol=1e-7)
+                and isclose(sum(x[2] for x in fa.values()), depois, rel_tol=1e-7, abs_tol=1e-7)
+                and isclose(sum(x[2] for x in fb.values()), antes, rel_tol=1e-7, abs_tol=1e-7)):
+            continue
+        aumentos = {op: x[2] - fb.get(op, (0,0,0))[2] for op,x in fa.items()
+                    if x[2] - fb.get(op, (0,0,0))[2] > 1e-7}
+        if not isclose(sum(aumentos.values()), delta, rel_tol=1e-7, abs_tol=1e-7):
+            continue
+        for op, qtd in aumentos.items():
+            out[(op,codigo)] = (fa[op][2], f"REDUÇÃO DE ESTOQUE DE {perda:g} UN. COM REDUÇÃO DE DEMANDA DE {reducao:g} UN. — NECESSIDADE ADICIONAL DE {qtd:g} UN. (COMPARATIVO MRP)")
+    return out
+
+
+def _analise_previa(fonte, mapa_solicitacoes, alocacoes, referencia, feriados_adicionais, macro_atual=None, historico=None):
     janela = _janela_analise(referencia, feriados_adicionais)
     redistribuicoes = _redistribuicoes(alocacoes, mapa_solicitacoes, janela)
+    perdas = _observacoes_perda_estoque(alocacoes, macro_atual, historico)
     pareceres = {}
     for (op, codigo), linhas in fonte.groupby(["OP", "Código"], sort=False):
         chave = (op, _codigo_material(codigo))
@@ -289,15 +375,19 @@ def _analise_previa(fonte, mapa_solicitacoes, alocacoes, referencia, feriados_ad
                 observacao = " | ".join(partes) + " — INDÍCIO PELA ALOCAÇÃO ATUAL DO MRP"
                 if sum(atribuicoes.values()) < falta - 1e-7:
                     observacao += "; REDISTRIBUIÇÃO PARCIAL"
+        perda = perdas.get(chave)
+        if not observacao and perda and isclose(perda[0], float(linhas["Quantidade"].sum()), rel_tol=1e-5, abs_tol=1e-7):
+            observacao = perda[1]
         pareceres[chave] = ("DEMANDA", observacao)
     return pareceres
 
 
 def _preencher_analise(frame, pareceres):
     chaves = [(op, _codigo_material(c)) for op, c in zip(frame["OP"], frame["Código"])]
-    frame["Parecer do analista"] = [pareceres.get(chave, ("", ""))[0] for chave in chaves]
+    # Prioridade 1 não requer análise; grupos mistos continuam emergenciais.
+    frame["Parecer do analista"] = [pareceres.get(chave, ("", ""))[0] if _texto(p).removesuffix(".0") == "2" else "" for chave,p in zip(chaves,frame["Prioridade"])]
     frame["Observações da análise"] = [
-        _excel_texto(pareceres.get(chave, ("", ""))[1]) for chave in chaves
+        _excel_texto(pareceres.get(chave, ("", ""))[1]) if _texto(p).removesuffix(".0") == "2" else "" for chave,p in zip(chaves,frame["Prioridade"])
     ]
 
 
@@ -308,7 +398,8 @@ def validar_pareceres_exportacao(planilhas, referencia=None):
         quadro = planilhas[aba]
         for _, linha in quadro.iterrows():
             data = _data_solicitacao(linha["Última solicitação"])
-            if (op_relatorio(linha["OP"]) != OP_NAO_INFORMADA
+            if (_texto(linha["Prioridade"]).removesuffix(".0") == "2"
+                    and op_relatorio(linha["OP"]) != OP_NAO_INFORMADA
                     and pd.notna(data) and data.date() <= hoje
                     and _texto(linha["Parecer do analista"]) not in {"DEMANDA", "NOVA DEMANDA"}):
                 raise ValueError(
@@ -325,6 +416,8 @@ def construir_relatorio_compra_por_op(
     alocacoes: pd.DataFrame | None = None,
     referencia=None,
     feriados_adicionais=(),
+    macro_atual=None,
+    historico=None,
 ) -> dict[str, pd.DataFrame]:
     """Produz 4 abas com rastreabilidade, sem gerar carga de importacao.
 
@@ -361,7 +454,8 @@ def construir_relatorio_compra_por_op(
         raise ValueError("Pre-analise: quantidade ausente, negativa ou invalida.")
     # Analisa o universo antes de filtrar OPs. A consulta recebe o próprio snapshot.
     pareceres = _analise_previa(fonte, mapa_solicitacoes,
-        alocacoes if alocacoes is not None else solicitacoes, referencia, feriados_adicionais)
+        alocacoes if alocacoes is not None else solicitacoes, referencia, feriados_adicionais,
+        macro_atual, historico)
     filtro = {op_relatorio(x) for x in ops} if ops is not None else None
     if filtro is not None:
         fonte = fonte[fonte["OP"].isin(filtro)].copy()
@@ -369,7 +463,7 @@ def construir_relatorio_compra_por_op(
         raise ValueError("Pre-analise: nenhuma linha de compra nas OPs selecionadas.")
 
     fonte["Data de necessidade"] = fonte["data"].map(_texto)
-    fonte["Prioridade"] = fonte["prioridade"].map(_texto)
+    fonte["Prioridade"] = fonte["prioridade"].map(lambda x: _texto(x).removesuffix(".0"))
     fonte["PSY"] = fonte["psy"].map(_excel_texto)
     fonte["Centro de custo"] = fonte["cc"].map(_excel_texto)
     fonte["Observação MRP"] = fonte["obs"].map(_excel_texto)
@@ -458,8 +552,9 @@ def construir_relatorio_compra_por_op(
         ("PRIORIDADE", "2 = emergencial; 1 = normal, conforme cálculo original do MRP."),
         ("VALOR MÍNIMO", "Mostra valor por OP e material, inclusive zero; a carga unificada usa o menor preço positivo entre OPs ou zero quando todos forem zero."),
         ("SEM OP", "Demandas sem OP de origem são exibidas como SEM OP VINCULADA."),
-        ("PARECER", "Sugestão automática editável: NOVA DEMANDA se a última solicitação da OP/material for de hoje ou do dia útil anterior; DEMANDA para data anterior. NI, data futura e sem OP permanecem em branco."),
+        ("PARECER", "Somente prioridade 2 exige parecer. Prioridade 1 fica em branco. Sugestão automática editável: NOVA DEMANDA se a última solicitação da OP/material for de hoje ou do dia útil anterior; DEMANDA para data anterior. NI, data futura e sem OP permanecem em branco."),
         ("REDISTRIBUIÇÃO", "Observação estimada pelo consumo efetivo registrado na Ação do MRP e pela ordem de necessidade; não prova reserva anterior. Créditos não são duplicados; ausência de evidência fica em branco. Revisar antes de aprovar."),
+        ("VARIAÇÃO DE ESTOQUE", "Compara a fotografia atual com a anterior quando as quantidades de compra e as faltas por projeto se reconciliam. Não comprova consumo físico nem movimentação de estoque."),
         ("CALENDÁRIO", "Dias úteis: finais de semana e feriados do calendário SETTA/Patos de Minas. Pontos facultativos não são bloqueados automaticamente."),
         ("IMPORTANTE", "Não utilizar este arquivo na rotina de importação STSUP25 do Protheus."),
         ("VERSÃO DA PRÉ-ANÁLISE", PREANALISE_VERSAO),

@@ -1,15 +1,32 @@
 """Apresentação da área de trabalho; sem cálculo ou persistência do MRP."""
 from html import escape
-import hashlib
-
 import streamlit as st
+
+from mrp_operacao_grade import grade_resultado as operacao_grade
 
 OPERACAO_CSS = """
 <style>
 body:has(.mrp-operacao) .mrp-workspace-head{
-  padding:12px 0 10px;border:0;border-radius:0;background:none;margin:0;
+  padding:0 0 3px;border:0;border-radius:0;background:none;margin:0;
 }
-body:has(.mrp-operacao) .mrp-workspace-head h1{font-size:1.65rem!important}
+body:has(.mrp-operacao) .mrp-workspace-head h1{font-size:1.62rem!important}
+.mrp-operacao-brandbar{display:flex;align-items:center;gap:10px;
+  background:#fff;border:1px solid #dce3ec;border-radius:7px;
+  min-height:40px;padding:0 12px;color:#4d6075;font-size:.8rem}
+.mrp-operacao-brandbar strong{color:#213e60}
+body:has(.mrp-operacao) .mrp-workspace-brand{display:none}
+@media(min-width:901px){
+  body:has(.mrp-operacao) [data-testid="stSidebar"][aria-expanded="true"]{
+    width:210px!important;min-width:210px!important;max-width:210px!important;
+  }
+  body:has(.mrp-operacao) [data-testid="stSidebarContent"]{
+    padding-left:10px!important;padding-right:10px!important;
+  }
+}
+[class*="st-key-mrp_operacao_kpis_"] [data-testid="stButton"] button{
+  min-height:44px!important;
+}
+
 body:has(.mrp-operacao) [data-testid="stMainBlockContainer"]{
   padding-left:clamp(1rem,2vw,2rem)!important;padding-right:clamp(1rem,2vw,2rem)!important
 }
@@ -38,8 +55,38 @@ body:has(.mrp-operacao) [data-testid="stTabs"]:has(.mrp-operacao-tools) [role="t
 [class*="st-key-mrp_operacao_bar_"]{
   background:#fff;border:1px solid #dce3ec;border-radius:7px;padding:9px 10px;
 }
-[class*="st-key-mrp_operacao_bar_"] [data-testid="stForm"]{padding:0;margin:0}
-[class*="st-key-mrp_operacao_bar_"] [data-testid="stPopoverButton"]{min-height:38px}
+[class*="st-key-mrp_operacao_bar_"] [data-testid="stForm"]{
+  padding:0!important;margin:0!important;background:transparent!important;border:0!important;
+}
+[class*="st-key-mrp_operacao_bar_"] [data-testid="stHorizontalBlock"]{
+  column-gap:8px!important;row-gap:8px!important;
+}
+[class*="st-key-mrp_operacao_bar_"] button{
+  min-height:38px!important;height:38px!important;padding:3px 7px!important;
+}
+[class*="st-key-mrp_operacao_bar_"] button,
+[class*="st-key-mrp_operacao_bar_"] button p{
+  text-transform:none!important;overflow-wrap:normal!important;word-break:normal!important;
+  white-space:nowrap!important;font-size:.8rem!important;line-height:1.2!important;
+}
+[class*="st-key-mrp_operacao_bar_"] [data-testid="stPopoverButton"] svg{
+  flex-shrink:0;width:15px!important;height:15px!important;
+}
+[class*="st-key-mrp_operacao_bar_"] [data-testid="stHtml"]:has(.mrp-operacao-tools){
+  display:none!important;
+}
+[class*="st-key-mrp_operacao_bar_"] [data-testid="stElementContainer"]:has(.mrp-operacao-tools){
+  display:none!important;
+}
+body:has(.mrp-operacao) [data-testid="stSidebarUserContent"] > :first-child{
+  display:flex!important;flex:1 0 auto!important;
+}
+body:has(.mrp-operacao) [data-testid="stSidebarUserContent"] > :first-child > [data-testid="stVerticalBlock"]{
+  flex:1 0 auto!important;
+}
+body:has(.mrp-operacao) [data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] > :has(.st-key-mrp_sidebar_account){
+  margin-top:auto!important;
+}
 [class*="st-key-mrp_operacao_bar_"] [data-testid="stBaseButton-primary"]{
   background:#213e60!important;color:#fff!important;border-color:#213e60!important
 }
@@ -57,6 +104,9 @@ body:has(.mrp-operacao) [data-testid="stTabs"]:has(.mrp-operacao-tools) [role="t
   [class*="st-key-mrp_operacao_kpis_"] [data-testid="stColumn"]{
     flex:1 1 31%!important;width:auto!important;max-width:none!important;
   }
+}
+@media(max-width:1150px){
+  [class*="st-key-mrp_operacao_bar_"] [data-testid="stHorizontalBlock"]{flex-wrap:wrap!important}
   [class*="st-key-mrp_operacao_bar_"] [data-testid="stColumn"]{
     flex:1 1 40%!important;width:auto!important;max-width:none!important;
   }
@@ -89,6 +139,11 @@ def operacao_indicadores(prefixo, quantidades, callback, selecionado):
                        help=dica, width="stretch", on_click=callback, args=(status, mostrar))
 
 
+def operacao_rotulo_grade(total):
+    quantidade = f"{total:,}".replace(",", ".")
+    return f"{quantidade} {'material' if total == 1 else 'materiais'} · Selecione uma linha para ver o detalhe."
+
+
 def operacao_busca(frame, termo, codigo_mask):
     q = str(termo or "").strip()
     if not q:
@@ -99,36 +154,8 @@ def operacao_busca(frame, termo, codigo_mask):
     return frame[desc.str.contains(q, case=False, na=False, regex=False) | codigo_mask(frame["Código"], q)]
 
 
-def operacao_grade(frame, colunas, base_key, render_table):
-    # Mudança de filtro/ordem invalida a seleção posicional anterior.
-    # Usa a lista de códigos na mesma ordem enviada à tabela.
-    digest = hashlib.blake2s(digest_size=8)
-    for code in frame["Código"]:
-        digest.update(str(code).encode("utf-8"))
-        digest.update(b"\x00")
-    revision = st.session_state.get(f"{base_key}_rev", 0)
-    visual = frame.copy()
-    visual["Código"] = visual["Código"].map(
-        lambda value: str(value).zfill(8) if str(value).isdecimal() else str(value))
-    state = render_table(visual, width="stretch", height=535, row_height=36,
-                         hide_index=True, column_order=colunas, on_select="rerun",
-                         selection_mode="single-row", key=f"{base_key}_{digest.hexdigest()}_{revision}",
-                         column_config={
-                             "Código": st.column_config.Column(pinned=True, width="small"),
-                             "Descrição": st.column_config.Column(width="large"),
-                             "Saldo em Estoque": st.column_config.Column("Estoque"),
-                         })
-    rows = getattr(getattr(state, "selection", None), "rows", ()) or ()
-    return rows[0] if rows and 0 <= rows[0] < len(frame) else None
-
-
-def resetar_detalhe(base_key):
-    k = f"{base_key}_rev"
-    st.session_state[k] = st.session_state.get(k, 0) + 1
-
-
 def operacao_detalhe(base_key, codigo, descricao, linha, render):
-    @st.dialog("Detalhe do material", width="large", on_dismiss=lambda: resetar_detalhe(base_key))
+    @st.dialog("Detalhe do material", width="large", on_dismiss="rerun")
     def painel():
         st.html('<div class="mrp-material-sheet">'
                 f'<small>Material {escape(str(codigo))}</small>'
@@ -141,6 +168,5 @@ def operacao_detalhe(base_key, codigo, descricao, linha, render):
             col.metric(rotulo, str(valor) if str(valor) not in ("", "nan", "<NA>") else "—")
         render()
         if st.button("Voltar à consulta", key=f"{base_key}_voltar"):
-            resetar_detalhe(base_key)
             st.rerun()
     painel()

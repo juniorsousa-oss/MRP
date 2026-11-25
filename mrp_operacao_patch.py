@@ -10,10 +10,10 @@ def _op_replace(old, new, label):
 
 
 _op_replace("from mrp_interface_visual import WORKSPACE_CSS,cabecalho_html", """from mrp_interface_visual import WORKSPACE_CSS,cabecalho_html
-from mrp_operacao_ui import OPERACAO_CSS,operacao_indicadores,operacao_busca,operacao_grade,operacao_detalhe
+from mrp_operacao_ui import OPERACAO_CSS,operacao_indicadores,operacao_busca,operacao_grade,operacao_detalhe,operacao_rotulo_grade
 if _mrp_page=="MRP ATUAL":
     st.html(OPERACAO_CSS)
-    st.html('<span class="mrp-operacao" hidden></span>')""", "css")
+    st.html('<nav class="mrp-operacao mrp-operacao-brandbar" aria-label="Localização"><strong>SETTA · MRP</strong><span aria-hidden="true">/</span><span>Operações</span><span aria-hidden="true">›</span><strong>MRP atual</strong></nav>')""", "css")
 _op_replace('    st.subheader(UI_CONFIG["section_consulta_title"])\n    if UI_CONFIG.get("section_consulta_description"):\n        st.caption(UI_CONFIG["section_consulta_description"])\n', "", "cabeçalho consulta")
 
 _op_replace('            cods = sorted(mg["Código"].dropna().astype(str).unique().tolist())\n            descricoes = sorted(mg["Descrição"].fillna("").astype(str).unique().tolist())\n', "", "listas antigas")
@@ -39,6 +39,18 @@ _op_replace("""st.markdown('<div class="topic-divider"></div>', unsafe_allow_htm
 st.markdown('<div class="section-band"><div class="section-band-kicker">02 · DEMANDA</div><div class="section-band-title">DEMANDA</div></div>', unsafe_allow_html=True)
 _mrp_manter_filtros_de_abas(""","""_mrp_manter_filtros_de_abas(""","faixa demanda")
 
+def _op_detalhe_tabs(source, anchors, indent):
+    # Recupera os quatro blocos de consulta já existentes, sem reescrever os dados.
+    base=_operacao_text.dedent(source)
+    pos=[base.index(a) for a in anchors]
+    if pos!=sorted(pos):
+        raise RuntimeError("MRP operação: ordem dos blocos do detalhe mudou.")
+    result=base[:pos[0]]+'_proj_tab,_dem_tab,_cp_tab,_fab_tab=st.tabs(["Projeção","Necessidades","Compras","Produção"])\n'
+    for tab,a,b in zip(("_proj_tab","_dem_tab","_cp_tab","_fab_tab"),pos,pos[1:]+[len(base)]):
+        result+="with "+tab+":\n"+_operacao_text.indent(base[a:b].rstrip()+"\n","    ")
+    return _operacao_text.indent(result,indent)
+
+
 for _prefix in ("consulta","admin"):
     _i="    " if _prefix=="consulta" else ""
     _j=_i+"        "
@@ -57,7 +69,7 @@ for _prefix in ("consulta","admin"):
 {_i}{_barra}=(_aba_operacao if _aba_operacao is not None else st).container(key="mrp_operacao_bar_{_prefix}")
 {_i}with {_barra}:
 {_i}    st.html('<span class="mrp-operacao-tools"></span>')
-{_i}    _busca_area, _filtro_area, _colunas_area, {_actions} = st.columns([4,1.3,1.3,3.4],vertical_alignment='bottom')
+{_i}    _busca_area, _filtro_area, _colunas_area, {_actions} = st.columns([3.8,1.3,1.35,3.55],vertical_alignment='bottom')
 {_i}if {_tab}.open:""", f"barra {_prefix}")
     _start=_source.index(_j+f'with st.form("{_prefix}_'+("geral_filtros" if _prefix=="consulta" else "demanda_geral_filtros")+'", border=False):')
     _end=_source.index(_j+("f = mg.copy()" if _prefix=="consulta" else "v=macro.copy()"),_start)
@@ -100,13 +112,16 @@ _colunas=["Código","Descrição"]+_extras
         _keep_start=_source.index("                    st.markdown(f\"**{UI_CONFIG['subsection_projection_title']}",_labels_start)
         _after=_source.index("\n    if tab_projeto.open:",_keep_start)
         _detail=_source[_b:_des]+_source[_keep_start:_after]
-        _detail=_operacao_text.indent(_operacao_text.dedent(_detail),_j+"        ")
+        _detail=_op_detalhe_tabs(_detail,(
+            'st.markdown(f"**{UI_CONFIG[\'subsection_projection_title\']}', 'st.markdown(f"**{UI_CONFIG[\'subsection_demand_title\']}',
+            'd_comp = ', 'd_fab = ',
+        ),_j+"        ")
         _fragment=f"""f = operacao_busca(mg,termo,_mrp_codigo_mask)
 if tipo_operacao != "TODOS": f=f[f["Tipo"].astype(str).eq(tipo_operacao)]
 if status != "TODOS": f=f[f["Status"].astype(str).eq(status)]
 f=fix_columns(f.reset_index(drop=True),MRP_COLS)
-st.caption(f"{{len(f):,}} materiais · Selecione uma linha para ver o detalhe.".replace(",","."))
-_idx=operacao_grade(_df_exibicao_br(f),_colunas,"consulta_mrp_table",_setta_dataframe)
+st.caption(operacao_rotulo_grade(len(f)))
+_idx=operacao_grade(_df_exibicao_br(f),_colunas,"consulta_mrp_table")
 if _idx is not None:
     _linha=f.iloc[_idx]
     selecionado=str(_linha["Código"])
@@ -117,15 +132,15 @@ if _idx is not None:
         _a=_source.index(_j+"v=macro.copy()")
         _b=_source.index("            w=proj[proj",_a)
         _after=_source.index("\nif tab2.open:",_b)
-        _detail=_operacao_text.indent(_operacao_text.dedent(_source[_b:_after]),_j+"        ")
+        _detail=_op_detalhe_tabs(_source[_b:_after],("w=proj[","d=demanda_projeto[","compras=cp[","f=fab_det["),_j+"        ")
         _fragment=f"""v=operacao_busca(macro,termo,_mrp_codigo_mask)
 if status != "TODOS": v=v[v["Status"].astype(str).eq(status)]
 if tipo_operacao != "TODOS": v=v[v["Tipo"].astype(str).eq(tipo_operacao)]
 v=v.reset_index(drop=True)
 v["_ord_status"]=v["Status"].map({{"CRIAR S.C.":0,"OK":1}}).fillna(2)
 v=v.sort_values(["_ord_status","Código"]).drop(columns="_ord_status")
-st.caption(f"{{len(v):,}} materiais · Selecione uma linha para ver o detalhe.".replace(",","."))
-_idx=operacao_grade(_df_exibicao_br(v[macro_cols]),_colunas,"demanda_geral_tabela",_setta_dataframe)
+st.caption(operacao_rotulo_grade(len(v)))
+_idx=operacao_grade(_df_exibicao_br(v[macro_cols]),_colunas,"demanda_geral_tabela")
 if _idx is not None:
     _linha=v.iloc[_idx]
     code=int(_linha["Código"])
@@ -148,7 +163,7 @@ if _idx is not None:
     )+"\n"
     _purchase=_source[_b:_c].splitlines()[1].strip()
     _actions_block=f"""{_i}with {_actions}:
-{_i}    _exp,_ana=st.columns([1.2,1],vertical_alignment="bottom")
+{_i}    _exp,_ana=st.columns([1,1.2],vertical_alignment="bottom")
 {_i}    _ana.button("ANÁLISE DE COMPRA",key="{_prefix}_compra_abrir",type="primary",width="stretch",on_click=_compra_abrir,args=("{_prefix}",))
 """+_operacao_text.indent(_operacao_text.dedent(_exports)," "* (len(_i)+4))
     _source=_source[:_a]+_actions_block+f"""{_i}if st.session_state.get("{_prefix}_compra_aberta",False):

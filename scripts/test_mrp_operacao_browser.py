@@ -29,7 +29,7 @@ import pandas as pd
 import re
 import streamlit as st
 from mrp_interface_visual import WORKSPACE_CSS, cabecalho_html
-from mrp_operacao_ui import OPERACAO_CSS, operacao_busca, operacao_indicadores, operacao_grade, operacao_detalhe
+from mrp_operacao_ui import OPERACAO_CSS, operacao_busca, operacao_indicadores, operacao_grade, operacao_detalhe, operacao_rotulo_grade
 st.set_page_config(layout="wide")
 st.html({shell!r})
 st.html(WORKSPACE_CSS)
@@ -78,29 +78,32 @@ def check(browser, width, height):
         p=context.new_page()
         p.goto(URL,wait_until="domcontentloaded")
         expect(p.get_by_role("heading",name="MRP atual")).to_be_visible(timeout=30000)
-        expect(p.get_by_text("2 materiais",exact=False)).to_be_visible()
+        expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
         assert p.evaluate("document.documentElement.scrollWidth") <= width+2
+        expect(p.get_by_role("table",name="")).to_be_visible()
+        controls=p.locator('[class*="st-key-mrp_operacao_bar_"] button')
+        if width>1150:
+            assert all(b<=45 for b in controls.evaluate_all("(nodes)=>nodes.map(e=>e.getBoundingClientRect().height).filter(Boolean)"))
         busca=p.get_by_placeholder("Buscar por código ou descrição")
         busca.fill("00000042")
         p.get_by_role("button",name="Buscar",exact=True).click()
-        expect(p.get_by_text("1 materiais",exact=False)).to_be_visible()
+        expect(p.get_by_text("1 material ·",exact=False)).to_be_visible()
         if width>900:
-            grid=p.get_by_test_id("stDataFrame").first
-            canvas=grid.locator(".dvn-scroller").first
-            expect(canvas).to_be_visible()
-            canvas.click(position={"x":15,"y":50},timeout=5000)
+            detail=p.get_by_role("button",name="Detalhar material 00000042")
+            expect(detail).to_be_visible()
+            detail.click()
             dlg=p.get_by_role("dialog")
             expect(dlg.get_by_text("Cabo para teste")).to_be_visible()
             assert abs(dlg.bounding_box()["x"]+dlg.bounding_box()["width"]-width)<3
             dlg.get_by_role("button",name="Voltar à consulta").click()
             expect(dlg).not_to_be_visible()
-            canvas.click(position={"x":15,"y":50},timeout=5000)
+            detail.click()
             expect(dlg).to_be_visible()
             p.keyboard.press("Escape")
             expect(dlg).not_to_be_visible()
         p.get_by_role("button",name="Filtros").click()
         p.get_by_role("button",name="Limpar",exact=True).click()
-        expect(p.get_by_text("2 materiais",exact=False)).to_be_visible()
+        expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
         p.get_by_role("button",name="Críticas",exact=False).click()
         expect(p.get_by_role("tab",name="DEMANDA POR PROJETO")).to_have_attribute("aria-selected","true")
         p.get_by_role("button",name="Exportar",exact=False).click()
@@ -130,7 +133,7 @@ def main():
                 with sync_playwright() as p:
                     b=p.chromium.launch(executable_path=chrome,args=["--no-sandbox","--disable-dev-shm-usage"])
                     try:
-                        for wh in [(1440,900),(390,844)]:check(b,*wh)
+                        for wh in [(1363,936),(390,844)]:check(b,*wh)
                     finally:
                         b.close()
             except Exception:

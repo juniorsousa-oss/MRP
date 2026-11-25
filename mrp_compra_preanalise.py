@@ -14,7 +14,7 @@ import pandas as pd
 
 CAMPOS = {"produto", "qnt", "data", "psy", "cc", "op", "obs", "prioridade"}
 OP_NAO_INFORMADA = "SEM OP VINCULADA"
-PREANALISE_VERSAO = "2026-11-25-v3"
+PREANALISE_VERSAO = "2026-11-25-v4"
 
 
 def _texto(valor) -> str:
@@ -353,13 +353,13 @@ def _analise_previa(fonte, mapa_solicitacoes, alocacoes, referencia, feriados_ad
         chave = (op, _codigo_material(codigo))
         data = _data_solicitacao(mapa_solicitacoes.get(chave, ""))
         if op == OP_NAO_INFORMADA or pd.isna(data):
-            pareceres[chave] = ("", "")
+            pareceres[chave] = ("VERIFICAR", "")
             continue
         if data.date() in janela:
             pareceres[chave] = ("NOVA DEMANDA", "")
             continue
         if data.date() > max(janela):
-            pareceres[chave] = ("", "")
+            pareceres[chave] = ("VERIFICAR", "")
             continue
         observacao = ""
         redistribuicao = redistribuicoes.get(chave)
@@ -369,7 +369,7 @@ def _analise_previa(fonte, mapa_solicitacoes, alocacoes, referencia, feriados_ad
             # Evita vincular uma linha TC/TP ou uma compra de outro cálculo.
             if isclose(falta, total_compra, rel_tol=1e-5, abs_tol=1e-7):
                 partes = [
-                    f"PROJETO {projeto} CONSIDEROU O SALDO QUE ESTAVA PARA ESSE PROJETO ({qtd:g} UN.)"
+                    f"PROJETO {projeto} (SOLICITAÇÃO: {mapa_solicitacoes[(projeto, chave[1])]}) CONSIDEROU O SALDO QUE ESTAVA PARA ESSE PROJETO ({qtd:g} UN.)"
                     for projeto, qtd in atribuicoes.items()
                 ]
                 observacao = " | ".join(partes) + " — INDÍCIO PELA ALOCAÇÃO ATUAL DO MRP"
@@ -378,14 +378,19 @@ def _analise_previa(fonte, mapa_solicitacoes, alocacoes, referencia, feriados_ad
         perda = perdas.get(chave)
         if not observacao and perda and isclose(perda[0], float(linhas["Quantidade"].sum()), rel_tol=1e-5, abs_tol=1e-7):
             observacao = perda[1]
-        pareceres[chave] = ("DEMANDA", observacao)
+        pareceres[chave] = ("DEMANDA" if observacao else "VERIFICAR", observacao)
     return pareceres
 
 
 def _preencher_analise(frame, pareceres):
     chaves = [(op, _codigo_material(c)) for op, c in zip(frame["OP"], frame["Código"])]
-    # Prioridade 1 não requer análise; grupos mistos continuam emergenciais.
-    frame["Parecer do analista"] = [pareceres.get(chave, ("", ""))[0] if _texto(p).removesuffix(".0") == "2" else "" for chave,p in zip(chaves,frame["Prioridade"])]
+    # Prioridade 1 é normal; grupos mistos continuam emergenciais.
+    frame["Parecer do analista"] = [
+        "OK" if _texto(p).removesuffix(".0") == "1"
+        else pareceres.get(chave, ("VERIFICAR", ""))[0]
+        if _texto(p).removesuffix(".0") == "2" else "VERIFICAR"
+        for chave,p in zip(chaves,frame["Prioridade"])
+    ]
     frame["Observações da análise"] = [
         _excel_texto(pareceres.get(chave, ("", ""))[1]) if _texto(p).removesuffix(".0") == "2" else "" for chave,p in zip(chaves,frame["Prioridade"])
     ]
@@ -393,15 +398,17 @@ def _preencher_analise(frame, pareceres):
 
 def validar_pareceres_exportacao(planilhas, referencia=None):
     """Bloqueia exportação silenciosa de um relatório sem parecer esperado."""
-    hoje = max(_janela_analise(referencia))
     for aba in ("MATERIAIS OP", "DETALHE OP"):
         quadro = planilhas[aba]
         for _, linha in quadro.iterrows():
-            data = _data_solicitacao(linha["Última solicitação"])
-            if (_texto(linha["Prioridade"]).removesuffix(".0") == "2"
-                    and op_relatorio(linha["OP"]) != OP_NAO_INFORMADA
-                    and pd.notna(data) and data.date() <= hoje
-                    and _texto(linha["Parecer do analista"]) not in {"DEMANDA", "NOVA DEMANDA"}):
+            prioridade = _texto(linha["Prioridade"]).removesuffix(".0")
+            parecer = _texto(linha["Parecer do analista"])
+            observacao = _texto(linha["Observações da análise"])
+            validos = ({"OK"} if prioridade == "1" else
+                       {"DEMANDA", "NOVA DEMANDA", "VERIFICAR"} if prioridade == "2"
+                       else {"VERIFICAR"})
+            if (parecer not in validos or (parecer == "DEMANDA" and not observacao)
+                    or (parecer == "OK" and observacao)):
                 raise ValueError(
                     f"{aba}: parecer automático ausente para OP {linha['OP']}, "
                     f"material {linha['Código']}. Atualize a sessão antes de exportar."
@@ -552,8 +559,8 @@ def construir_relatorio_compra_por_op(
         ("PRIORIDADE", "2 = emergencial; 1 = normal, conforme cálculo original do MRP."),
         ("VALOR MÍNIMO", "Mostra valor por OP e material, inclusive zero; a carga unificada usa o menor preço positivo entre OPs ou zero quando todos forem zero."),
         ("SEM OP", "Demandas sem OP de origem são exibidas como SEM OP VINCULADA."),
-        ("PARECER", "Somente prioridade 2 exige parecer. Prioridade 1 fica em branco. Sugestão automática editável: NOVA DEMANDA se a última solicitação da OP/material for de hoje ou do dia útil anterior; DEMANDA para data anterior. NI, data futura e sem OP permanecem em branco."),
-        ("REDISTRIBUIÇÃO", "Observação estimada pelo consumo efetivo registrado na Ação do MRP e pela ordem de necessidade; não prova reserva anterior. Créditos não são duplicados; ausência de evidência fica em branco. Revisar antes de aprovar."),
+        ("PARECER", "Prioridade 1 = OK, sem observação. Prioridade 2: NOVA DEMANDA para solicitação de hoje ou do último dia útil; DEMANDA quando antiga com motivo identificado; VERIFICAR quando não há justificativa ou os dados são insuficientes. Pareceres editáveis."),
+        ("REDISTRIBUIÇÃO", "Observação estimada pelo consumo efetivo registrado na Ação do MRP e pela ordem de necessidade. Inclui a última solicitação do projeto responsável por material; não prova reserva anterior. Créditos não são duplicados. Revisar antes de aprovar."),
         ("VARIAÇÃO DE ESTOQUE", "Compara a fotografia atual com a anterior quando as quantidades de compra e as faltas por projeto se reconciliam. Não comprova consumo físico nem movimentação de estoque."),
         ("CALENDÁRIO", "Dias úteis: finais de semana e feriados do calendário SETTA/Patos de Minas. Pontos facultativos não são bloqueados automaticamente."),
         ("IMPORTANTE", "Não utilizar este arquivo na rotina de importação STSUP25 do Protheus."),

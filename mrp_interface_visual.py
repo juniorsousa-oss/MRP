@@ -29,6 +29,10 @@ WORKSPACE_CSS = """
 .mrp-workspace-head p{margin:0;color:#475569;font-size:.82rem;line-height:1.4}
 .mrp-workspace-status{font-size:.76rem;color:#475569;text-align:right;line-height:1.45}
 .mrp-workspace-status strong{display:block;color:#334155}
+.mrp-workspace-metrics{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 6px;margin-top:4px}
+.mrp-workspace-metrics span{padding:2px 7px;border-radius:6px;background:#f1f5f9}
+.mrp-workspace-alerts{flex-basis:100%;font-size:.77rem;color:#78350f;
+  background:#fffbeb;border-radius:6px;padding:5px 8px}
 .mrp-workspace-status[data-state="ok"] strong{color:#166534}
 .mrp-workspace-status[data-state="atencao"] strong{color:#92400e}
 .mrp-workspace-status[data-state="erro"] strong{color:#991b1b}
@@ -49,6 +53,7 @@ body:has(.mrp-workspace-head) .mrp-ped-kicker{display:none}
   .mrp-workspace-brand{min-width:57px;padding-right:10px}
   .mrp-workspace-brand img{width:54px;max-height:28px}
   .mrp-workspace-status{flex-basis:100%;text-align:left;border-top:1px solid #e5e8ee;padding-top:7px}
+  .mrp-workspace-metrics{justify-content:flex-start}
   .mrp-workspace-status strong{display:inline;margin-right:.45rem}
 }
 </style>
@@ -78,7 +83,7 @@ body:has(.setta-login-wrap) div[data-testid="stForm"] [data-baseweb="input"]:foc
 """
 
 
-def cabecalho_html(pagina, logo_url, status, quando):
+def cabecalho_html(pagina, logo_url, status, quando, *, semana=None, bases=None, registros="", alertas=()):
     titulo, descricao = _SECOES.get(pagina, _SECOES["MRP ATUAL"])
     classe, rotulo = _ESTADOS.get(status, ("atencao", "Status indisponível"))
     logo = str(logo_url or "")
@@ -87,12 +92,30 @@ def cabecalho_html(pagina, logo_url, status, quando):
     marca = f'<img src="{escape(logo, quote=True)}" alt="SETTA">' if seguro else "SETTA"
     data = str(quando or "").strip()
     data = "Sem horário registrado" if data in ("", "—") else data
+    metricas = []
+    if semana is not None:
+        metricas.append(f"Semana atual: {semana}")
+    if bases is not None:
+        metricas.append(f"Bases: {bases[0]}/{bases[1]}")
+    if registros:
+        metricas.append(registros.lower())
+    metricas_html = (
+        '<div class="mrp-workspace-metrics">'
+        + "".join(f"<span>{escape(m)}</span>" for m in metricas) + "</div>"
+        if metricas else ""
+    )
+    alertas_html = (
+        '<div class="mrp-workspace-alerts" role="status">'
+        + escape(" · ".join(alertas)) + "</div>"
+        if alertas else ""
+    )
     return (
         '<header class="mrp-workspace-head" aria-label="Página do MRP SETTA">'
         + f'<div class="mrp-workspace-brand">{marca}</div>'
         + f'<div class="mrp-workspace-copy"><h1>{titulo}</h1><p>{descricao}</p></div>'
         + f'<div class="mrp-workspace-status" data-state="{classe}">'
-        + f'<strong>{rotulo}</strong>{escape(data)}</div></header>'
+        + f'<strong>{rotulo}</strong>{escape(data)}{metricas_html}</div>'
+        + alertas_html + "</header>"
     )
 
 

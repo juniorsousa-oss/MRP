@@ -12,7 +12,7 @@ assert "_mrp_set_sidebar_page" in functions
 assert 'with st.sidebar:' in generated
 assert 'with st.popover("☰"' not in generated
 assert 'st.container(key="setta_custom_navigation")' not in generated
-assert 'initial_sidebar_state="collapsed"' in generated
+assert 'initial_sidebar_state="auto"' in generated
 assert 'key=f"mrp_nav_btn_{_nav_index}"' in generated
 assert 'unsafe_allow_javascript=True' in generated
 assert 'window.__settaMenuCloseOnNavV1' in generated
@@ -20,8 +20,8 @@ assert '[class*="st-key-mrp_nav_btn_"] button' in generated
 assert 'stSidebarCollapseButton' in generated
 assert 'queueMicrotask' in generated
 
-assert "RELATÓRIO MRP" in generated
-assert "SEMANA ATUAL" in generated
+assert "semana=_mrp_sidebar_week,bases=(_mrp_base_ok,_mrp_base_total)" in generated
+assert '(max-width: 900px)' in generated
 assert 'st.session_state["_mrp_sidebar_page"]=page' in ast.get_source_segment(
     generated, functions["_mrp_set_sidebar_page"]
 )
@@ -38,14 +38,11 @@ assert 'width:260px!important' not in SETTA_UI_V1_PATCH
 assert 'flex-basis:260px!important' not in SETTA_UI_V1_PATCH
 # Conta acessível no menu nativo, sem limitar a ADMIN/CONSULTA/OPERADOR.
 assert generated.count('key="mrp_logout_sidebar"') == 1
-assert '<div class="sidebar-section-label">MINHA CONTA</div>' in generated
-assert "USUÁRIO CONECTADO" in generated
+assert 'with st.container(key="mrp_sidebar_account")' in generated
+assert 'with st.popover(_mrp_account_label' in generated
 assert 'st.session_state.get("auth_nome")' in generated
 assert 'st.session_state.get("auth_role")' in generated
-assert 'st.session_state.get("auth_email")' in generated
-assert "_mrp_escape_html(_mrp_account_name)" in generated
-assert "_mrp_escape_html(_mrp_account_email)" in generated
-assert "sidebar-account-card" in SETTA_UI_V1_PATCH
+assert 'st.text(_mrp_account_email)' in generated
 assert ".st-key-mrp_logout_sidebar button" in SETTA_UI_V1_PATCH
 logout_buttons = [n for n in ast.walk(tree) if isinstance(n, ast.If)
     and isinstance(n.test, ast.Call)

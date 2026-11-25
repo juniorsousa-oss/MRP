@@ -158,16 +158,12 @@ _mrp_central_error=bool(st.session_state.get("_mrp_central_error"))
 
 if _mrp_central_error:
     _mrp_status="ERRO"
-    _mrp_status_class="status-error"
 elif _mrp_output_stale or _mrp_stale_inputs:
     _mrp_status="ATENÇÃO"
-    _mrp_status_class="status-warning"
 elif _mrp_available:
     _mrp_status="ATUALIZADO"
-    _mrp_status_class="status-ok"
 else:
     _mrp_status="ATENÇÃO"
-    _mrp_status_class="status-warning"
 
 _mrp_when=_central_mrp.format_dt(_initial_output_meta.get("processed_at"))
 _mrp_rows=_initial_output_meta.get("rows_count")
@@ -177,9 +173,7 @@ if _mrp_rows not in (None,""):
         _mrp_rows_text=f'{int(_mrp_rows):,}'.replace(",", ".")+" REGISTROS"
     except Exception:
         _mrp_rows_text=""
-_mrp_meta_parts=[x for x in (_mrp_when,_mrp_rows_text) if x and x!="—"]
-_mrp_meta_text=" · ".join(_mrp_meta_parts) if _mrp_meta_parts else "SEM ATUALIZAÇÃO REGISTRADA"
-
+_mrp_alertas=[]
 _mrp_base_total=5
 _mrp_base_ok=0
 _mrp_cad_meta=(_central_bundle.get("cadastro_meta") or {}) if _central_bundle else {}
@@ -198,9 +192,8 @@ for _mrp_base_key in (
         _mrp_base_ok+=1
 # Disponibilidade e atualidade são métricas diferentes: não descontar uma base
 # existente do total apenas porque está em atualização.
-_mrp_meta_text += f"<br>QNT DE BASES: {_mrp_base_ok}/{_mrp_base_total}"
 if _mrp_stale_keys:
-    _mrp_meta_text += f"<br>BASES DESATUALIZADAS: {len(_mrp_stale_keys)}"
+    _mrp_alertas.append(f"Bases desatualizadas: {len(_mrp_stale_keys)}")
     # Exibe apenas os nomes conhecidos das fontes, nunca URLs ou credenciais.
     _mrp_nomes_base={
         "relatorio_geral_tratado":"RELATÓRIO GERAL",
@@ -213,16 +206,16 @@ if _mrp_stale_keys:
         if x in _mrp_nomes_base
     ]
     if _mrp_fontes_pendentes:
-        _mrp_meta_text += "<br>PENDENTE: " + ", ".join(_mrp_fontes_pendentes)
+        _mrp_alertas.append("Pendente: " + ", ".join(_mrp_fontes_pendentes))
 # As 5 fontes disponíveis não significam que a publicação do MRP já foi refeita.
 if _mrp_central_error:
-    _mrp_meta_text += "<br>CENTRAL INDISPONÍVEL"
+    _mrp_alertas.append("Central indisponível")
 elif _mrp_stale_inputs:
-    _mrp_meta_text += "<br>BASES EM ATUALIZAÇÃO"
+    _mrp_alertas.append("Bases em atualização")
 elif _mrp_output_stale and _mrp_base_ok == _mrp_base_total:
-    _mrp_meta_text += "<br>MRP DESATUALIZADO · REPROCESSAR"
+    _mrp_alertas.append("MRP desatualizado · reprocessar")
 elif _mrp_output_stale:
-    _mrp_meta_text += "<br>MRP AGUARDA BASES ATUALIZADAS"
+    _mrp_alertas.append("MRP aguarda bases atualizadas")
 
 # Semana Atual é a MENOR semana de necessidade válida do Relatório Geral Tratado.
 # Não substituir pela semana ISO do calendário: a referência operacional pode divergir.
@@ -253,73 +246,32 @@ except Exception:
     _mrp_sidebar_week="—"
 
 with st.sidebar:
-    st.markdown(
-        '<div class="sidebar-brand">'
-        '<div class="sidebar-brand-title">MRP</div>'
-        '<div class="sidebar-brand-sub">Planejamento de Materiais SETTA</div>'
-        '</div>'
-        '<div class="sidebar-section-label">NAVEGAÇÃO</div>',
-        unsafe_allow_html=True,
-    )
+    st.html('<div class="sidebar-section-label">Navegação</div>')
+    _mrp_nav_labels={
+        "MRP ATUAL":"MRP atual",
+        "SOLICITAÇÕES AVULSAS":"Solicitações avulsas",
+        "CONFIGURAÇÕES":"Configurações",
+    }
     for _nav_index,_page in enumerate(_mrp_pages):
         st.button(
-            _page,
+            _mrp_nav_labels.get(_page,_page),
             key=f"mrp_nav_btn_{_nav_index}",
             type="primary" if _page==_mrp_page else "secondary",
             use_container_width=True,
             on_click=_mrp_set_sidebar_page,
             args=(_page,),
         )
-    st.markdown(
-        '<div class="sidebar-divider"></div>'
-        '<div class="sidebar-section-label">STATUS GERAL</div>'
-        '<div class="sidebar-status-card">'
-        '<div class="sidebar-status-name">RELATÓRIO MRP</div>'
-        f'<div class="sidebar-status-value {_mrp_status_class}">{_mrp_status}</div>'
-        f'<div class="sidebar-status-meta">{_mrp_meta_text}</div>'
-        '</div>'
-        '<div class="sidebar-subdivider"></div>'
-        '<div class="sidebar-week-card">'
-        '<div class="sidebar-week-label">SEMANA ATUAL</div>'
-        f'<div class="sidebar-week-value">{_mrp_sidebar_week}</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
-
-    # Conta do usuário autenticado: disponível para ADMIN, CONSULTA e OPERADOR.
-    from html import escape as _mrp_escape_html
-    _mrp_account_name=str(
-        st.session_state.get("auth_nome")
-        or st.session_state.get("auth_email")
-        or "Usuário"
-    ).strip()
+    # Conta acessível para todos os perfis. O e-mail não ocupa a navegação.
+    _mrp_account_name=str(st.session_state.get("auth_nome") or "Minha conta").strip()
     _mrp_account_role=str(st.session_state.get("auth_role") or "").strip()
     _mrp_account_email=str(st.session_state.get("auth_email") or "").strip()
-    _mrp_email_detail=(
-        '<div class="sidebar-account-email">'
-        +_mrp_escape_html(_mrp_account_email)+'</div>'
-        if _mrp_account_email and _mrp_account_email.lower()!=_mrp_account_name.lower()
-        else ""
-    )
-    st.markdown(
-        '<div class="sidebar-divider sidebar-account-divider"></div>'
-        '<div class="sidebar-section-label">MINHA CONTA</div>'
-        '<div class="sidebar-account-card">'
-        '<div class="sidebar-account-label">USUÁRIO CONECTADO</div>'
-        '<div class="sidebar-account-name">'
-        +_mrp_escape_html(_mrp_account_name)+'</div>'
-        '<div class="sidebar-account-role">'
-        +_mrp_escape_html(_mrp_account_role)+'</div>'
-        +_mrp_email_detail
-        +'</div>',
-        unsafe_allow_html=True,
-    )
-    if st.button(
-        "SAIR",
-        key="mrp_logout_sidebar",
-        use_container_width=True,
-    ):
-        _logout()
+    _mrp_account_label=" · ".join(x for x in (_mrp_account_name,_mrp_account_role.title()) if x)
+    with st.container(key="mrp_sidebar_account"):
+        with st.popover(_mrp_account_label, icon=":material/account_circle:", width="stretch"):
+            if _mrp_account_email:
+                st.text(_mrp_account_email)
+            if st.button("Sair", key="mrp_logout_sidebar", width="stretch"):
+                _logout()
 """
 _source = _source[:_sidebar_start] + _new_sidebar + "\n" + _source[_sidebar_end:]
 

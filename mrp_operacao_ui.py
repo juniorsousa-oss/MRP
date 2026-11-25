@@ -141,7 +141,7 @@ def operacao_indicadores(prefixo, quantidades, callback, selecionado):
 
 def operacao_rotulo_grade(total):
     quantidade = f"{total:,}".replace(",", ".")
-    return f"{quantidade} {'material' if total == 1 else 'materiais'} · Selecione uma linha para ver o detalhe."
+    return f"{quantidade} {'material' if total == 1 else 'materiais'} · Use a seta na coluna Detalhe para abrir o material."
 
 
 def operacao_busca(frame, termo, codigo_mask):

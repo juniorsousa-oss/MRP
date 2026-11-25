@@ -27,7 +27,6 @@ class ExportacaoSobDemandaTests(unittest.TestCase):
         )
         app = AppTest.from_string(
             """
-import io
 import pandas as pd
 import streamlit as st
 def formatar_data_br(s):
@@ -39,13 +38,6 @@ def _compra_exclusoes_ler():
 def _historico_preanalise(snapshot_atual):
     st.session_state.historico = st.session_state.get("historico", 0) + 1
     return None
-def excel_bytes(planilhas):
-    st.session_state.excels = st.session_state.get("excels", 0) + 1
-    bio = io.BytesIO()
-    with pd.ExcelWriter(bio, engine="openpyxl") as writer:
-        for nome, frame in planilhas.items():
-            frame.to_excel(writer, sheet_name=nome, index=False)
-    return bio.getvalue()
 def _compra_excel_protheus(aptos):
     raise AssertionError("Carga oficial não deve ser gerada sem aprovação")
 """
@@ -61,26 +53,23 @@ render_validacao_compra_mrp(df, "consulta", cadastro, snapshot_atual={"id":100})
         ).run()
         self.assertFalse(app.exception)
         self.assertNotIn("historico", app.session_state)
-        self.assertNotIn("excels", app.session_state)
         self.assertFalse(app.get("download_button"))
         self.assertTrue(app.button(key="consulta_compra_excel_inativo").disabled)
 
         app.button(key="consulta_compra_preparar").click().run()
         self.assertFalse(app.exception)
         self.assertEqual(app.session_state.historico, 1)
-        self.assertEqual(app.session_state.excels, 1)
         _, planilhas, xlsx, _ = app.session_state.consulta_compra_preparada
         self.assertEqual(planilhas["DETALHE OP"]["Quantidade"].sum(), 5)
         self.assertEqual(planilhas["DETALHE OP"]["Parecer do analista"].tolist(), ["OK", "VERIFICAR"])
         workbook = openpyxl.load_workbook(io.BytesIO(xlsx), read_only=True)
-        self.assertEqual(workbook.sheetnames, list(planilhas))
+        self.assertEqual(workbook.sheetnames, ["RESUMO OP", "MATERIAIS OP"])
         workbook.close()
         self.assertEqual(len(app.get("download_button")), 1)
         self.assertTrue(app.button(key="consulta_compra_excel_inativo").disabled)
 
         app.run()
         self.assertEqual(app.session_state.historico, 1)
-        self.assertEqual(app.session_state.excels, 1)
         app.multiselect(key="consulta_compra_relatorio_ops").set_value(["26007206007"]).run()
         self.assertNotIn("consulta_compra_preparada", app.session_state)
         self.assertFalse(app.get("download_button"))
@@ -89,7 +78,6 @@ render_validacao_compra_mrp(df, "consulta", cadastro, snapshot_atual={"id":100})
         app.button(key="consulta_compra_preparar").click().run()
         self.assertFalse(app.exception)
         self.assertEqual(app.session_state.historico, 2)
-        self.assertEqual(app.session_state.excels, 2)
         self.assertEqual(
             app.session_state.consulta_compra_preparada[1]["DETALHE OP"]["Quantidade"].tolist(), [3]
         )

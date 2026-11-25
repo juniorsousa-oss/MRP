@@ -477,7 +477,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             import importlib
             import mrp_compra_preanalise as _preanalise
             # Streamlit pode manter módulos importados de um rerun anterior.
-            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v4":
+            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v5":
                 importlib.invalidate_caches()
                 _preanalise=importlib.reload(_preanalise)
             op_opcoes=sorted({_preanalise.op_relatorio(x) for x in aptos["op"].tolist()})
@@ -511,7 +511,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 _pronto=None
                 try:
                     with st.spinner("Preparando relatório por OP..."):
-                        if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v4":
+                        if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v5":
                             raise RuntimeError("Versão antiga da pré-análise. Reinicie o aplicativo antes de baixar.")
                         _historico_indisponivel=False
                         try:
@@ -524,7 +524,8 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                             referencia=_hoje,macro_atual=macro_atual,historico=_historico,
                         )
                         _preanalise.validar_pareceres_exportacao(planilhas,referencia=_hoje)
-                        _pronto=(_assinatura_previa,planilhas,excel_bytes(planilhas),_historico_indisponivel)
+                        _xlsx=_preanalise.exportar_preanalise_formatada(planilhas)
+                        _pronto=(_assinatura_previa,planilhas,_xlsx,_historico_indisponivel)
                         st.session_state[_chave_preparada]=_pronto
                 except Exception as exc:
                     st.error(f"Não foi possível preparar a pré-análise por OP: {exc}")
@@ -547,7 +548,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                     f"{len(planilhas['MATERIAIS OP'])} produto(s) por OP e "
                     f"{len(planilhas['DETALHE OP'])} linha(s) de origem. "
                     "Inclui última solicitação por OP/material, resumo, "
-                    "detalhamento, parecer automático e indícios de redistribuição para revisão."
+                    "parecer automático e indícios de redistribuição para revisão. O Excel contém RESUMO OP e MATERIAIS OP; linhas de origem múltiplas ficam no comentário da quantidade."
                 )
                 sem_data = int(planilhas["DETALHE OP"]["Última solicitação"].eq("NI").sum())
                 if sem_data:

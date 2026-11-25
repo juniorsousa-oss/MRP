@@ -14,7 +14,7 @@ import pandas as pd
 
 CAMPOS = {"produto", "qnt", "data", "psy", "cc", "op", "obs", "prioridade"}
 OP_NAO_INFORMADA = "SEM OP VINCULADA"
-PREANALISE_VERSAO = "2026-11-25-v4"
+PREANALISE_VERSAO = "2026-11-25-v5"
 
 
 def _texto(valor) -> str:
@@ -574,3 +574,239 @@ def construir_relatorio_compra_por_op(
         "MATERIAIS OP": por_material,
         "DETALHE OP": detalhado,
     }
+
+
+def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
+    """Excel consultivo, com duas abas. O detalhamento continua no motor de análise."""
+    from io import BytesIO
+    from textwrap import wrap
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.comments import Comment
+    from openpyxl.formatting.rule import FormulaRule
+    from openpyxl.worksheet.datavalidation import DataValidation
+    from openpyxl.utils import get_column_letter
+
+    azul, azul2, cinza = "142B43", "234C69", "F1F5F9"
+    tinta, branco, linha = "24384C", "FFFFFF", "DCE5ED"
+    cores = {
+        "OK": ("E3F4E8", "23653A"),
+        "NOVA DEMANDA": ("E4EFFB", "22558B"),
+        "DEMANDA": ("E1F2EF", "156C63"),
+        "VERIFICAR": ("FFF1D0", "915B06"),
+    }
+    material = planilhas["MATERIAIS OP"]
+    detalhe = planilhas["DETALHE OP"]
+    base = planilhas["RESUMO OP"]
+    wb = Workbook()
+    resumo = wb.active
+    resumo.title = "RESUMO OP"
+    ws = wb.create_sheet("MATERIAIS OP")
+    wb.properties.title = "SETTA | Pré-análise de compras MRP"
+    wb.properties.subject = "Relatório consultivo — não é carga do Protheus"
+    wb.properties.creator = "SETTA | MRP"
+    gerado = pd.Timestamp.now(tz="America/Sao_Paulo").strftime("%d/%m/%Y às %H:%M")
+
+    def fill(cor):
+        return PatternFill("solid", fgColor=cor)
+
+    def texto(cell, valor):
+        if isinstance(valor, str):
+            cell.value = valor
+            cell.data_type = "s"  # Nunca interpretar texto da origem como fórmula.
+        elif pd.isna(valor):
+            cell.value = None
+        else:
+            cell.value = valor.item() if hasattr(valor, "item") else valor
+
+    def faixa(sheet, row, c1, c2, valor, fundo, cor, tamanho=11, altura=23):
+        sheet.merge_cells(start_row=row, start_column=c1, end_row=row, end_column=c2)
+        for col in range(c1,c2+1):
+            sheet.cell(row,col).fill = fill(fundo)
+        c = sheet.cell(row,c1)
+        texto(c, valor)
+        c.font = Font(name="Calibri", size=tamanho, bold=True, color=cor)
+        c.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        sheet.row_dimensions[row].height = altura
+
+    def preparar(sheet, titulo, subtitulo, n, widths, zoom=85):
+        sheet.sheet_view.showGridLines = False
+        sheet.sheet_view.zoomScale = zoom
+        sheet.sheet_properties.pageSetUpPr.fitToPage = True
+        sheet.sheet_properties.outlinePr.summaryRight = False
+        faixa(sheet,1,1,n,titulo,azul,branco,19,36)
+        faixa(sheet,2,1,n,f"SETTA  |  {gerado}  |  Versão {PREANALISE_VERSAO}",azul2,branco,10,23)
+        faixa(sheet,3,1,n,subtitulo,cinza,tinta,10,24)
+        sheet.row_dimensions[4].height = 8
+        for col,width in enumerate(widths,1):
+            sheet.column_dimensions[get_column_letter(col)].width = width
+        sheet.print_options.horizontalCentered = True
+        sheet.page_setup.orientation = "landscape"
+        sheet.page_setup.paperSize = sheet.PAPERSIZE_A3
+        sheet.page_setup.fitToWidth = 1
+        sheet.page_setup.fitToHeight = 0
+        sheet.print_title_rows = "1:5"
+        sheet.oddFooter.center.text = "SETTA | Pré-análise MRP"
+        sheet.oddFooter.right.text = "Página &P de &N"
+
+    def cabecalho(sheet, row, nomes):
+        for j,nome in enumerate(nomes,1):
+            c = sheet.cell(row,j)
+            texto(c,nome)
+            c.font = Font(name="Calibri",size=10,bold=True,color=branco)
+            c.fill = fill(azul2)
+            c.alignment = Alignment(horizontal="center",vertical="center",wrap_text=True)
+        sheet.row_dimensions[row].height = 34
+
+    def corpo(c, row, alin="left", wrap_text=False):
+        c.font = Font(name="Calibri", size=11, color=tinta)
+        c.fill = fill(branco if row % 2 == 0 else "F5F8FB")
+        c.border = Border(bottom=Side(style="hair",color=linha))
+        c.alignment = Alignment(horizontal=alin,vertical="center",wrap_text=wrap_text,
+                                indent=1 if alin == "left" else 0)
+
+    def data(c, valor):
+        d = _data_solicitacao(valor)
+        if pd.notna(d):
+            c.value = d.to_pydatetime()
+            c.number_format = "dd/mm/yyyy"
+        else:
+            texto(c, _texto(valor))
+
+    def altura_texto(val, width):
+        return sum(max(1,len(wrap(x, width=width, break_long_words=True)))
+                   for x in str(val or "").split("\n"))
+
+    # Aba operacional: mesma ordem das colunas já usada pelos analistas.
+    cols = ["OP","Código","Descrição","Quantidade","Valor mínimo encontrado",
+            "Última solicitação","Linhas de demanda","Primeira necessidade",
+            "Prioridade","PSY","Centro de custo","Parecer do analista","Observações da análise"]
+    preparar(ws, "PRÉ-ANÁLISE DE COMPRAS  /  MATERIAIS POR OP",
+             "Uso consultivo • Não é carga do Protheus • Edite o parecer e a observação; VERIFICAR exige análise manual.",
+             len(cols), [16,13,49,12,17,17,12,17,12,11,14,21,70], 85)
+    cabecalho(ws,5,cols)
+    ws.freeze_panes = "C6"
+    ws.sheet_properties.tabColor = "234C69"
+    # Quando há várias linhas de origem, preservar o detalhe no comentário da quantidade,
+    # sem repetir o material em outra aba.
+    grupos = {}
+    for d in detalhe.to_dict("records"):
+        grupos.setdefault((_texto(d["OP"]),_texto(d["Código"])), []).append(d)
+
+    for i,registro in enumerate(material.to_dict("records"),6):
+        for j,nome in enumerate(cols,1):
+            c = ws.cell(i,j)
+            v = registro[nome]
+            alin = "left" if j in (1,2,3,10,13) else ("right" if j in (4,5,7) else "center")
+            corpo(c,i,alin,wrap_text=j in (3,10,11,12,13))
+            if j in (6,8):
+                data(c,v)
+            else:
+                texto(c,v)
+            if j in (1,2,10,11):
+                c.number_format = "@"
+            elif j == 5:
+                c.number_format = '"R$" #,##0.00'
+            elif j in (4,7):
+                c.number_format = "#,##0.###"
+            if j in (12,13):
+                c.font = Font(name="Calibri",size=11,color=tinta,bold=j==12)
+        chave = (_texto(registro["OP"]),_texto(registro["Código"]))
+        origens = grupos.get(chave,[])
+        if len(origens)>1:
+            partes = ["Linhas de origem consolidadas nesta quantidade:"]
+            for d in origens:
+                partes.append(f"{d['Quantidade']:g} un. | necessidade {d['Data de necessidade']} | prioridade {d['Prioridade']} | PSY {d['PSY'] or '—'} | CC {d['Centro de custo']} | {d['Observação MRP']}")
+            nota = Comment("\n".join(partes), "SETTA | MRP")
+            nota.width, nota.height = 430, min(450,50+30*len(origens))
+            ws.cell(i,4).comment = nota
+        n = max(altura_texto(registro["Descrição"],43),
+                altura_texto(registro["Observações da análise"],63),
+                altura_texto(registro["Centro de custo"],12))
+        ws.row_dimensions[i].height = max(23, min(409, 15*n+8))
+    fim = max(6,5+len(material))
+    ws.auto_filter.ref = f"A5:M{fim}"
+    ws.print_area = f"A1:M{fim}"
+    dv = DataValidation(type="list",formula1='"OK,NOVA DEMANDA,DEMANDA,VERIFICAR"',
+                        allow_blank=False,showErrorMessage=True,showInputMessage=True)
+    dv.errorTitle = "Parecer inválido"
+    dv.error = "Selecione um dos quatro pareceres da lista."
+    dv.promptTitle = "Parecer do analista"
+    dv.prompt = "Revise a classificação automática quando necessário."
+    ws.add_data_validation(dv)
+    dv.add(f"L6:L{fim}")
+    for status,(fundo,cor) in cores.items():
+        ws.conditional_formatting.add(f"L6:L{fim}",
+            FormulaRule(formula=[f'$L6="{status}"'],fill=fill(fundo),
+                        font=Font(bold=True,color=cor)))
+    ws.conditional_formatting.add(f"I6:I{fim}",
+        FormulaRule(formula=['$I6="2"'],fill=fill("FFF1D0"),font=Font(bold=True,color="915B06")))
+
+    # Resumo gerencial: indicadores e pareceres por OP atualizam após edição no Excel.
+    preparar(resumo,"RESUMO GERENCIAL  /  PRÉ-ANÁLISE DE COMPRAS",
+             "Contagem por material/OP consolidado • Os indicadores de parecer acompanham suas alterações na aba MATERIAIS OP.",
+             9,[18,17,17,17,19,18,18,18,18],90)
+    resumo.sheet_properties.tabColor = "142B43"
+    ref = "'MATERIAIS OP'!"
+    status_ref = f"{ref}$L$6:$L${fim}"
+    op_ref = f"{ref}$A$6:$A${fim}"
+    # KPIs em pares de colunas: total e quatro pareceres.
+    for start,end,label,formula,fundo,cor in [
+        (1,1,"OPs",f"=COUNTA(A11:A{max(11,10+len(base))})",azul,branco),
+        (2,3,"MATERIAIS / OP",f"=COUNTA({ref}$B$6:$B${fim})",cinza,tinta),
+        (4,5,"OK",f'=COUNTIF({status_ref},"OK")',*cores["OK"]),
+        (6,7,"NOVA DEMANDA",f'=COUNTIF({status_ref},"NOVA DEMANDA")',*cores["NOVA DEMANDA"]),
+        (8,8,"DEMANDA",f'=COUNTIF({status_ref},"DEMANDA")',*cores["DEMANDA"]),
+        (9,9,"VERIFICAR",f'=COUNTIF({status_ref},"VERIFICAR")',*cores["VERIFICAR"]),
+    ]:
+        if start!=end:
+            resumo.merge_cells(start_row=6,start_column=start,end_row=6,end_column=end)
+            resumo.merge_cells(start_row=7,start_column=start,end_row=7,end_column=end)
+        for row in (6,7):
+            for j in range(start,end+1):
+                resumo.cell(row,j).fill = fill(fundo)
+            c = resumo.cell(row,start)
+            c.font = Font(name="Calibri", size=10 if row==6 else 22,bold=True,color=cor)
+            c.alignment = Alignment(horizontal="center",vertical="center",wrap_text=True)
+            if row==6:
+                texto(c,label)
+            else:
+                c.value = formula
+        resumo.row_dimensions[6].height = 22
+        resumo.row_dimensions[7].height = 36
+    resumo.row_dimensions[8].height = 9
+    faixa(resumo,9,1,9,"ANÁLISE POR ORDEM DE PRODUÇÃO",azul,branco,12,26)
+    nomes = ["OP","Materiais distintos","Linhas de demanda","Linhas emergenciais",
+             "Primeira necessidade","OK","NOVA DEMANDA","DEMANDA","VERIFICAR"]
+    cabecalho(resumo,10,nomes)
+    for i,d in enumerate(base.to_dict("records"),11):
+        for j,nome in enumerate(nomes,1):
+            c=resumo.cell(i,j)
+            corpo(c,i,"left" if j==1 else "center")
+            if j==5:
+                data(c,d[nome])
+            elif j<=4:
+                texto(c,d[nome])
+            else:
+                c.value = f'=COUNTIFS({op_ref},$A{i},{status_ref},{get_column_letter(j)}$10)'
+            if j==1:
+                c.number_format="@"
+            elif j!=5:
+                c.number_format="#,##0"
+        resumo.row_dimensions[i].height=24
+    sfim=max(11,10+len(base))
+    resumo.freeze_panes="B11"
+    resumo.auto_filter.ref=f"A10:I{sfim}"
+    resumo.print_title_rows="1:10"
+    resumo.print_area=f"A1:I{sfim}"
+    for j,status in enumerate(("OK","NOVA DEMANDA","DEMANDA","VERIFICAR"),6):
+        col=get_column_letter(j)
+        fundo,cor=cores[status]
+        resumo.conditional_formatting.add(f"{col}11:{col}{sfim}",
+            FormulaRule(formula=[f"{col}11>0"],fill=fill(fundo),font=Font(bold=True,color=cor)))
+    wb.active = 1  # Abrir diretamente na aba de trabalho.
+    wb.calculation.fullCalcOnLoad = True
+    wb.calculation.calcMode = "auto"
+    output=BytesIO()
+    wb.save(output)
+    return output.getvalue()

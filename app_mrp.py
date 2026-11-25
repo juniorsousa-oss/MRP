@@ -1,5 +1,5 @@
 from pathlib import Path
-# SETTA_DEPLOY_MARKER: 2026-11-25-preanalise-v4
+# SETTA_DEPLOY_MARKER: 2026-11-25-preanalise-v5
 from mrp_entrega_patch import ENTREGA_PATCH
 from mrp_layout_patch import LAYOUT_PATCH
 from mrp_compra_tctp_patch import COMPRA_TCTP_PATCH

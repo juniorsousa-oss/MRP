@@ -88,19 +88,24 @@ def check(browser, width, height):
         busca.fill("00000042")
         p.get_by_role("button",name="Buscar",exact=True).click()
         expect(p.get_by_text("1 material ·",exact=False)).to_be_visible()
-        if width>900:
-            detail=p.get_by_role("button",name="Detalhar material 00000042")
-            expect(detail).to_be_visible()
-            detail.click()
-            dlg=p.get_by_role("dialog")
-            expect(dlg.get_by_text("Cabo para teste")).to_be_visible()
-            assert abs(dlg.bounding_box()["x"]+dlg.bounding_box()["width"]-width)<3
-            dlg.get_by_role("button",name="Voltar à consulta").click()
-            expect(dlg).not_to_be_visible()
-            detail.click()
-            expect(dlg).to_be_visible()
-            p.keyboard.press("Escape")
-            expect(dlg).not_to_be_visible()
+        detail=p.get_by_role("button",name="Detalhar material 00000042")
+        expect(detail).to_be_visible()
+        if width<=900:
+            assert detail.evaluate("""button => {
+                const grid = button.closest('.op-scroll');
+                const r=button.getBoundingClientRect(), s=grid.getBoundingClientRect();
+                return grid.scrollLeft===0 && r.left>=s.left-1 && r.right<=s.right+1;
+            }"""), "Detalhe não aparece antes de rolar a grade"
+        detail.click()
+        dlg=p.get_by_role("dialog")
+        expect(dlg.get_by_text("Cabo para teste")).to_be_visible()
+        assert abs(dlg.bounding_box()["x"]+dlg.bounding_box()["width"]-width)<3
+        dlg.get_by_role("button",name="Voltar à consulta").click()
+        expect(dlg).not_to_be_visible()
+        detail.click()
+        expect(dlg).to_be_visible()
+        p.keyboard.press("Escape")
+        expect(dlg).not_to_be_visible()
         p.get_by_role("button",name="Filtros").click()
         p.get_by_role("button",name="Limpar",exact=True).click()
         expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()

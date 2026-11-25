@@ -27,7 +27,7 @@ CSS = """
 :host{display:block}
 .op-grid{font-family:inherit;color:#172437;background:#fff;border:1px solid #dce3ec;
   border-radius:0 0 9px 9px;overflow:hidden;width:100%;box-sizing:border-box;font-size:13px}
-.op-scroll{overflow:auto;max-height:66vh;min-height:48px}
+.op-scroll{container-type:inline-size;overflow:auto;max-height:66vh;min-height:48px}
 table{border-collapse:separate;border-spacing:0;width:100%;min-width:715px}
 th,td{padding:0 12px;height:35px;border-bottom:1px solid #e2e8f0;vertical-align:middle;text-align:left}
 th{position:sticky;top:0;background:#eaf0f6;color:#213e60;z-index:1;height:36px;white-space:nowrap}
@@ -52,6 +52,14 @@ footer{padding:10px 12px;justify-content:space-between;flex-wrap:wrap;color:#4d6
 footer select{font:inherit;color:#213e60;background:#fff;border:1px solid #dce3ec;padding:3px;border-radius:4px}
 .op-pages button:disabled{opacity:.45;cursor:default}
 .op-empty{text-align:center;color:#4d6075;height:85px}
+@container (max-width:700px){
+  th.op-action,td.op-action{position:sticky;right:0;z-index:2;box-shadow:-1px 0 #dce3ec}
+  th.op-action{z-index:3}
+  td.op-action{background:#fff}
+  tr:nth-child(even) td.op-action{background:#f9fbfd}
+  tr:hover td.op-action{background:#eef4fb}
+  .op-detail{min-width:40px;min-height:34px}
+}
 """
 
 JS = r"""
@@ -102,7 +110,7 @@ export default function({data,parentElement,setTriggerValue}) {
       };
       th.append(b);h.append(th);
     });
-    const details=make("th","Detalhe");details.scope="col";h.append(details);
+    const details=make("th","Detalhe","op-action");details.scope="col";h.append(details);
     header.replaceChildren(h);
     const content=document.createDocumentFragment();
     if(!view.length) {
@@ -122,7 +130,7 @@ export default function({data,parentElement,setTriggerValue}) {
         } else td.textContent=value;
         tr.append(td);
       });
-      const cell=make("td"), detail=make("button","›","op-detail");
+      const cell=make("td",undefined,"op-action"), detail=make("button","›","op-detail");
       detail.type="button";detail.setAttribute("aria-label","Detalhar material "+row[0]);
       detail.onclick=()=>setTriggerValue("detail",{index:i,version:data.version});
       cell.append(detail);tr.append(cell);content.append(tr);

@@ -45,7 +45,8 @@ _compra_replace(
     "Preservar preço unitario opcional da compra",
 )
 
-_helpers_anchor = 'def zip_bytes(files):'
+# Inserir as funções antes do decorador, não entre ele e zip_bytes.
+_helpers_anchor = '@st.cache_data(show_spinner=False, max_entries=12)\ndef zip_bytes(files):'
 _helpers = '''def _compra_codigo(valor):
     texto=str(valor or "").strip().replace(".0", "")
     return texto.zfill(8) if texto.isdigit() and len(texto)<=8 else texto
@@ -78,16 +79,14 @@ def _preparar_compra_prioridades(df, cad, rg=None):
         cotacoes["_vunit"]=pd.to_numeric(
             cotacoes["Valor mínimo encontrado"],errors="coerce"
         ).fillna(0).clip(lower=0)
-        preco_por_produto=cotacoes.groupby("_codigo",sort=False)["_vunit"].agg(
-            _compra_menor_preco
-        ).to_dict()
+        # Mínimo dos positivos; manter grupos sem preço com 0, inclusive por OP.
+        cotacoes["_vunit"]=cotacoes["_vunit"].where(cotacoes["_vunit"].gt(0))
+        preco_por_produto=cotacoes.groupby("_codigo",sort=False)["_vunit"].min().fillna(0.0).to_dict()
         if "Projeto" in cotacoes.columns:
             cotacoes["_op"]=cotacoes["Projeto"].map(
                 lambda x:str(x).strip().removesuffix(".0") if pd.notna(x) else ""
             )
-            preco_por_op=cotacoes.groupby(["_op","_codigo"],sort=False)["_vunit"].agg(
-                _compra_menor_preco
-            ).to_dict()
+            preco_por_op=cotacoes.groupby(["_op","_codigo"],sort=False)["_vunit"].min().fillna(0.0).to_dict()
     hoje=pd.Timestamp(date.today()).normalize()
     for idx,linha in out.iterrows():
         lead=max(0.0,float(pd.to_numeric(lookup.get(_compra_codigo(linha["produto"]),0),errors="coerce") or 0))

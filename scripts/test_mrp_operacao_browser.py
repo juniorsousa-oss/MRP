@@ -91,6 +91,7 @@ URL="http://127.0.0.1:8516"
 def check(browser, width, height):
     with browser.new_context(viewport={"width":width,"height":height}) as context:
         p=context.new_page()
+        p.set_default_timeout(8000)
         p.goto(URL,wait_until="domcontentloaded")
         expect(p.get_by_role("heading",name="Demanda Geral",exact=True)).to_be_visible(timeout=30000)
         expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
@@ -128,6 +129,12 @@ def check(browser, width, height):
         busca=p.get_by_placeholder("Buscar por código ou descrição")
         if width<=700:
             assert busca.bounding_box()["width"] >= 200
+        p.get_by_role("button",name="Detalhar material 00000043",exact=True).click()
+        empty_detail=p.get_by_role("dialog")
+        empty_detail.get_by_role("tab",name="Produção",exact=True).click(timeout=8000)
+        expect(empty_detail.get_by_text("Nenhuma ordem de produção vinculada.")).to_be_visible()
+        empty_detail.get_by_role("button",name="Voltar à consulta").click()
+        expect(empty_detail).not_to_be_visible()
         busca.fill("00000042")
         p.get_by_role("button",name="Buscar",exact=True).click()
         expect(p.get_by_text("1 material ·",exact=False)).to_be_visible()
@@ -162,11 +169,6 @@ def check(browser, width, height):
         p.get_by_role("button",name="Filtros").click()
         p.get_by_role("button",name="Limpar",exact=True).click()
         expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
-        p.get_by_role("button",name="Detalhar material 00000043",exact=True).click()
-        dlg.get_by_role("tab",name="Produção",exact=True).click()
-        expect(dlg.get_by_text("Nenhuma ordem de produção vinculada.")).to_be_visible()
-        dlg.get_by_role("button",name="Voltar à consulta").click()
-        expect(dlg).not_to_be_visible()
         p.get_by_role("button",name="Críticas",exact=False).click()
         expect(p.get_by_role("heading",name="Demanda por Projeto",exact=True)).to_be_visible()
         def nav(label):

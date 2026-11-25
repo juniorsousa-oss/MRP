@@ -16,20 +16,21 @@ from playwright.sync_api import expect, sync_playwright
 from mrp_engine_extract import montar_fonte_atual
 from mrp_interface_visual import WORKSPACE_CSS
 from mrp_workspace import WORKSPACE_V2_CSS, workspace_header
-from mrp_setta_ui_v1_patch import SETTA_UI_V1_PATCH
 
 ROOT = Path(__file__).resolve().parents[1]
 URL = "http://127.0.0.1:8515"
 ARTIFACTS = ROOT / "artifacts" / "sidebar-browser"
-CSS, NAV_JS = [
-    ast.literal_eval(next(
-        n.value for n in ast.parse(SETTA_UI_V1_PATCH).body
-        if isinstance(n, ast.Assign)
-        and any(isinstance(t, ast.Name) and t.id == name for t in n.targets)
-    ))
-    for name in ("_setta_css", "_setta_close_on_navigation")
-]
 SOURCE = montar_fonte_atual()
+# Reusar chamadas montadas pelo app, inclusive a escolha st.html vs st.markdown.
+BOOTSTRAP = "\n".join(
+    ast.get_source_segment(SOURCE, n) for n in ast.parse(SOURCE).body
+    if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call)
+    and isinstance(n.value.args[0] if n.value.args else None, ast.Constant)
+    and any(marker in str(n.value.args[0].value) for marker in (
+        "--setta-outer", "__settaMenuCloseOnNavV1"
+    ))
+)
+assert BOOTSTRAP.count("\nst.") == 1, "Esperado CSS e script de navegação do shell."
 SIDEBAR = next(
     ast.get_source_segment(SOURCE, n)
     for n in ast.parse(SOURCE).body if isinstance(n, ast.With)
@@ -43,10 +44,9 @@ APP = f"""
 import streamlit as st
 from mrp_workspace import workspace_sidebar
 st.set_page_config(layout="wide", initial_sidebar_state="auto")
-st.html({CSS!r})
+{BOOTSTRAP}
 st.html({WORKSPACE_CSS!r})
 st.html({WORKSPACE_V2_CSS!r})
-st.html({NAV_JS!r}, unsafe_allow_javascript=True)
 _mrp_pages=("MRP ATUAL","SOLICITAÇÕES AVULSAS","CONFIGURAÇÕES")
 if st.session_state.get("logged_out"):
     st.write("Sessão encerrada")
@@ -112,6 +112,22 @@ def assert_scroll(page, width, long):
         expect(last).to_be_in_viewport()
 
 
+def assert_header(page):
+    top = page.locator(".mrp-v2-top")
+    assert abs(top.bounding_box()["y"]) <= 1, "Faixa acima do cabeçalho"
+    assert top.evaluate("el => getComputedStyle(el).borderBottomWidth") == "0px"
+
+
+def assert_menu_button(page, control, *, opening):
+    expect(control).to_be_in_viewport(ratio=1)
+    rect = control.bounding_box()
+    assert 43 <= rect["width"] <= 45 and 43 <= rect["height"] <= 45, rect
+    if opening:
+        logo = page.locator(".mrp-v2-mark").bounding_box()
+        assert rect["x"] + rect["width"] + 6 <= logo["x"], (rect, logo)
+        assert abs(rect["y"] + rect["height"]/2 - (logo["y"] + logo["height"]/2)) <= 2
+
+
 def check(browser,width,height,name,iphone=False):
     opts={"viewport":{"width":width,"height":height}}
     if iphone:
@@ -128,18 +144,35 @@ def check(browser,width,height,name,iphone=False):
             menu=page.get_by_role("button",name="Abrir menu lateral")
             collapse=page.get_by_role("button",name="Recolher menu lateral")
             settings=page.get_by_role("button",name="Configurações",exact=True)
+            sidebar=page.get_by_test_id("stSidebar")
+            assert_header(page)
             if width<=900:
-                expect(menu).to_be_in_viewport()
-                menu.click()
+                expect(sidebar).to_have_attribute("aria-expanded", "false")
             else:
-                expect(collapse).to_be_in_viewport()
+                assert_menu_button(page, collapse, opening=False)
+                collapse.press("Enter")
+                expect(sidebar).to_have_attribute("aria-expanded", "false")
+            for index in range(3):
+                expect(sidebar).to_have_attribute("aria-expanded", "false")
+                assert_menu_button(page, menu, opening=True)
+                if index == 0:
+                    menu.press("Enter")
+                else:
+                    menu.click()
+                expect(sidebar).to_have_attribute("aria-expanded", "true")
+                assert_menu_button(page, collapse, opening=False)
+                assert_header(page)
+                if index < 2:
+                    collapse.click()
             expect(settings).to_be_in_viewport()
             assert_scroll(page,width,long=True)
             page.screenshot(path=str(ARTIFACTS/f"{name}-aberto.png"))
             settings.click()
             expect(page.get_by_role("heading",name="Configurações",exact=True)).to_be_visible()
+            assert_header(page)
             if width<=900:
-                expect(menu).to_be_in_viewport()
+                expect(sidebar).to_have_attribute("aria-expanded", "false")
+                assert_menu_button(page, menu, opening=True)
                 menu.click()
             else:
                 expect(settings).to_be_in_viewport()

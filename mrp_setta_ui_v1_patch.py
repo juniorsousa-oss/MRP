@@ -660,7 +660,7 @@ if _shell_anchor not in _source:
 
 # Só fechar ao navegar no mobile. Reutilizar os botões nativos, que
 # preservam foco, expansão manual e adaptação do layout Streamlit.
-_setta_close_on_navigation = r"""<script>
+_setta_close_on_navigation = r"""<span hidden data-mrp-shell-bootstrap></span><script>
 (() => {
   if (window.__settaMenuCloseOnNavV1) return;
   window.__settaMenuCloseOnNavV1 = true;
@@ -718,7 +718,7 @@ _setta_close_on_navigation = r"""<script>
 </script>"""
 
 _shell_bootstrap = (
-    'st.markdown(' + repr(_setta_css) + ', unsafe_allow_html=True)\n'
+    'st.html(' + repr(_setta_css) + ')\n'
     + 'st.html(' + repr(_setta_close_on_navigation)
     + ', unsafe_allow_javascript=True)\n'
 )

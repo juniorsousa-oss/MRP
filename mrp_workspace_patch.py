@@ -114,4 +114,17 @@ for _catalog in ("MRP_COLS","macro_cols"):
     _space = _old[:len(_old)-len(_old.lstrip())]
     _source = _ws_replace(_old, _space+f'_opc=list(dict.fromkeys(("Demanda","Saldo em Estoque","Falta","S.C.","P.C.","Status",*{_catalog})))\n'+_space+'_opc=[c for c in _opc if c not in ("Código","Descrição")]')
 _source = _source.replace('("Demanda","Saldo em Estoque","S.C.","P.C.","Status","Semana de Atendimento") if c in _opc]', '("Demanda","Saldo em Estoque","Falta","S.C.","P.C.","Status") if c in _opc]')
+# Aplicar o estilo só ao Excel dos relatórios, não às cargas nem aos CSVs.
+_source = _ws_replace(
+    'def excel_bytes(sheets):',
+    'def excel_bytes(sheets, *, layout_relatorio=False):')
+_source = _ws_replace(
+    '        for name,df in sheets.items(): df.to_excel(writer,sheet_name=name[:31],index=False)\n',
+    '        for name,df in sheets.items(): df.to_excel(writer,sheet_name=name[:31],index=False)\n'
+    '        if layout_relatorio:\n'
+    '            from mrp_relatorio_excel import estilizar_relatorios_mrp\n'
+    '            estilizar_relatorios_mrp(writer.book)\n')
+for _line in _source.splitlines():
+    if 'excel_bytes(s)' in _line and ('"MRP_Consulta.xlsx"' in _line or '"MRP_Relatorios_Completos.xlsx"' in _line):
+        _source = _ws_replace(_line, _line.replace('excel_bytes(s)', 'excel_bytes(s, layout_relatorio=True)'))
 """

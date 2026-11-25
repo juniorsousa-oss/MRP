@@ -227,5 +227,149 @@ class CompraPreAnalisePorOpTests(unittest.TestCase):
         )
 
 
+class ParecerAutomaticoTests(unittest.TestCase):
+    ANTIGO = "26007206007"
+    NOVO = "26036201001"
+    OUTRO = "26031401001"
+    COD = "00000158"
+
+    def compra(self, op=None, quantidade=5):
+        return {"produto": self.COD, "qnt": quantidade, "data": "18/12/2026",
+                "psy": "", "cc": "600307", "op": op or self.ANTIGO,
+                "obs": "MRP", "prioridade": "2"}
+
+    def linha(self, op, data, cm, semana, necessidade, acao):
+        return {"Projeto": op, "Produto": 158, "Última Solicitação": data,
+                "Data CM": cm, "Semana de Necessidade": semana,
+                "Necessidade": necessidade, "Ação": acao}
+
+    def analisar(self, compras, alocacoes, referencia="2026-11-25", **kwargs):
+        return construir_relatorio_compra_por_op(
+            pd.DataFrame(compras), solicitacoes=pd.DataFrame(alocacoes),
+            referencia=referencia, **kwargs
+        )
+
+    def test_hoje_e_dia_util_anterior(self):
+        for data in ["25/11/2026", "24/11/2026"]:
+            with self.subTest(data=data):
+                r = self.analisar([self.compra()], [
+                    self.linha(self.ANTIGO, data, "18/12/2026", 202650, 5,
+                               "CRIAR S.C. 5 para semana 202650")
+                ])
+                for aba in ["MATERIAIS OP", "DETALHE OP"]:
+                    self.assertEqual(r[aba].iloc[0]["Parecer do analista"], "NOVA DEMANDA")
+                    self.assertEqual(r[aba].iloc[0]["Observações da análise"], "")
+
+    def test_segunda_considera_sexta(self):
+        r = self.analisar([self.compra()], [
+            self.linha(self.ANTIGO, "27/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650")
+        ], referencia="2026-11-30")
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "NOVA DEMANDA")
+
+    def test_segunda_apos_feriado_considera_quinta(self):
+        r = self.analisar([self.compra()], [
+            self.linha(self.ANTIGO, "19/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650")
+        ], referencia="2026-11-23")
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "NOVA DEMANDA")
+
+    def test_feriado_adicional(self):
+        r = self.analisar([self.compra()], [
+            self.linha(self.ANTIGO, "24/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650")
+        ], referencia="2026-11-26", feriados_adicionais=["2026-11-25"])
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "NOVA DEMANDA")
+
+    def test_redistribuicao_projeto_recente_atendido_fora_da_compra(self):
+        aloc = [
+            self.linha(self.ANTIGO, "10/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+            self.linha(self.NOVO, "25/11/2026", "27/11/2026", 202647, 5,
+                       "Estoque 3; P.C. 2 (sem. 202647)"),
+        ]
+        r = self.analisar([self.compra()], aloc, ops=[self.ANTIGO])
+        for aba in ["MATERIAIS OP", "DETALHE OP"]:
+            linha = r[aba].iloc[0]
+            self.assertEqual(linha["Parecer do analista"], "DEMANDA")
+            self.assertIn(self.NOVO, linha["Observações da análise"])
+            self.assertIn("5 UN.", linha["Observações da análise"])
+            self.assertIn("INDÍCIO", linha["Observações da análise"])
+            self.assertEqual(linha["Quantidade"], 5)
+
+    def test_recente_sem_recurso_nao_gera_justificativa(self):
+        r = self.analisar([self.compra()], [
+            self.linha(self.NOVO, "25/11/2026", "27/11/2026", 202647, 5,
+                       "CRIAR S.C. 5 para semana 202647"),
+            self.linha(self.ANTIGO, "10/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+        ])
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Observações da análise"], "")
+
+    def test_mesma_semana_data_cm_mais_proxima(self):
+        r = self.analisar([self.compra()], [
+            self.linha(self.NOVO, "25/11/2026", "16/12/2026", 202650, 5, "Estoque 5"),
+            self.linha(self.ANTIGO, "10/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+        ])
+        self.assertIn(self.NOVO, r["MATERIAIS OP"].iloc[0]["Observações da análise"])
+
+    def test_empate_de_prioridade_nao_inventa_causalidade(self):
+        r = self.analisar([self.compra()], [
+            self.linha("26000000001", "25/11/2026", "18/12/2026", 202650, 5, "Estoque 5"),
+            self.linha(self.ANTIGO, "10/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+        ])
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Observações da análise"], "")
+
+    def test_credito_parcial_nao_duplica_e_respeita_filtro(self):
+        aloc = [
+            self.linha(self.NOVO, "25/11/2026", "27/11/2026", 202647, 3, "Estoque 3"),
+            self.linha(self.OUTRO, "10/11/2026", "04/12/2026", 202648, 2,
+                       "CRIAR S.C. 2 para semana 202648"),
+            self.linha(self.ANTIGO, "10/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+        ]
+        r = self.analisar([self.compra(), self.compra(self.OUTRO, 2)], aloc,
+                          ops=[self.ANTIGO])
+        obs = r["MATERIAIS OP"].iloc[0]["Observações da análise"]
+        self.assertIn("1 UN.", obs)
+        self.assertIn("PARCIAL", obs)
+
+    def test_admin_usa_acao_sem_contaminar_ultima_solicitacao(self):
+        aloc = pd.DataFrame([
+            self.linha(self.NOVO, "NI", "27/11/2026", 202647, 5, "Estoque 5"),
+            self.linha(self.ANTIGO, "NI", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+        ])
+        tratado = pd.DataFrame([
+            {"Projeto": self.NOVO, "Código": 158, "Data Solicitação": "25/11/2026"},
+            {"Projeto": self.ANTIGO, "Código": 158, "Data Solicitação": "10/11/2026"},
+        ])
+        r = construir_relatorio_compra_por_op(
+            pd.DataFrame([self.compra()]), solicitacoes=tratado,
+            alocacoes=aloc, referencia="2026-11-25",
+        )
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Última solicitação"], "10/11/2026")
+        self.assertIn(self.NOVO, r["MATERIAIS OP"].iloc[0]["Observações da análise"])
+
+    def test_data_ausente_e_futura_ficam_manuais(self):
+        for data in ["NI", "26/11/2026"]:
+            with self.subTest(data=data):
+                r = self.analisar([self.compra()], [
+                    self.linha(self.ANTIGO, data, "18/12/2026", 202650, 5,
+                               "CRIAR S.C. 5 para semana 202650"),
+                ])
+                self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "")
+
+    def test_fotografia_inconsistente_nao_justifica(self):
+        r = self.analisar([self.compra()], [
+            self.linha(self.NOVO, "25/11/2026", "27/11/2026", 202647, 5, "Estoque 2"),
+            self.linha(self.ANTIGO, "10/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+        ])
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -170,8 +170,9 @@ body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] button{
   }
   body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] :is([data-testid="stVerticalBlock"],[data-testid="stLayoutWrapper"]) [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]{flex:1 1 24%!important;min-width:0!important}
   body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] [data-testid="stLayoutWrapper"] > [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:has([data-testid="stForm"] input[placeholder="Buscar por código ou descrição"]){flex:1 1 100%!important}
-  body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] [data-testid="stForm"] [data-testid="stColumn"]{flex:1 1 0!important;min-width:0!important}
-  body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] [data-testid="stForm"] [data-testid="stColumn"]:first-child{flex:3.5 1 0!important}
+  body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] [data-testid="stForm"] [data-testid="stHorizontalBlock"]:has(input[placeholder="Buscar por código ou descrição"]){
+    display:grid!important;grid-template-columns:minmax(0,1fr) 76px;gap:8px!important;align-items:end!important
+  }
   body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] [data-testid="stPopoverButton"]{width:100%!important}
   body:has(.mrp-v2-header) [data-testid="stHeader"] button[data-mrp-toggle="Menu"]{min-width:34px!important;background:#263d61!important;color:#fff!important;border-color:#4b6385!important}
 

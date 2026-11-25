@@ -154,6 +154,35 @@ def operacao_busca(frame, termo, codigo_mask):
     return frame[desc.str.contains(q, case=False, na=False, regex=False) | codigo_mask(frame["Código"], q)]
 
 
+_COLUNAS_IDENTIDADE_DETALHE = frozenset({
+    "código", "codigo", "produto", "código produto", "codigo produto",
+    "código do produto", "codigo do produto", "descrição", "descricao",
+    "descrição do produto", "descricao do produto",
+})
+
+
+def operacao_tabela_detalhe(data, *, column_order=None, **_legacy_options):
+    """Mostra só as linhas e colunas úteis no detalhe, sem mudar os dados do MRP."""
+    data = data.drop(columns=[
+        col for col in data.columns
+        if str(col).strip().casefold() in _COLUNAS_IDENTIDADE_DETALHE
+    ])
+    if column_order is not None:
+        column_order = [col for col in column_order if col in data.columns]
+        data = data.loc[:, column_order]
+    if data.empty:
+        return False
+    blank = data.isna() | data.apply(
+        lambda col: col.map(lambda v: isinstance(v, str) and not v.strip())
+    )
+    visible = data.loc[~blank.all(axis=1)]
+    if visible.empty:
+        return False
+    # Usar a altura nativa, sem a altura mínima de 120 px das grades gerais.
+    st.dataframe(visible, width="stretch", height="auto", hide_index=True)
+    return True
+
+
 def operacao_detalhe(base_key, codigo, descricao, linha, render):
     @st.dialog("Detalhe do material", width="large", on_dismiss="rerun")
     def painel():

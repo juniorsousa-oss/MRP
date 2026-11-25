@@ -112,6 +112,6 @@ _source = _ws_replace(
 for _catalog in ("MRP_COLS","macro_cols"):
     _old = next(l for l in _source.splitlines() if l.lstrip().startswith(f"_opc=[c for c in {_catalog} if"))
     _space = _old[:len(_old)-len(_old.lstrip())]
-    _source = _ws_replace(_old, _space+f'_opc=list(dict.fromkeys(("Demanda","Saldo em Estoque","Falta","S.C.","P.C.","Status",*{_catalog})))\n'+_space+'_opc=[c for c in _opc if c not in ("Código","Descrição")]')
-_source = _source.replace('("Demanda","Saldo em Estoque","S.C.","P.C.","Status","Semana de Atendimento") if c in _opc]', '("Demanda","Saldo em Estoque","Falta","S.C.","P.C.","Status") if c in _opc]')
+    _source = _ws_replace(_old, _space+f'_opc=list(dict.fromkeys(("Demanda","Saldo em Estoque","Falta","Produzindo","S.C.","P.C.","Status",*{_catalog})))\n'+_space+'_opc=[c for c in _opc if c not in ("Código","Descrição")]')
+_source = _source.replace('("Demanda","Saldo em Estoque","S.C.","P.C.","Status","Semana de Atendimento") if c in _opc]', '("Demanda","Saldo em Estoque","Falta","Produzindo","S.C.","P.C.","Status") if c in _opc]')
 """

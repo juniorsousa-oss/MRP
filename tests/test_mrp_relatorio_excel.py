@@ -33,6 +33,10 @@ class RelatorioExcelTests(unittest.TestCase):
         self.assertEqual(formatted.auto_filter.ref, "A1:L3")
         self.assertEqual(formatted.print_title_rows, "$1:$1")
         self.assertEqual(len(formatted.conditional_formatting), 2)
+        for row in formatted.iter_rows():
+            for c in row:
+                for edge in ("left", "right", "top", "bottom"):
+                    self.assertIn(getattr(c.border, edge).style, {"thin", "medium"}, (c.coordinate, edge))
         self.assertIsNone(raw.freeze_panes)
 
     def test_only_report_downloads_use_new_layout(self):

@@ -48,8 +48,11 @@ def estilizar_relatorios_mrp(workbook):
     header_fill = _fill("142B43")
     result_fill = _fill("234C69")
     header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    header_border = Border(bottom=Side(style="medium", color="91ABBE"))
-    column_separator = Border(right=Side(style="thin", color="DCE5ED"))
+    header_line = Side(style="thin", color="4E6680")
+    header_border = Border(left=header_line, right=header_line, top=header_line,
+                           bottom=Side(style="medium", color="91ABBE"))
+    cell_line = Side(style="thin", color="CFDAE6")
+    cell_border = Border(left=cell_line, right=cell_line, top=cell_line, bottom=cell_line)
     for sheet in workbook.worksheets:
         if sheet.title not in _LAYOUTS:
             continue
@@ -88,8 +91,7 @@ def estilizar_relatorios_mrp(workbook):
                 number = c.data_type == "n" and c.value is not None and i in numeric_cols
                 long_text = i in wrap_cols
                 c.font, c.fill, c.alignment = _corpo(row_num % 2 == 0, number, long_text, i in accents)
-                if i in numeric_cols and i < len(widths) and i+1 not in numeric_cols:
-                    c.border = column_separator
+                c.border = cell_border
                 if long_text and isinstance(c.value, str):
                     lines = max(lines, sum(
                         max(1,len(wrap(line, width=max(8,widths[i-1]-7))))

@@ -329,7 +329,7 @@ def _compra_botao_finalizar(prefixo):
         _compra_fechar(prefixo)
         st.rerun()
 
-def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None):
+def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None, alocacoes=None):
     st.markdown("### VALIDAÇÃO DA COMPRA MRP")
     st.caption("Retire produtos que nao devem ser comprados; a decisao fica salva e podera ser revertida. Nao altera a demanda calculada no MRP.")
     try:
@@ -459,14 +459,14 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             )
             try:
                 planilhas=construir_relatorio_compra_por_op(
-                    aptos,_descs,escolhidas or None,solicitacoes,
+                    aptos,_descs,escolhidas or None,solicitacoes,alocacoes,
                 )
                 st.caption(
                     f"{len(planilhas['RESUMO OP'])} OP(s) / grupo(s), "
                     f"{len(planilhas['MATERIAIS OP'])} produto(s) por OP e "
                     f"{len(planilhas['DETALHE OP'])} linha(s) de origem. "
                     "Inclui última solicitação por OP/material, resumo, "
-                    "detalhamento e campos para parecer."
+                    "detalhamento, parecer automático e indícios de redistribuição para revisão."
                 )
                 sem_data = int(planilhas["DETALHE OP"]["Última solicitação"].eq("NI").sum())
                 if sem_data:
@@ -554,7 +554,7 @@ _compra_replace(
     if st.button("ANÁLISE DE COMPRA",key="admin_compra_abrir",use_container_width=True):
         _compra_abrir("admin")
 if st.session_state.get("admin_compra_aberta",False):
-    render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg)''',
+    render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg,demanda_projeto)''',
     "Bloqueio download direto ADMIN",
 )
 # Recalcular a compra e prioridades nas sessoes ainda abertas.

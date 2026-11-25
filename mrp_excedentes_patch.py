@@ -37,7 +37,7 @@ _source = _source.replace(
     1,
 )
 
-_admin = '    render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg)'
+_admin = '    render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg,demanda_projeto)'
 if _source.count(_admin) != 1:
     _pistas=[linha[:250] for linha in _source.splitlines() if "render_validacao_compra_mrp" in linha or "ANÁLISE DE COMPRA" in linha]
     raise RuntimeError("Excedentes: integração ADMIN não localizada: "+repr(_pistas[:12]))

@@ -5,7 +5,8 @@ Nao altera exclusoes, aprovacoes, snapshots ou quantidades de origem.
 """
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from math import isclose, isfinite
 import re
 from typing import Iterable, Mapping
 
@@ -105,11 +106,208 @@ def _mapa_ultimas_solicitacoes(
     return {chave: data.strftime("%d/%m/%Y") for chave, data in ultimas.items()}
 
 
+def _pascoa(ano: int) -> date:
+    a = ano % 19
+    b, c = divmod(ano, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19*a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2*e + 2*i - h - k) % 7
+    m = (a + 11*h + 22*l) // 451
+    mes, resto = divmod(h + l - 7*m + 114, 31)
+    return date(ano, mes, resto + 1)
+
+
+def _dia_util(dia: date, adicionais: frozenset[date]) -> bool:
+    # Mesmo calendário fixo adotado nas cobranças SETTA/Patos de Minas.
+    fixos = {(1, 1), (4, 21), (5, 1), (9, 7), (10, 12), (11, 2),
+             (11, 15), (11, 20), (12, 25), (5, 24), (6, 13), (8, 15)}
+    pascoa = _pascoa(dia.year)
+    return (dia.weekday() < 5 and (dia.month, dia.day) not in fixos
+            and dia not in adicionais
+            and dia not in {pascoa - timedelta(days=2), pascoa + timedelta(days=60)})
+
+
+def _janela_analise(referencia=None, feriados_adicionais=()) -> frozenset[date]:
+    hoje = pd.Timestamp.now(tz="America/Sao_Paulo") if referencia is None else pd.Timestamp(referencia)
+    if hoje.tzinfo is not None:
+        hoje = hoje.tz_convert("America/Sao_Paulo")
+    dia = hoje.date()
+    adicionais = frozenset(pd.Timestamp(x).date() for x in feriados_adicionais)
+    anterior = dia - timedelta(days=1)
+    while not _dia_util(anterior, adicionais):
+        anterior -= timedelta(days=1)
+    return frozenset((dia, anterior))
+
+
+def _semana_ordem(valor):
+    texto = _texto(valor).removesuffix(".0")
+    match = re.fullmatch(r"(\d{4})[-/]?(\d{2})", texto)
+    if not match:
+        return None
+    ano, semana = map(int, match.groups())
+    return (ano, semana) if 1 <= semana <= 53 else None
+
+
+def _recursos_e_falta(acao, necessidade):
+    """Extrai recursos EFETIVAMENTE consumidos, não os saldos antes da linha."""
+    numero = r"([0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)"
+    usados = falta = 0.0
+    for parte in _texto(acao).split(";"):
+        parte = parte.strip()
+        if not parte:
+            continue
+        consumo = re.fullmatch(r"(?:Estoque|P\.C\.|Fabricação|S\.C\.)\s+" + numero + r"(?:\s+\(sem\. [^)]*\))?", parte, flags=re.I)
+        pendente = re.fullmatch(r"CRIAR S\.C\.\s*" + numero + r"\s+para semana\s+\S+", parte, flags=re.I)
+        if consumo:
+            usados += float(consumo.group(1))
+        elif pendente:
+            falta += float(pendente.group(1))
+        else:
+            return None
+    # Ação utiliza quantidades formatadas com :g; admitir só arredondamento.
+    if not isfinite(usados + falta) or not isclose(usados + falta, necessidade, rel_tol=1e-5, abs_tol=1e-7):
+        return None
+    return usados, falta
+
+
+def _prioridade_anterior(a, b) -> bool:
+    # Critério real do motor: semana, Data CM, projeto. Empate de data não
+    # comprova antecipação; não atribuir uma redistribuição por ordem de ID.
+    if a["semana"] is None or b["semana"] is None:
+        return False
+    if a["semana"] != b["semana"]:
+        return a["semana"] < b["semana"]
+    return (pd.notna(a["cm"]) and pd.notna(b["cm"]) and a["cm"] < b["cm"])
+
+
+def _redistribuicoes(alocacoes, mapa_solicitacoes, janela):
+    """Reconstrução contrafactual do pool atual, sem afirmar reserva histórica.
+
+    Créditos vêm apenas do consumo efetivo de solicitações recentes anteriores
+    na ordem do MRP. Cada crédito é usado uma vez, na ordem das faltas antigas,
+    inclusive projetos fora do filtro/exportação. Dados ambíguos ficam manuais.
+    """
+    colunas = {"Projeto", "Produto", "Semana de Necessidade", "Data CM",
+               "Necessidade", "Ação"}
+    if not isinstance(alocacoes, pd.DataFrame) or not colunas.issubset(alocacoes.columns):
+        return {}
+    materiais = {}
+    for _, linha in alocacoes.iterrows():
+        codigo = _codigo_material(linha["Produto"])
+        op = op_relatorio(linha["Projeto"])
+        if not codigo:
+            continue
+        necessidade = pd.to_numeric(linha["Necessidade"], errors="coerce")
+        if pd.notna(necessidade) and necessidade == 0:
+            continue  # cancelados/suspensos/resíduos zerados pelo motor.
+        semana = _semana_ordem(linha["Semana de Necessidade"])
+        cm = _data_solicitacao(linha["Data CM"])
+        data = _data_solicitacao(mapa_solicitacoes.get((op, codigo), ""))
+        recursos = (_recursos_e_falta(linha["Ação"], float(necessidade))
+                    if pd.notna(necessidade) and isfinite(necessidade) and necessidade > 0 else None)
+        materiais.setdefault(codigo, []).append({
+            "op": op, "semana": semana, "cm": cm, "data": data,
+            "recursos": recursos,
+        })
+    resultado = {}
+    for codigo, itens in materiais.items():
+        # Sem uma fotografia íntegra não presumir recursos nem ordem.
+        if any(x["semana"] is None or x["recursos"] is None or x["op"] == OP_NAO_INFORMADA for x in itens):
+            continue
+        # A fonte tratada/snapshot é agrupada por projeto/material.
+        # Se houver duplicidade, não duplicar o crédito nem inferir causalidade.
+        if len({x["op"] for x in itens}) != len(itens):
+            continue
+        itens.sort(key=lambda x: (x["semana"], pd.isna(x["cm"]),
+                                  x["cm"] if pd.notna(x["cm"]) else pd.Timestamp.max,
+                                  x["op"]))
+        creditos = []
+        for item in itens:
+            usados, falta = item["recursos"]
+            recente = pd.notna(item["data"]) and item["data"].date() in janela
+            if recente:
+                if usados > 1e-7:
+                    creditos.append([item, usados])
+                continue
+            if falta <= 1e-7:
+                continue
+            restante = falta
+            atribuicoes = {}
+            # Uma falta de origem desconhecida também consome crédito antes
+            # de outras faltas; não recebe justificativa automática.
+            for credito in creditos:
+                doador, saldo = credito
+                if restante <= 1e-7:
+                    break
+                if saldo <= 1e-7 or doador["op"] == item["op"]:
+                    continue
+                # Em caso de empate ou data desconhecida, reservar o recurso
+                # na simulação, mas não atribuir causalidade.
+                take = min(restante, saldo)
+                credito[1] -= take
+                restante -= take
+                if (_prioridade_anterior(doador, item)
+                        and pd.notna(item["data"])
+                        and doador["data"] > item["data"]):
+                    atribuicoes[doador["op"]] = atribuicoes.get(doador["op"], 0.0) + take
+            if atribuicoes:
+                resultado[(item["op"], codigo)] = (falta, atribuicoes)
+    return resultado
+
+
+def _analise_previa(fonte, mapa_solicitacoes, alocacoes, referencia, feriados_adicionais):
+    janela = _janela_analise(referencia, feriados_adicionais)
+    redistribuicoes = _redistribuicoes(alocacoes, mapa_solicitacoes, janela)
+    pareceres = {}
+    for (op, codigo), linhas in fonte.groupby(["OP", "Código"], sort=False):
+        chave = (op, _codigo_material(codigo))
+        data = _data_solicitacao(mapa_solicitacoes.get(chave, ""))
+        if op == OP_NAO_INFORMADA or pd.isna(data):
+            pareceres[chave] = ("", "")
+            continue
+        if data.date() in janela:
+            pareceres[chave] = ("NOVA DEMANDA", "")
+            continue
+        if data.date() > max(janela):
+            pareceres[chave] = ("", "")
+            continue
+        observacao = ""
+        redistribuicao = redistribuicoes.get(chave)
+        if redistribuicao:
+            falta, atribuicoes = redistribuicao
+            total_compra = float(linhas["Quantidade"].sum())
+            # Evita vincular uma linha TC/TP ou uma compra de outro cálculo.
+            if isclose(falta, total_compra, rel_tol=1e-5, abs_tol=1e-7):
+                partes = [
+                    f"PROJETO {projeto} CONSIDEROU O SALDO QUE ESTAVA PARA ESSE PROJETO ({qtd:g} UN.)"
+                    for projeto, qtd in atribuicoes.items()
+                ]
+                observacao = " | ".join(partes) + " — INDÍCIO PELA ALOCAÇÃO ATUAL DO MRP"
+                if sum(atribuicoes.values()) < falta - 1e-7:
+                    observacao += "; REDISTRIBUIÇÃO PARCIAL"
+        pareceres[chave] = ("DEMANDA", observacao)
+    return pareceres
+
+
+def _preencher_analise(frame, pareceres):
+    chaves = [(op, _codigo_material(c)) for op, c in zip(frame["OP"], frame["Código"])]
+    frame["Parecer do analista"] = [pareceres.get(chave, ("", ""))[0] for chave in chaves]
+    frame["Observações da análise"] = [
+        _excel_texto(pareceres.get(chave, ("", ""))[1]) for chave in chaves
+    ]
+
+
 def construir_relatorio_compra_por_op(
     compra: pd.DataFrame,
     descricoes: Mapping[str, str] | None = None,
     ops: Iterable[str] | None = None,
     solicitacoes: pd.DataFrame | None = None,
+    alocacoes: pd.DataFrame | None = None,
+    referencia=None,
+    feriados_adicionais=(),
 ) -> dict[str, pd.DataFrame]:
     """Produz 4 abas com rastreabilidade, sem gerar carga de importacao.
 
@@ -144,6 +342,9 @@ def construir_relatorio_compra_por_op(
     fonte["Quantidade"] = pd.to_numeric(fonte["qnt"], errors="coerce")
     if fonte["Quantidade"].isna().any() or (fonte["Quantidade"] < 0).any():
         raise ValueError("Pre-analise: quantidade ausente, negativa ou invalida.")
+    # Analisa o universo antes de filtrar OPs. A consulta recebe o próprio snapshot.
+    pareceres = _analise_previa(fonte, mapa_solicitacoes,
+        alocacoes if alocacoes is not None else solicitacoes, referencia, feriados_adicionais)
     filtro = {op_relatorio(x) for x in ops} if ops is not None else None
     if filtro is not None:
         fonte = fonte[fonte["OP"].isin(filtro)].copy()
@@ -169,8 +370,7 @@ def construir_relatorio_compra_por_op(
         "Última solicitação", "Data de necessidade", "Prioridade", "PSY",
         "Centro de custo", "Observação MRP",
     ]].copy()
-    detalhado["Parecer do analista"] = ""
-    detalhado["Observações da análise"] = ""
+    _preencher_analise(detalhado, pareceres)
 
     def _unicos(series: pd.Series) -> str:
         valores = list(dict.fromkeys(
@@ -204,8 +404,7 @@ def construir_relatorio_compra_por_op(
     por_material["Primeira necessidade"] = por_material[
         "Primeira necessidade"
     ].dt.strftime("%d/%m/%Y").fillna("")
-    por_material["Parecer do analista"] = ""
-    por_material["Observações da análise"] = ""
+    _preencher_analise(por_material, pareceres)
 
     resumo = (
         fonte.groupby("OP", sort=True)
@@ -242,7 +441,9 @@ def construir_relatorio_compra_por_op(
         ("PRIORIDADE", "2 = emergencial; 1 = normal, conforme cálculo original do MRP."),
         ("VALOR MÍNIMO", "Mostra valor por OP e material, inclusive zero; a carga unificada usa o menor preço positivo entre OPs ou zero quando todos forem zero."),
         ("SEM OP", "Demandas sem OP de origem são exibidas como SEM OP VINCULADA."),
-        ("PARECER", "Preencher as colunas de parecer e observações para devolver a análise."),
+        ("PARECER", "Sugestão automática editável: NOVA DEMANDA se a última solicitação da OP/material for de hoje ou do dia útil anterior; DEMANDA para data anterior. NI, data futura e sem OP permanecem em branco."),
+        ("REDISTRIBUIÇÃO", "Observação estimada pelo consumo efetivo registrado na Ação do MRP e pela ordem de necessidade; não prova reserva anterior. Créditos não são duplicados; ausência de evidência fica em branco. Revisar antes de aprovar."),
+        ("CALENDÁRIO", "Dias úteis: finais de semana e feriados do calendário SETTA/Patos de Minas. Pontos facultativos não são bloqueados automaticamente."),
         ("IMPORTANTE", "Não utilizar este arquivo na rotina de importação STSUP25 do Protheus."),
         ("GERAÇÃO", datetime.now().strftime("%d/%m/%Y %H:%M")),
     ], columns=["Informação", "Orientação"])

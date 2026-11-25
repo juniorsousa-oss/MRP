@@ -368,7 +368,8 @@ class ParecerAutomaticoTests(unittest.TestCase):
             self.linha(self.ANTIGO, "10/11/2026", "18/12/2026", 202650, 5,
                        "CRIAR S.C. 5 para semana 202650"),
         ])
-        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "")
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "DEMANDA")
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Observações da análise"], "")
 
 
 if __name__ == "__main__":

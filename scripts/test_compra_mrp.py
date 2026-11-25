@@ -182,9 +182,9 @@ def possui_validacao_condicional(perfil):
 assert possui_validacao_condicional("admin")
 assert possui_validacao_condicional("consulta")
 assert source.count('ANÁLISE DE COMPRA') >= 2
-assert "FINALIZAR ANÁLISE DE COMPRA" in source
+assert "Finalizar análise de compra" in source
 assert "col_confirmar,col_excel,col_finalizar" in source
-assert 'st.download_button(\n                "BAIXAR COMPRA MRP — EXCEL"' in source
+assert 'st.download_button(\n                "Baixar carga do Protheus"' in source
 assert 'key=f"{prefixo}_compra_csv"' not in source
 
 # Regra STSUP25: A:K; prioridade em J e C preenchida como TEXTO.

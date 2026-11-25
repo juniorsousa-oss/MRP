@@ -5,6 +5,11 @@ on:
     paths:
       - 'app_mrp.py'
       - 'mrp_operacao*.py'
+      - 'mrp_abas_visual.py'
+      - 'mrp_workspace_patch.py'
+      - 'mrp_excedentes.py'
+      - 'mrp_compra_validacao_patch.py'
+      - 'mrp_filtros_tratativas_patch.py'
       - 'scripts/test_mrp_operacao_browser.py'
       - '.github/workflows/mrp-operacao-browser.yml'
   workflow_dispatch:
@@ -17,5 +22,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install 'streamlit==1.55.0' 'playwright>=1.54,<2'
+      - run: python -m pip install 'streamlit==1.55.0' 'playwright>=1.54,<2' 'openpyxl>=3.1'
       - run: python -m scripts.test_mrp_operacao_browser

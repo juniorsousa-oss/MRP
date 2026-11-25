@@ -322,7 +322,7 @@ def _compra_fechar(prefixo):
 
 def _compra_botao_finalizar(prefixo):
     if st.button(
-        "FINALIZAR ANÁLISE DE COMPRA",
+        "Finalizar análise de compra",
         key=f"{prefixo}_compra_finalizar",
         use_container_width=True,
     ):
@@ -356,7 +356,6 @@ def _historico_preanalise(snapshot_atual=None):
 def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None, alocacoes=None, macro_atual=None, snapshot_atual=None):
     import hashlib
     from mrp_interface_visual import etapa_compra_html
-    st.subheader("Análise de Compra")
     st.html(etapa_compra_html(1,"Revisar materiais"))
     st.caption("Revise os itens sugeridos. Inclusões e exclusões salvas não alteram a demanda calculada no MRP.")
     try:
@@ -393,8 +392,8 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
     n_excluidos=len(set(base["produto"])&excluidos)
     k1,k2,k3=st.columns(3)
     k1.metric("Produtos sugeridos",len(por_produto))
-    k2.metric("Produtos excluidos",n_excluidos)
-    k3.metric("Linhas para exportar",int(aptos["produto"].nunique()))
+    k2.metric("Produtos excluídos",n_excluidos)
+    k3.metric("Produtos para exportar",int(aptos["produto"].nunique()))
     if not aptos.empty:
         # Preço zero permanece VISÍVEL no relatório e na coluna I (vunit).
         _precos_aptos=pd.to_numeric(aptos["vunit"],errors="coerce").fillna(0)
@@ -412,10 +411,11 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 por_produto,hide_index=True,use_container_width=True,num_rows="fixed",
                 disabled=["produto","Descrição","Qtd","Valor mínimo encontrado","Linhas","Prioridade"],
                 column_config={
-                    "Incluir na compra":st.column_config.CheckboxColumn("INCLUIR",help="Desmarque para armazenar o material na lista de exclusoes."),
-                    "produto":st.column_config.TextColumn("PRODUTO"),
+                    "Incluir na compra":st.column_config.CheckboxColumn("Incluir",help="Desmarque para colocar o material na lista de exclusões."),
+                    "produto":st.column_config.TextColumn("Material"),
+                    "Qtd":st.column_config.NumberColumn("Quantidade"),
                     "Valor mínimo encontrado":st.column_config.NumberColumn(
-                        "VALOR MÍNIMO ENCONTRADO",format="%.2f"
+                        "Valor mínimo encontrado",format="%.2f"
                     ),
                 },
                 key=f"{prefixo}_revisao_editor",
@@ -430,7 +430,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             if mudancas:
                 st.session_state.pop(f"{prefixo}_compra_preparada",None)
                 st.warning(f"{len(mudancas)} alteracao(oes) pendente(s). Salve as decisoes antes de exportar.")
-                if st.button("SALVAR INCLUSOES / EXCLUSOES",type="primary",key=f"{prefixo}_compra_salvar",use_container_width=True):
+                if st.button("Salvar inclusões e exclusões",type="primary",key=f"{prefixo}_compra_salvar",use_container_width=True):
                     try:
                         _compra_exclusoes_salvar(mudancas)
                         st.session_state.pop(f"{prefixo}_compra_confirmada",None)
@@ -441,7 +441,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 return
         else:
             st.dataframe(por_produto,hide_index=True,use_container_width=True)
-    with st.expander(f"CADASTRO DE ITENS EXCLUIDOS / RESTAURACAO ({len(excluidos)})"):
+    with st.expander(f"Itens excluídos e restauração ({len(excluidos)})"):
         if not excluidos:
             st.caption("Nenhum material excluido cadastrado.")
         else:
@@ -455,7 +455,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 para_voltar=st.multiselect("Produtos a restaurar", sorted(excluidos),
                     placeholder="Selecione os produtos que deseja restaurar",
                     key=f"{prefixo}_compra_restaurar")
-                if st.button("RESTAURAR SELECIONADOS",disabled=not para_voltar,key=f"{prefixo}_compra_repor"):
+                if st.button("Restaurar selecionados",disabled=not para_voltar,key=f"{prefixo}_compra_repor"):
                     try:
                         _compra_exclusoes_salvar({c:False for c in para_voltar})
                         st.session_state.pop(f"{prefixo}_compra_confirmada",None)
@@ -506,7 +506,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             from zoneinfo import ZoneInfo
             _hoje=datetime.now(ZoneInfo("America/Sao_Paulo")).date()
             _preparar=st.button(
-                "PREPARAR RELATÓRIO POR OP", key=f"{prefixo}_compra_preparar",
+                "Preparar relatório por OP", key=f"{prefixo}_compra_preparar",
                 use_container_width=True,
             )
             _pronto=st.session_state.get(_chave_preparada)
@@ -600,7 +600,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
     # Exibir apenas a planilha compatibilizada com a rotina STSUP25.
     col_confirmar,col_excel,col_finalizar=st.columns([1.8,1.45,1.6],gap="small")
     with col_confirmar:
-        if st.button("CONFIRMAR ANÁLISE E LIBERAR ARQUIVOS",key=f"{prefixo}_compra_confirmar",type="primary",use_container_width=True):
+        if st.button("Confirmar análise e liberar arquivos",key=f"{prefixo}_compra_confirmar",type="primary",use_container_width=True):
             st.session_state[f"{prefixo}_compra_confirmada"]=assinatura
 
     aprovado=st.session_state.get(f"{prefixo}_compra_confirmada")==assinatura
@@ -616,12 +616,12 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
     with col_excel:
         if aprovado:
             st.download_button(
-                "BAIXAR COMPRA MRP — EXCEL",xlsx_valido,"Compra_MRP_Protheus.xlsx",
+                "Baixar carga do Protheus",xlsx_valido,"Compra_MRP_Protheus.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key=f"{prefixo}_compra_xlsx",use_container_width=True,
             )
         else:
-            st.button("BAIXAR COMPRA MRP — EXCEL",disabled=True,key=f"{prefixo}_compra_excel_inativo",use_container_width=True)
+            st.button("Baixar carga do Protheus",disabled=True,key=f"{prefixo}_compra_excel_inativo",use_container_width=True)
     with col_finalizar:
         _compra_botao_finalizar(prefixo)
     if not aprovado:

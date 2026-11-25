@@ -101,7 +101,8 @@ def assert_scroll(page, width, long):
         distance = last.evaluate("""last =>
           last.closest('[data-testid="stMain"]').getBoundingClientRect().bottom
           - last.getBoundingClientRect().bottom""")
-        assert -1 <= distance <= 30, distance
+        # Até 32 px de respiro no tema (mais arredondamento do navegador).
+        assert -1 <= distance <= 36, distance
         main.evaluate("el => el.scrollTop = 0")
     else:
         assert dimensions["scrollH"]<=dimensions["hMain"]+2, dimensions

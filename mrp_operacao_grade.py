@@ -2,6 +2,7 @@
 import hashlib
 import json
 import re
+from decimal import Decimal, InvalidOperation, ROUND_CEILING
 from numbers import Integral
 
 import streamlit as st
@@ -197,6 +198,19 @@ def _component():
     return st.components.v2.component(f"setta_materiais_grade_{assets}", html=HTML, css=CSS, js=JS)
 
 
+def _inteiro_exibido(value):
+    text = str(value).strip()
+    if "," in text:
+        text = text.replace(".", "").replace(",", ".")
+    try:
+        number = Decimal(text)
+        if number.is_finite():
+            return str(int(number.to_integral_value(rounding=ROUND_CEILING)))
+    except InvalidOperation:
+        pass
+    return str(value)
+
+
 def grade_resultado(frame, colunas, base_key):
     colunas = ["SF" if c == "DIV" else c for c in colunas]
     labels = dict(METRICAS_DEMANDA)
@@ -204,14 +218,19 @@ def grade_resultado(frame, colunas, base_key):
     colunas = fixed + [c for c in labels if c in colunas] + [
         c for c in colunas if c not in fixed and c not in labels
     ]
-    visual = frame.rename(columns={"DIV":"SF"}).reindex(columns=colunas)
+    display = frame.rename(columns={"DIV":"SF"})
+    # Só a grade recebe esta projeção. O quadro original continua intacto
+    # para detalhe, exportação, filtros e cálculos de planejamento.
+    for key in {*labels, "SF"} & set(display.columns):
+        display[key] = display[key].map(_inteiro_exibido, na_action="ignore")
+    visual = display.reindex(columns=colunas)
     rows = visual.fillna("").astype(str).values.tolist()
     for row in rows:
         if re.fullmatch(r"[0-9]+(?:\.0+)?", row[0]):
             row[0] = row[0].split(".")[0].zfill(8)
     # O evento carrega a versão da grade para não selecionar outra linha
     # se a sessão tiver recebido bases ou filtros novos nesse intervalo.
-    mobile = frame.reindex(columns=[*labels, "Status"]).fillna("").astype(str).values.tolist()
+    mobile = display.reindex(columns=[*labels, "Status"]).fillna("").astype(str).values.tolist()
     version=hashlib.blake2s(json.dumps([colunas,rows,mobile],ensure_ascii=False).encode(),digest_size=8).hexdigest()
     data={"columns":[{"key":c,"label":labels.get(c,"Atendimento" if c=="Semana de Atendimento" else c)}
                      for c in colunas], "rows":rows, "mobile":mobile, "version":version,

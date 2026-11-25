@@ -7,11 +7,11 @@ SETTA_UI_V1_PATCH = r'''
 # Esta camada é somente estrutural/visual. Não altera cálculos,
 # filtros, persistência, banco, integrações ou regras de negócio.
 
-# 1) Sidebar nativa: desktop integrado à largura da página; mobile recolhível.
+# 1) Sidebar nativa: inicia recolhida em qualquer tela.
 # O tema SETTA já substitui set_page_config pela versão com favicon
 # global. Corrigir o estado diretamente nessa configuração final.
 _page_cfg_old = '    initial_sidebar_state="expanded",'
-_page_cfg_new = '    initial_sidebar_state="auto",'
+_page_cfg_new = '    initial_sidebar_state="collapsed",'
 if _source.count(_page_cfg_old) != 1:
     raise RuntimeError("Configuração de sidebar da página MRP não localizada.")
 _source = _source.replace(_page_cfg_old, _page_cfg_new, 1)
@@ -658,8 +658,8 @@ _shell_anchor = '_mrp_role=st.session_state.get("auth_role")\n'
 if _shell_anchor not in _source:
     raise RuntimeError("Ponto de montagem da sidebar não encontrado para SETTA UI.")
 
-# Só fechar ao navegar no mobile. Reutilizar os botões nativos, que
-# preservam foco, expansão manual e adaptação do layout Streamlit.
+# Fechar em todo login; em telas menores, também ao navegar.
+# Usar os controles nativos para preservar a expansão manual.
 _setta_close_on_navigation = r"""<span hidden data-mrp-shell-bootstrap></span><script>
 (() => {
   if (window.__settaMenuCloseOnNavV1) return;
@@ -693,9 +693,16 @@ _setta_close_on_navigation = r"""<span hidden data-mrp-shell-bootstrap></span><s
       if (button.dataset.testid === "stBaseButton-primary") button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     });
-    if (initial && sidebar()?.querySelector('[class*="st-key-mrp_nav_btn_"] button')) {
-      initial = false;
-      if (mobile.matches && sidebar().getAttribute("aria-expanded") === "true") close?.click();
+    if (document.querySelector(".setta-login-wrap")) {
+      initial = true;
+    } else if (initial && sidebar()?.querySelector('[class*="st-key-mrp_nav_btn_"] button')) {
+      const expanded = sidebar().getAttribute("aria-expanded");
+      if (expanded === "true" && close) {
+        initial = false;
+        close.click();
+      } else if (expanded === "false") {
+        initial = false;
+      }
     }
   };
   let pending = false;

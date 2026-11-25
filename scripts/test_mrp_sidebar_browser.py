@@ -21,6 +21,11 @@ ROOT = Path(__file__).resolve().parents[1]
 URL = "http://127.0.0.1:8515"
 ARTIFACTS = ROOT / "artifacts" / "sidebar-browser"
 SOURCE = montar_fonte_atual()
+INITIAL_SIDEBAR = next(
+    ast.literal_eval(k.value) for call in ast.walk(ast.parse(SOURCE))
+    if isinstance(call, ast.Call) and ast.unparse(call.func) == "st.set_page_config"
+    for k in call.keywords if k.arg == "initial_sidebar_state"
+)
 # Reusar chamadas montadas pelo app, inclusive a escolha st.html vs st.markdown.
 BOOTSTRAP = "\n".join(
     ast.get_source_segment(SOURCE, n) for n in ast.parse(SOURCE).body
@@ -43,19 +48,23 @@ HEADERS = {
 APP = f"""
 import streamlit as st
 from mrp_workspace import workspace_sidebar
-st.set_page_config(layout="wide", initial_sidebar_state="auto")
+st.set_page_config(layout="wide", initial_sidebar_state={INITIAL_SIDEBAR!r})
+if not st.session_state.get("logged_in"):
+    st.html('<div class="setta-login-wrap"></div>')
+    if st.button("Entrar em teste"):
+        st.session_state.logged_in=True
+        st.session_state.pop("page", None)
+        st.rerun()
+    st.stop()
 {BOOTSTRAP}
 st.html({WORKSPACE_CSS!r})
 st.html({WORKSPACE_V2_CSS!r})
 _mrp_pages=("MRP ATUAL","SOLICITAÇÕES AVULSAS","CONFIGURAÇÕES")
-if st.session_state.get("logged_out"):
-    st.write("Sessão encerrada")
-    st.stop()
 st.session_state.update(auth_nome="Almoxarifado", auth_role="ADMIN", auth_email="conta@example.invalid")
 _mrp_page=st.session_state.get("page", _mrp_pages[0])
 def _mrp_set_sidebar_page(page): st.session_state.page=page
 def _logout():
-    st.session_state.logged_out=True
+    st.session_state.logged_in=False
     st.rerun()
 st.html({HEADERS!r}[_mrp_page])
 {SIDEBAR}
@@ -138,6 +147,8 @@ def check(browser,width,height,name,iphone=False):
         page=context.new_page()
         try:
             page.goto(URL,wait_until="domcontentloaded",timeout=30000)
+            login=page.get_by_role("button",name="Entrar em teste")
+            login.click(timeout=15000)
             expect(page.get_by_role("heading",name="Demanda Geral",exact=True)).to_be_visible(timeout=15000)
             expect(page.locator(".mrp-v2-stamps:visible, .mrp-v2-mobile-date:visible")).to_be_visible()
             expect(page.get_by_text("Bases 5/5")).to_be_visible()
@@ -146,12 +157,7 @@ def check(browser,width,height,name,iphone=False):
             settings=page.get_by_role("button",name="Configurações",exact=True)
             sidebar=page.get_by_test_id("stSidebar")
             assert_header(page)
-            if width<=900:
-                expect(sidebar).to_have_attribute("aria-expanded", "false")
-            else:
-                assert_menu_button(page, collapse, opening=False)
-                collapse.press("Enter")
-                expect(sidebar).to_have_attribute("aria-expanded", "false")
+            expect(sidebar).to_have_attribute("aria-expanded", "false")
             for index in range(3):
                 expect(sidebar).to_have_attribute("aria-expanded", "false")
                 assert_menu_button(page, menu, opening=True)
@@ -187,7 +193,13 @@ def check(browser,width,height,name,iphone=False):
             account.click()
             expect(page.get_by_text("conta@example.invalid")).to_be_visible()
             page.get_by_role("button",name="Sair",exact=True).click()
-            expect(page.get_by_text("Sessão encerrada")).to_be_visible()
+            expect(login).to_be_visible()
+            login.click()
+            expect(page.get_by_role("heading",name="Demanda Geral",exact=True)).to_be_visible()
+            expect(sidebar).to_have_attribute("aria-expanded", "false")
+            assert_menu_button(page, menu, opening=True)
+            menu.click()
+            expect(sidebar).to_have_attribute("aria-expanded", "true")
             print(f"{name}: sidebar, conta, navegação, rolagem e logout OK",flush=True)
         except Exception:
             page.screenshot(path=str(ARTIFACTS/f"{name}-ERRO.png"))

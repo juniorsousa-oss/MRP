@@ -32,7 +32,7 @@ import streamlit as st
 from mrp_interface_visual import WORKSPACE_CSS
 from mrp_workspace import WORKSPACE_V2_CSS, WorkspaceSection, workspace_sidebar, workspace_pages, workspace_header, workspace_falta
 from mrp_operacao_ui import OPERACAO_CSS, operacao_busca, operacao_indicadores, operacao_grade, operacao_detalhe, operacao_rotulo_grade
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 st.html({shell!r})
 st.html({nav_js!r},unsafe_allow_javascript=True)
 st.html(WORKSPACE_CSS)
@@ -64,8 +64,8 @@ UI_CONFIG={{"title_demanda_geral":"DEMANDA GERAL","title_demanda_projeto":"DEMAN
     "subsection_projection_title":"Projeção semanal","subsection_demand_title":"Demanda por projeto",
     "subsection_purchases_title":"Compras"}}
 macro=pd.DataFrame({{"Código":[42,43],"Descrição":["Cabo para teste","Motor para teste"],"Tipo":["MP","PI"],
-    "Saldo em Estoque":[1,4],"Demanda":[4,2],"P.C.":[5,0],"S.C.":[6,0],"Produzindo":[7,0],
-    "DIV":[-3,2],"Status":["CRIAR S.C.","OK"],"Semana de Atendimento":["NN","202648"], "Período de Atendimento":["",""]}})
+    "Saldo em Estoque":[1.01,4],"Demanda":[4.3,2],"P.C.":[5.4,0],"S.C.":[6.1,0],"Produzindo":[7.2,0],
+    "DIV":[-3.25,2],"Status":["CRIAR S.C.","OK"],"Semana de Atendimento":["NN","202648"], "Período de Atendimento":["",""]}})
 compras_mrp=macro
 cad=macro
 rg=macro
@@ -102,13 +102,13 @@ def check(browser, width, height):
                 "el => getComputedStyle(el).textAlign") == "center"
             expect(p.get_by_role("columnheader").filter(has_text="Produzindo")).to_be_visible()
             first_row=p.get_by_role("row").filter(has_text="Cabo para teste")
-            expect(first_row.get_by_role("cell",name="7",exact=True)).to_be_visible()
+            assert first_row.get_by_role("cell").all_text_contents()[2:8] == ["5", "2", "6", "7", "8", "4"]
             p.get_by_role("button",name="Produzindo",exact=True).click()
             expect(p.get_by_role("row").nth(1)).to_contain_text("Motor para teste")
         else:
             first_card=p.locator(".op-item").filter(has_text="Cabo para teste")
             assert first_card.locator(".op-item-value").all_text_contents() == [
-                "Necessidade4", "Estoque1", "P.C.5", "S.C.6", "Produzindo7", "Falta3"
+                "Necessidade5", "Estoque2", "P.C.6", "S.C.7", "Produzindo8", "Falta4"
             ]
             assert first_card.locator(".op-item-value").first.evaluate(
                 "el => getComputedStyle(el).textAlign") == "center"
@@ -151,8 +151,9 @@ def check(browser, width, height):
         p.get_by_role("button",name="Críticas",exact=False).click()
         expect(p.get_by_role("heading",name="Demanda por Projeto",exact=True)).to_be_visible()
         def nav(label):
-            if width<=900:
-                p.get_by_role("button",name="Abrir menu lateral").click()
+            menu=p.get_by_role("button",name="Abrir menu lateral")
+            if menu.is_visible():
+                menu.click()
             p.get_by_role("button",name=label,exact=True).click()
         nav("Demanda Geral")
         p.get_by_role("button",name="Exportar",exact=False).click()

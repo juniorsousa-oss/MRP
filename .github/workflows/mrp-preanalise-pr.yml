@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - 'mrp_compra_preanalise.py'
+      - 'mrp_interface_visual.py'
+      - 'mrp_cabecalho_compacto_patch.py'
+      - 'tests/test_mrp_interface_visual.py'
       - 'mrp_abas_sob_demanda_patch.py'
       - 'tests/test_mrp_abas_sob_demanda.py'
       - 'mrp_compra_validacao_patch.py'
@@ -37,3 +40,5 @@ jobs:
         run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_preco_carga_inicial.py' -v
       - name: Validar abas sob demanda e persistência dos filtros
         run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_abas_sob_demanda.py' -v
+      - name: Validar hierarquia visual e ações da compra
+        run: PYTHONPATH=. python -m unittest discover -s tests -p 'test_mrp_interface_visual.py' -v

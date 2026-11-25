@@ -55,6 +55,14 @@ render_validacao_compra_mrp(df, "consulta", cadastro, snapshot_atual={"id":100})
         self.assertNotIn("historico", app.session_state)
         self.assertFalse(app.get("download_button"))
         self.assertTrue(app.button(key="consulta_compra_excel_inativo").disabled)
+        self.assertEqual(list(app.dataframe[-1].value.columns),
+                         ["Material","Quantidade","Necessidade","OP","Prioridade","Valor mínimo"])
+        app.toggle(key="consulta_compra_campos_tecnicos").set_value(True).run()
+        self.assertEqual(list(app.dataframe[-1].value.columns)[-4:],
+                         ["PSY","Centro de custo","Observação","PRJ"])
+        self.assertNotIn("historico", app.session_state)
+        self.assertTrue(app.button(key="consulta_compra_excel_inativo").disabled)
+
 
         app.button(key="consulta_compra_preparar").click().run()
         self.assertFalse(app.exception)

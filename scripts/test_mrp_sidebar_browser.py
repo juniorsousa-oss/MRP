@@ -144,7 +144,7 @@ def check(browser,width,height,name,iphone=False):
                 menu.click()
             expect(settings).to_have_attribute("data-testid","stBaseButton-primary")
             assert_scroll(page,width,long=False)
-            expect(page.get_by_text("conta@example.invalid")).to_have_count(0)
+            expect(page.get_by_text("conta@example.invalid")).not_to_be_visible()
             account=page.get_by_role("button",name="Almoxarifado · Admin")
             expect(account).to_be_in_viewport()
             account.click()

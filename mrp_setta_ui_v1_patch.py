@@ -316,6 +316,9 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   transform:translateY(-50%)!important;
 }
 /* O conteúdo da lateral tem seu próprio scroll quando faltar espaço. */
+[data-testid="stSidebarContent"]:has(.st-key-mrp_sidebar_account){
+  display:flex!important;flex-direction:column!important;
+}
 [data-testid="stSidebarUserContent"]:has(.st-key-mrp_sidebar_account){
   display:flex!important;flex-direction:column!important;flex:1 0 auto!important;
   padding-bottom:16px!important;
@@ -602,6 +605,7 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
 /* Na área autenticada, voltar ao scroll interno nativo do painel.
    Deixar o shell e o documento crescer com ele esticava a sidebar e
    criava rolagem depois do fim do conteúdo. Não afeta a tela de login. */
+@media screen{
 html:has(.mrp-workspace-head),body:has(.mrp-workspace-head),
 body:has(.mrp-workspace-head) #root{
   height:100%!important;min-height:0!important;overflow:hidden!important;
@@ -619,6 +623,14 @@ body:has(.mrp-workspace-head) [data-testid="stMainBlockContainer"]{
 }
 body:has(.mrp-workspace-head) section[data-testid="stSidebar"]{
   height:100vh!important;height:100dvh!important;min-height:0!important;
+}
+body:has(.mrp-workspace-head) [data-testid="stHeader"]{pointer-events:none!important}
+body:has(.mrp-workspace-head) [data-testid="stSidebarCollapseButton"]{
+  visibility:visible!important;
+}
+body:has(.mrp-workspace-head) section[data-testid="stSidebar"][aria-expanded="true"]{
+  z-index:2001!important;
+}
 }
 body:has(.mrp-workspace-head) [data-testid="stHeader"] [data-testid="stExpandSidebarButton"],
 body:has(.mrp-workspace-head) [data-testid="stSidebarCollapsedControl"] button,
@@ -689,8 +701,12 @@ _setta_close_on_navigation = r"""<script>
   controls();
   document.addEventListener("click", (event) => {
     const clicked = event.target instanceof Element ? event.target : null;
-    if (!mobile.matches || !clicked?.closest('[class*="st-key-mrp_nav_btn_"] button')) return;
-    queueMicrotask(() => collapseButton()?.click());
+    if (!clicked?.closest('[class*="st-key-mrp_nav_btn_"] button')) return;
+    queueMicrotask(() => {
+      const main = document.querySelector('[data-testid="stMain"]');
+      if (main) main.scrollTop = 0;
+      if (mobile.matches) collapseButton()?.click();
+    });
   }, true);
 })();
 </script>"""

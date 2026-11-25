@@ -470,9 +470,19 @@ class ParecerAutomaticoTests(unittest.TestCase):
         r = self.analisar([compra], new, macro_atual=macro(0,18), historico=hist)
         for aba in ["MATERIAIS OP", "DETALHE OP"]:
             obs = r[aba].iloc[0]["Observações da análise"]
+            self.assertIn("POSSÍVEL ERRO DE ESTOQUE", obs)
             self.assertIn("ESTOQUE DE 2 UN.", obs)
             self.assertIn("DEMANDA DE 1 UN.", obs)
             self.assertIn("NECESSIDADE ADICIONAL DE 1 UN.", obs)
+        # Uma nova fotografia idêntica no mesmo dia não deve apagar a causa diária.
+        repetido = {**hist, "macro_anterior": macro(0,18), "alocacoes_anterior": pd.DataFrame(new)}
+        r = self.analisar([compra], new, macro_atual=macro(0,18),
+                          historico={"comparativos": [hist, repetido]})
+        self.assertIn("POSSÍVEL ERRO DE ESTOQUE", r["MATERIAIS OP"].iloc[0]["Observações da análise"])
+        # Uma baixa normal (estoque e demanda reduzidos igualmente) não é erro.
+        normal = {**hist, "macro_anterior": macro(1,19)}
+        r = self.analisar([compra], new, macro_atual=macro(0,18), historico=normal)
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "VERIFICAR")
         # Não usar uma fotografia de referência diferente da atual.
         r = self.analisar([compra], new, macro_atual=macro(0,19), historico=hist)
         self.assertEqual(r["MATERIAIS OP"].iloc[0]["Observações da análise"], "")
@@ -527,6 +537,13 @@ class LayoutPreAnaliseTests(unittest.TestCase):
         self.assertEqual(ws.auto_filter.ref, "A5:M9")
         self.assertFalse(ws.sheet_view.showGridLines)
         self.assertIn(PREANALISE_VERSAO, ws["A2"].value)
+        self.assertIsNone(ws["A3"].value)
+        self.assertTrue(ws.row_dimensions[4].hidden)
+        self.assertEqual(ws["C6"].alignment.indent, 2)
+        self.assertEqual(ws["D6"].alignment.indent, 1)
+        self.assertEqual(ws["D6"].number_format, "#,##0")
+        self.assertGreaterEqual(ws.row_dimensions[6].height, 28)
+        self.assertEqual(ws["C6"].border.left.style, "thin")
         self.assertEqual(ws["A5"].value, "OP")
         self.assertEqual(ws["L5"].value, "Parecer do analista")
         self.assertEqual(ws["M5"].value, "Observações da análise")
@@ -545,6 +562,8 @@ class LayoutPreAnaliseTests(unittest.TestCase):
         self.assertIn("3 un.", ws.cell(linha_multi,4).comment.text)
         self.assertIn("prioridade 1", ws.cell(linha_multi,4).comment.text)
         resumo = wb["RESUMO OP"]
+        self.assertIsNone(resumo["A3"].value)
+        self.assertTrue(resumo.row_dimensions[4].hidden)
         self.assertEqual(resumo.freeze_panes, "B11")
         self.assertEqual(resumo.auto_filter.ref, "A10:I13")
         self.assertEqual(resumo["I7"].value, '=COUNTIF(\'MATERIAIS OP\'!$L$6:$L$9,"VERIFICAR")')
@@ -563,6 +582,30 @@ class LayoutPreAnaliseTests(unittest.TestCase):
         w = load_workbook(BytesIO(exportar_preanalise_formatada(p)))["MATERIAIS OP"]
         self.assertEqual(w["M6"].data_type, "s")
         self.assertGreater(w.row_dimensions[6].height, 23)
+
+
+class HistoricoDiarioTests(unittest.TestCase):
+    def test_seleciona_ultimo_dia_anterior_e_imediato_sem_usar_futuro(self):
+        from mrp_compra_preanalise import ids_comparacao_diaria
+        atual = {"id": 130, "created_at": "2026-11-25T14:00:00Z"}
+        meta = [
+            {"id": 131, "created_at": "2026-11-25T15:00:00Z"},
+            atual,
+            {"id": 129, "created_at": "2026-11-25T13:00:00Z"},
+            {"id": 128, "created_at": "2026-11-25T10:58:00Z"},
+            {"id": 126, "created_at": "2026-11-24T11:30:00Z"},
+            {"id": 125, "created_at": "2026-11-24T11:00:00Z"},
+        ]
+        self.assertEqual(ids_comparacao_diaria(meta, atual), [126,129])
+
+    def test_fuso_local_e_ultimo_dia_disponivel(self):
+        from mrp_compra_preanalise import ids_comparacao_diaria
+        atual = {"id": 4, "created_at": "2026-11-23T10:00:00Z"}
+        meta = [{"id":3,"created_at":"2026-11-23T01:00:00Z"},
+                {"id":2,"created_at":"2026-11-19T15:00:00Z"}]
+        self.assertEqual(ids_comparacao_diaria(meta, atual), [3])
+        self.assertEqual(ids_comparacao_diaria(meta[1:], atual), [2])
+        self.assertEqual(ids_comparacao_diaria([], atual), [])
 
 
 if __name__ == "__main__":

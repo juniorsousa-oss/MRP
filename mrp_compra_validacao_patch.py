@@ -331,26 +331,28 @@ def _compra_botao_finalizar(prefixo):
         st.rerun()
 
 def _historico_preanalise(snapshot_atual=None):
-    # Leitura das duas fotografias já existentes, sem publicar nem recalcular.
+    # Executado somente ao preparar o relatório. Não publica nem recalcula.
+    from mrp_compra_preanalise import ids_comparacao_diaria
     atual=snapshot_atual if snapshot_atual is not None else load_latest_snapshot()
     if not atual or atual.get("id") is None:
         return None
-    atual_id=int(atual["id"])
-    meta=load_snapshot_history()
-    # Usa a fotografia imediatamente anterior à referência, não uma
-    # arbitrária nem uma mais recente que a sessão CONSULTA.
-    ids=[int(x["id"]) for x in meta if int(x["id"])<atual_id]
+    ids=ids_comparacao_diaria(load_snapshot_history(),atual)
     if not ids:
         return None
-    anterior=load_snapshot(max(ids))
-    if not anterior:
-        return None
-    return {
-        "macro_anterior":snapshot_df(anterior,"mrp_geral"),
-        "alocacoes_anterior":snapshot_df(anterior,"demanda_projeto"),
+    referencia={
         "macro_referencia":snapshot_df(atual,"mrp_geral"),
         "alocacoes_referencia":snapshot_df(atual,"demanda_projeto"),
     }
+    comparativos=[]
+    for id_anterior in ids:
+        anterior=load_snapshot(id_anterior)
+        if anterior:
+            comparativos.append({
+                **referencia,
+                "macro_anterior":snapshot_df(anterior,"mrp_geral"),
+                "alocacoes_anterior":snapshot_df(anterior,"demanda_projeto"),
+            })
+    return {"comparativos":comparativos} if comparativos else None
 
 def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None, alocacoes=None, macro_atual=None, snapshot_atual=None):
     import hashlib
@@ -477,7 +479,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             import importlib
             import mrp_compra_preanalise as _preanalise
             # Streamlit pode manter módulos importados de um rerun anterior.
-            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v5":
+            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v6":
                 importlib.invalidate_caches()
                 _preanalise=importlib.reload(_preanalise)
             op_opcoes=sorted({_preanalise.op_relatorio(x) for x in aptos["op"].tolist()})
@@ -511,11 +513,12 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 _pronto=None
                 try:
                     with st.spinner("Preparando relatório por OP..."):
-                        if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v5":
+                        if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v6":
                             raise RuntimeError("Versão antiga da pré-análise. Reinicie o aplicativo antes de baixar.")
                         _historico_indisponivel=False
                         try:
                             _historico=_historico_preanalise(snapshot_atual)
+                            _historico_indisponivel=_historico is None
                         except Exception:
                             _historico=None
                             _historico_indisponivel=True

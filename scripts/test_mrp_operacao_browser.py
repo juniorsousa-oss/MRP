@@ -31,7 +31,7 @@ import re
 import streamlit as st
 from mrp_interface_visual import WORKSPACE_CSS
 from mrp_workspace import WORKSPACE_V2_CSS, WorkspaceSection, workspace_sidebar, workspace_pages, workspace_header, workspace_falta
-from mrp_operacao_ui import OPERACAO_CSS, operacao_busca, operacao_indicadores, operacao_grade, operacao_detalhe, operacao_rotulo_grade
+from mrp_operacao_ui import OPERACAO_CSS, operacao_busca, operacao_indicadores, operacao_grade, operacao_detalhe, operacao_tabela_detalhe, operacao_rotulo_grade
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 st.html({shell!r})
 st.html({nav_js!r},unsafe_allow_javascript=True)
@@ -69,9 +69,13 @@ macro=pd.DataFrame({{"Código":[42,43],"Descrição":["Cabo para teste","Motor p
 compras_mrp=macro
 cad=macro
 rg=macro
-cp=pd.DataFrame({{"Código":[42],"Quantidade S.C.":[0],"Quantidade P.C.":[0]}})
-proj=pd.DataFrame({{"Código":[]}})
-fab_det=pd.DataFrame({{"Código Produto":[]}})
+def periodo_semana(n): return str(n)
+cp=pd.DataFrame({{"Código":[42],"Quantidade S.C.":[1],"Quantidade P.C.":[0],"Nº S.C.":["SC-42"],
+    "Nº P.C.":[""],"Semana S.C.":["2026-47"],"Semana P.C.":[""]}})
+proj=pd.DataFrame({{"Código":[42],"Descrição":["Cabo"],"Tipo":["MP"],"Semana":[202647],
+    "Saldo Inicial":[1],"Demanda":[4],"P.C.":[0],"S.C.":[1],"Produzindo":[1],"Resumo Final":[0]}})
+fab_det=pd.DataFrame({{"Código Produto":[42,42],"ORDEM DE PRODUÇÃO":["OP-42"," "],
+    "Semana Entrega":["2026-47",None],"Quantidade":[1,None]}})
 demanda_projeto=pd.DataFrame({{"Produto":[42],"Projeto":["A"],"Semana de Necessidade":[202647],"Descrição":["Cabo"]}})
 _status_dashboard=_mrp_status_atendimento_series(demanda_projeto)
 {src[limits[0]:limits[1]]}
@@ -139,6 +143,16 @@ def check(browser, width, height):
         dlg=p.get_by_role("dialog")
         expect(dlg.get_by_text("Cabo para teste")).to_be_visible()
         assert abs(dlg.bounding_box()["x"]+dlg.bounding_box()["width"]-width)<3
+        for label in ("Projeção", "Necessidades", "Compras", "Produção"):
+            dlg.get_by_role("tab",name=label,exact=True).click()
+            current=dlg.get_by_role("tabpanel").filter(visible=True)
+            grid=current.get_by_test_id("stDataFrame")
+            expect(grid).to_be_visible()
+            if label=="Produção":
+                assert grid.bounding_box()["height"] <= 95, grid.bounding_box()
+                if os.environ.get("MRP_LAYOUT_CAPTURES"):
+                    p.screenshot(path=f"/tmp/MRP-detail-production-{width}.png")
+
         dlg.get_by_role("button",name="Voltar à consulta").click()
         expect(dlg).not_to_be_visible()
         detail.click()
@@ -148,6 +162,11 @@ def check(browser, width, height):
         p.get_by_role("button",name="Filtros").click()
         p.get_by_role("button",name="Limpar",exact=True).click()
         expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
+        p.get_by_role("button",name="Detalhar material 00000043",exact=True).click()
+        dlg.get_by_role("tab",name="Produção",exact=True).click()
+        expect(dlg.get_by_text("Nenhuma ordem de produção vinculada.")).to_be_visible()
+        dlg.get_by_role("button",name="Voltar à consulta").click()
+        expect(dlg).not_to_be_visible()
         p.get_by_role("button",name="Críticas",exact=False).click()
         expect(p.get_by_role("heading",name="Demanda por Projeto",exact=True)).to_be_visible()
         def nav(label):

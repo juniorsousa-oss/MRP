@@ -10,7 +10,7 @@ def _op_replace(old, new, label):
 
 
 _op_replace("from mrp_interface_visual import WORKSPACE_CSS,cabecalho_html", """from mrp_interface_visual import WORKSPACE_CSS,cabecalho_html
-from mrp_operacao_ui import OPERACAO_CSS,operacao_indicadores,operacao_busca,operacao_grade,operacao_detalhe,operacao_rotulo_grade
+from mrp_operacao_ui import OPERACAO_CSS,operacao_indicadores,operacao_busca,operacao_grade,operacao_detalhe,operacao_tabela_detalhe,operacao_rotulo_grade
 if _mrp_page=="MRP ATUAL":
     st.html(OPERACAO_CSS)
     st.html('<nav class="mrp-operacao mrp-operacao-brandbar" aria-label="Localização"><strong>SETTA · MRP</strong><span aria-hidden="true">/</span><span>Operações</span><span aria-hidden="true">›</span><strong>MRP atual</strong></nav>')""", "css")
@@ -46,8 +46,22 @@ def _op_detalhe_tabs(source, anchors, indent):
     if pos!=sorted(pos):
         raise RuntimeError("MRP operação: ordem dos blocos do detalhe mudou.")
     result=base[:pos[0]]+'_proj_tab,_dem_tab,_cp_tab,_fab_tab=st.tabs(["Projeção","Necessidades","Compras","Produção"])\n'
-    for tab,a,b in zip(("_proj_tab","_dem_tab","_cp_tab","_fab_tab"),pos,pos[1:]+[len(base)]):
-        result+="with "+tab+":\n"+_operacao_text.indent(base[a:b].rstrip()+"\n","    ")
+    tabs = (
+        ("_proj_tab", "Nenhuma projeção semanal disponível."),
+        ("_dem_tab", "Nenhuma necessidade vinculada."),
+        ("_cp_tab", "Nenhuma solicitação ou pedido de compra vinculado."),
+        ("_fab_tab", "Nenhuma ordem de produção vinculada."),
+    )
+    for (tab, empty),a,b in zip(tabs,pos,pos[1:]+[len(base)]):
+        block=base[a:b].rstrip()
+        if block.count("_setta_dataframe(")!=1:
+            raise RuntimeError("MRP operação: tabela do detalhe não localizada: "+tab)
+        block=block.replace("_setta_dataframe(", "_mostrou_detalhe = operacao_tabela_detalhe(", 1)
+        # A consulta pode vir de uma fotografia antiga com quantidade mas sem OPs
+        # discriminadas; nesse caso preserve o aviso específico em vez de duplicá-lo.
+        block=block.replace('st.info("Este MRP foi salvo antes', '_mostrou_detalhe = True; st.info("Este MRP foi salvo antes')
+        result+="with "+tab+":\n    _mostrou_detalhe = False\n"+_operacao_text.indent(block+"\n","    ")
+        result+=f"    if not _mostrou_detalhe: st.caption({empty!r})\n"
     return _operacao_text.indent(result,indent)
 
 

@@ -90,7 +90,12 @@ body:has(.mrp-v2-header) [data-testid="stMain"] [data-testid="stMainBlockContain
 body:has(.mrp-v2-header) [data-testid="stMainBlockContainer"] [data-testid="stElementContainer"]:has([data-mrp-shell-bootstrap]){
   display:none!important
 }
-body:has(.mrp-v2-header) [data-testid="stMainMenu"]{color:#c1cee0!important}
+body:has(.mrp-v2-header) [data-testid="stMainMenu"]{display:none!important}
+body:has(.mrp-v2-header) [data-testid="stToolbar"]{pointer-events:none!important}
+/* Sem wrappers de altura limitada: só a barra fica no topo da área rolável. */
+body:has(.mrp-v2-header) [data-testid="stElementContainer"]:has(.mrp-v2-header),
+body:has(.mrp-v2-header) [data-testid="stHtml"]:has(.mrp-v2-header),
+.mrp-v2-header{display:contents!important}
 body:has(.mrp-v2-header) [data-testid="stMain"]{background:#f0f3f8!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"],body:has(.mrp-v2-header) [data-testid="stSidebarContent"]{
   background:#142134!important;color:#f0f5ff!important}
@@ -106,7 +111,33 @@ body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button p{color:inherit!important;text-transform:none!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] [data-testid="stIconMaterial"]{
   font-size:18px!important;color:inherit!important}
-body:has(.mrp-v2-header) [data-testid="stSidebar"] [data-testid="stSidebarUserContent"]{padding-top:12px!important}
+body:has(.mrp-v2-header) [data-testid="stSidebar"],
+body:has(.mrp-v2-header) [data-testid="stSidebarContent"]{
+  overflow:hidden!important
+}
+body:has(.mrp-v2-header) [data-testid="stSidebarContent"]{
+  position:static!important;height:100%!important;padding:0!important;gap:0!important
+}
+body:has(.mrp-v2-header) [data-testid="stSidebarHeader"]{
+  flex:0 0 58px!important;height:58px!important;min-height:58px!important;
+  margin:0!important;padding:0!important;position:static!important
+}
+body:has(.mrp-v2-header) [data-testid="stSidebarUserContent"]{
+  display:flex!important;flex-direction:column!important;flex:1 1 0!important;min-height:0!important;
+  gap:0!important;margin:0!important;width:100%!important;box-sizing:border-box!important;
+  padding:8px 12px max(12px,env(safe-area-inset-bottom))!important
+}
+body:has(.mrp-v2-header) [data-testid="stSidebarUserContent"] > :first-child,
+body:has(.mrp-v2-header) [data-testid="stSidebarUserContent"] > :first-child > [data-testid="stVerticalBlock"]{
+  display:flex!important;flex-direction:column!important;flex:1 1 0!important;min-height:0!important
+}
+body:has(.mrp-v2-header) [data-testid="stSidebarUserContent"] [data-testid="stLayoutWrapper"]:has(> .st-key-mrp_sidebar_nav){
+  flex:1 1 auto!important;min-height:0!important;overflow:auto!important;overscroll-behavior:contain
+}
+body:has(.mrp-v2-header) [data-testid="stSidebarUserContent"] [data-testid="stLayoutWrapper"]:has(> .st-key-mrp_sidebar_account){
+  flex:0 0 auto!important;margin-top:auto!important;padding-top:10px!important;
+  border-top:1px solid #354a65
+}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button::before{display:none!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button{padding-left:11px!important}
 /* Ambos os controles nativos têm o mesmo alvo e não avançam sobre a marca. */
@@ -122,6 +153,9 @@ body:has(.mrp-v2-header) button[data-mrp-toggle]:focus-visible{outline:2px solid
 body:has(.mrp-v2-header) [data-testid="stHeader"] button[data-mrp-toggle="Menu"]{
   position:fixed!important;top:7px!important;left:12px!important;pointer-events:auto!important
 }
+body:has(.mrp-v2-header) [data-testid="stSidebar"] button[data-mrp-toggle="Recolher"]{
+  position:absolute!important;top:7px!important;left:12px!important
+}
 body:has(.mrp-v2-header) button[data-mrp-toggle]::after{content:none}
 body:has(.mrp-v2-header) button[data-mrp-toggle="Recolher"]::before{content:"×";font-size:24px;line-height:1}
 body:has(.mrp-v2-header) button[data-mrp-toggle="Menu"]::before{font-size:20px;line-height:1}
@@ -130,13 +164,12 @@ body:has(.mrp-v2-header):has([data-testid="stSidebar"][aria-expanded="false"]) .
   body:has(.mrp-v2-header) [data-testid="stSidebar"][aria-expanded="true"]{
     width:220px!important;min-width:220px!important;max-width:220px!important
   }
-  body:has(.mrp-v2-header) [data-testid="stSidebarContent"]{padding:0 9px!important}
   body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_kpis_"] [data-testid="stColumn"]{
     flex:1 1 0!important;min-width:0!important;max-width:none!important
   }
 }
 .mrp-v2-header{color:#172435}
-.mrp-v2-top{min-height:58px;background:#142134;color:#fff;margin:0 -28px;
+.mrp-v2-top{position:sticky;top:0;z-index:4;min-height:58px;background:#142134;color:#fff;margin:0 -28px;
   padding:8px 28px;display:flex;align-items:center;gap:13px}
 .mrp-v2-mark{display:grid;place-items:center;box-sizing:border-box;width:88px;height:38px;
   background:white;color:#142134;border-radius:6px;padding:3px 7px;flex:none}
@@ -145,7 +178,7 @@ body:has(.mrp-v2-header):has([data-testid="stSidebar"][aria-expanded="false"]) .
 .mrp-v2-name{font-size:.76rem;color:#c1cee0;border-left:1px solid #415067;padding-left:13px}
 .mrp-v2-stamps{margin-left:auto;color:#c1cee0;font-size:.75rem}
 .mrp-v2-account{color:#fff;font-size:.8rem;font-weight:680;white-space:nowrap}
-.mrp-v2-intro{padding-top:17px;position:relative}
+.mrp-v2-intro{padding-top:1px;position:relative}
 .mrp-v2-crumb,.mrp-v2-meta,.mrp-v2-mobile-date{font-size:.72rem;color:#4d6077}
 .mrp-v2-intro h1{font-size:clamp(1.45rem,3vw,1.95rem)!important;
   font-weight:780!important;color:#172435!important;text-transform:none!important;
@@ -164,14 +197,24 @@ body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"]{
 }
 body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] button{
   min-height:38px!important;border-radius:6px!important;box-shadow:none!important;text-transform:none!important}
+@media(max-width:900px){
+  .mrp-v2-top{padding-left:68px}
+  body:has(.mrp-v2-header) section[data-testid="stSidebar"],
+  body:has(.mrp-v2-header) section[data-testid="stSidebar"] [data-testid="stSidebarContent"]{
+    background:transparent!important;pointer-events:none!important
+  }
+  body:has(.mrp-v2-header) section[data-testid="stSidebar"][aria-expanded="true"] [data-testid="stSidebarUserContent"]{
+    background:#142134!important;pointer-events:auto!important;box-shadow:8px 10px 24px #14213426
+  }
+}
 @media(max-width:700px){
   body:has(.mrp-v2-header) [data-testid="stMainBlockContainer"]{padding:0 12px 18px!important}
-  .mrp-v2-top{margin:0 -12px;padding:7px 12px 7px 68px;gap:8px;min-height:56px}
+  .mrp-v2-top{margin:0 -12px;padding:7px 12px 7px 68px;gap:8px;min-height:58px}
   .mrp-v2-mark{width:66px;height:30px;padding:2px 5px}
   .mrp-v2-account{font-size:.69rem;margin-left:auto;overflow:hidden;text-overflow:ellipsis}
   .mrp-v2-name,.mrp-v2-stamps{display:none}
   .mrp-v2-mobile-date{display:block;margin-top:3px}
-  .mrp-v2-intro{padding-top:9px}
+  .mrp-v2-intro{margin-top:-7px}
   body:has(.mrp-v2-header) [data-testid="stMain"] [data-testid="stMainBlockContainer"].block-container{padding:0 12px 18px!important}
 
   body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_kpis_"] [data-testid="stColumn"]{

@@ -47,7 +47,7 @@ HEADERS = {
 }
 APP = f"""
 import streamlit as st
-from mrp_workspace import workspace_sidebar
+from mrp_workspace import workspace_pages, workspace_sidebar
 st.set_page_config(layout="wide", initial_sidebar_state={INITIAL_SIDEBAR!r})
 if not st.session_state.get("logged_in"):
     st.html('<div class="setta-login-wrap"></div>')
@@ -59,7 +59,7 @@ if not st.session_state.get("logged_in"):
 {BOOTSTRAP}
 st.html({WORKSPACE_CSS!r})
 st.html({WORKSPACE_V2_CSS!r})
-_mrp_pages=("MRP ATUAL","SOLICITAÇÕES AVULSAS","CONFIGURAÇÕES")
+_mrp_pages=workspace_pages("ADMIN")
 st.session_state.update(auth_nome="Almoxarifado", auth_role="ADMIN", auth_email="conta@example.invalid")
 _mrp_page=st.session_state.get("page", _mrp_pages[0])
 def _mrp_set_sidebar_page(page): st.session_state.page=page
@@ -110,6 +110,7 @@ def assert_scroll(page, width, long):
         assert dimensions["scrollH"]>dimensions["hMain"]+100, dimensions
         main.evaluate("el => el.scrollTop = el.scrollHeight")
         expect(last).to_be_in_viewport()
+        assert_header(page)
         distance = last.evaluate("""last =>
           last.closest('[data-testid="stMain"]').getBoundingClientRect().bottom
           - last.getBoundingClientRect().bottom""")
@@ -170,6 +171,16 @@ def check(browser,width,height,name,iphone=False):
                 assert_header(page)
                 if index < 2:
                     collapse.click()
+            page.wait_for_function("""() => {
+              const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+              const close = sidebar.querySelector('button[data-mrp-toggle="Recolher"]');
+              const brand = document.querySelector(".mrp-v2-top");
+              const r = close?.getBoundingClientRect(), s = sidebar.getBoundingClientRect();
+              const b = brand.getBoundingClientRect();
+              return r && Math.abs(s.left) < 1 && Math.abs(r.left - 12) < 2 &&
+                Math.abs(r.top - 7) < 2 &&
+                (innerWidth>900 ? Math.abs(b.left-s.right) < 2 : Math.abs(b.left) < 2);
+            }""")
             expect(settings).to_be_in_viewport()
             assert_scroll(page,width,long=True)
             page.screenshot(path=str(ARTIFACTS/f"{name}-aberto.png"))
@@ -190,6 +201,26 @@ def check(browser,width,height,name,iphone=False):
             expect(page.get_by_text("conta@example.invalid")).not_to_be_visible()
             account=page.get_by_role("button",name="Almoxarifado · Admin")
             expect(account).to_be_in_viewport()
+            footer = page.locator(".st-key-mrp_sidebar_account")
+            page.wait_for_function("""() => {
+                const r = document.querySelector('.st-key-mrp_sidebar_account').getBoundingClientRect();
+                const s = document.querySelector('[data-testid="stSidebar"]').getBoundingClientRect();
+                return Math.abs(s.left)<1 && innerHeight-r.bottom>=9 && innerHeight-r.bottom<=20;
+            }""")
+            if width<=900:
+                assert page.locator(".mrp-v2-mark").evaluate("""el => {
+                    const r = el.getBoundingClientRect();
+                    return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));
+                }"""), "O menu aberto não pode bloquear a barra superior"
+            if width>900:
+                page.set_viewport_size({"width":width,"height":370})
+                expect(account).to_be_in_viewport()
+                nav=page.locator('[data-testid="stLayoutWrapper"]:has(> .st-key-mrp_sidebar_nav)')
+                assert nav.evaluate("el => el.scrollHeight > el.clientHeight")
+                settings.scroll_into_view_if_needed()
+                expect(settings).to_be_in_viewport()
+                expect(account).to_be_in_viewport()
+                page.set_viewport_size({"width":width,"height":height})
             account.click()
             expect(page.get_by_text("conta@example.invalid")).to_be_visible()
             page.get_by_role("button",name="Sair",exact=True).click()

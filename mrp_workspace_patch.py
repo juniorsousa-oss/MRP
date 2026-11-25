@@ -36,7 +36,8 @@ st.html(workspace_header(
     nome=st.session_state.get("auth_nome"),perfil=_mrp_role,
 ))
 with st.sidebar:
-    workspace_sidebar(st,_mrp_pages,_mrp_page,_mrp_set_sidebar_page)
+    with st.container(key="mrp_sidebar_nav"):
+        workspace_sidebar(st,_mrp_pages,_mrp_page,_mrp_set_sidebar_page)
 '''+_source[_b:]
 _a = _source.index('    st.caption(f"Último MRP salvo')
 _b = _source.index('    _mrp_manter_filtros_de_abas("consulta_operacao_colunas")',_a)

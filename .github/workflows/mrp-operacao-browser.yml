@@ -1,0 +1,21 @@
+name: Validar tela MRP Atual
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app_mrp.py'
+      - 'mrp_operacao*.py'
+      - 'scripts/test_mrp_operacao_browser.py'
+      - '.github/workflows/mrp-operacao-browser.yml'
+  workflow_dispatch:
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install 'streamlit==1.55.0' 'playwright>=1.54,<2'
+      - run: python -m scripts.test_mrp_operacao_browser

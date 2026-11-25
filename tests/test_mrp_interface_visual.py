@@ -43,7 +43,7 @@ class InterfaceVisualTests(unittest.TestCase):
         grupos = [n for n in ast.walk(tree) if isinstance(n,ast.With) and
                   any(isinstance(i.context_expr,ast.Call) and i.context_expr.args and
                       isinstance(i.context_expr.args[0],ast.Constant) and
-                      i.context_expr.args[0].value == "Exportar resultados do MRP" for i in n.items)]
+                      i.context_expr.args[0].value == "Exportar" for i in n.items)]
         self.assertEqual(len(grupos),2)
         for grupo in grupos:
             self.assertEqual(sum(isinstance(n,ast.Attribute) and n.attr == "download_button"

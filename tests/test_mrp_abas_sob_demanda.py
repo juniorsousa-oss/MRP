@@ -37,13 +37,16 @@ def _extrair_interface(tree, *, consulta):
             nome = contexto.items[0].context_expr.id
             contexto.body = [
                 stmt for stmt in contexto.body if isinstance(stmt, ast.With)
-                and any(isinstance(item.context_expr, ast.Call)
-                        and isinstance(item.context_expr.func, ast.Attribute)
-                        and item.context_expr.func.attr == "form" for item in stmt.items)
+                and (any(isinstance(item.context_expr, ast.Call)
+                         and isinstance(item.context_expr.func, ast.Attribute)
+                         and item.context_expr.func.attr == "form" for item in stmt.items)
+                     or any(isinstance(item.context_expr, ast.Name)
+                            and item.context_expr.id in {"_busca_area","_filtro_area","_colunas_area"}
+                            for item in stmt.items))
             ]
             contexto.body += ast.parse(f"st.text({nome!r})").body
             controles.append(node)
-        elif len(controles) >= 4:
+        elif sum(_guarda_aba(n) for n in controles) >= 4:
             break
         else:
             controles.append(node)
@@ -72,6 +75,7 @@ import streamlit as st
 UI_CONFIG = {"title_demanda_geral":"DEMANDA GERAL","title_demanda_projeto":"DEMANDA POR PROJETO"}
 mg = pd.DataFrame({"Código":[42],"Status":["OK"],"Tipo":["MP"]})
 macro = mg
+MRP_COLS = ["Código","Descrição","Tipo","Status","Demanda"]
 cad = mg
 tipos = ["MP"]
 semanas = [202644]
@@ -92,7 +96,7 @@ def formatar_semana(x): return str(x)
         app, chave = self._app(consulta=False, role="ADMIN")
         self.assertEqual([x.value for x in app.text], ["tab1"])
         app.text_input(key="admin_descricao_geral").set_value("cabo")
-        next(b for b in app.button if b.label == "INICIAR PESQUISA").click().run()
+        next(b for b in app.button if b.label == "Buscar").click().run()
         app.session_state[chave] = "COMPARATIVO MRP"
         app.run()
         self.assertEqual([x.value for x in app.text], ["tab4"])
@@ -107,7 +111,7 @@ def formatar_semana(x): return str(x)
         app.run()
         self.assertEqual(app.text_input(key="admin_descricao_geral").value,"cabo")
         self.assertTrue(any(b.label == "ANÁLISE DE COMPRA" for b in app.button))
-        next(b for b in app.button if b.label == "LIMPAR").click().run()
+        next(b for b in app.button if b.label == "Limpar").click().run()
         self.assertEqual(app.text_input(key="admin_descricao_geral").value,"")
         self.assertFalse(app.exception)
 

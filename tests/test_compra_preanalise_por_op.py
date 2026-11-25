@@ -205,7 +205,7 @@ class CompraPreAnalisePorOpTests(unittest.TestCase):
         self.assertIn("INSTRUÇÕES", r)
         self.assertIn("Parecer do analista", r["DETALHE OP"].columns)
         self.assertTrue(
-            r["DETALHE OP"]["Parecer do analista"].eq("").all()
+            r["DETALHE OP"]["Parecer do analista"].isin(["OK", "VERIFICAR"]).all()
         )
         self.assertIn(
             "NÃO É CARGA DO PROTHEUS",
@@ -295,6 +295,7 @@ class ParecerAutomaticoTests(unittest.TestCase):
             self.assertIn(self.NOVO, linha["Observações da análise"])
             self.assertIn("5 UN.", linha["Observações da análise"])
             self.assertIn("INDÍCIO", linha["Observações da análise"])
+            self.assertIn("SOLICITAÇÃO: 25/11/2026", linha["Observações da análise"])
             self.assertEqual(linha["Quantidade"], 5)
 
     def test_recente_sem_recurso_nao_gera_justificativa(self):
@@ -360,7 +361,7 @@ class ParecerAutomaticoTests(unittest.TestCase):
                     self.linha(self.ANTIGO, data, "18/12/2026", 202650, 5,
                                "CRIAR S.C. 5 para semana 202650"),
                 ])
-                self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "")
+                self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "VERIFICAR")
 
     def test_fotografia_inconsistente_nao_justifica(self):
         r = self.analisar([self.compra()], [
@@ -368,7 +369,7 @@ class ParecerAutomaticoTests(unittest.TestCase):
             self.linha(self.ANTIGO, "10/11/2026", "18/12/2026", 202650, 5,
                        "CRIAR S.C. 5 para semana 202650"),
         ])
-        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "DEMANDA")
+        self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "VERIFICAR")
         self.assertEqual(r["MATERIAIS OP"].iloc[0]["Observações da análise"], "")
 
     def test_exportacao_bloqueia_parecer_ausente_com_data_valida(self):
@@ -391,7 +392,7 @@ class ParecerAutomaticoTests(unittest.TestCase):
         validar_pareceres_exportacao(r, referencia="2026-11-25")
 
 
-    def test_prioridade_1_nao_exige_parecer_nem_observacao(self):
+    def test_prioridade_1_recebe_ok_sem_observacao(self):
         from mrp_compra_preanalise import validar_pareceres_exportacao
         compra = self.compra()
         compra["prioridade"] = "1"
@@ -400,7 +401,7 @@ class ParecerAutomaticoTests(unittest.TestCase):
                        "CRIAR S.C. 5 para semana 202650")
         ])
         for aba in ["MATERIAIS OP", "DETALHE OP"]:
-            self.assertEqual(r[aba].iloc[0]["Parecer do analista"], "")
+            self.assertEqual(r[aba].iloc[0]["Parecer do analista"], "OK")
             self.assertEqual(r[aba].iloc[0]["Observações da análise"], "")
         validar_pareceres_exportacao(r, referencia="2026-11-25")
 
@@ -412,7 +413,7 @@ class ParecerAutomaticoTests(unittest.TestCase):
                        "CRIAR S.C. 5 para semana 202650")
         ])
         d = r["DETALHE OP"].set_index("Prioridade")
-        self.assertEqual(d.loc["1", "Parecer do analista"], "")
+        self.assertEqual(d.loc["1", "Parecer do analista"], "OK")
         self.assertEqual(d.loc["2", "Parecer do analista"], "NOVA DEMANDA")
         self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "NOVA DEMANDA")
 
@@ -435,7 +436,8 @@ class ParecerAutomaticoTests(unittest.TestCase):
         r = self.analisar([a,b], aloc)["MATERIAIS OP"].set_index("OP")
         self.assertIn(recente, r.loc[vitima,"Observações da análise"])
         self.assertIn("8 UN.", r.loc[vitima,"Observações da análise"])
-        self.assertEqual(r.loc[normal,"Parecer do analista"], "")
+        self.assertIn("SOLICITAÇÃO: 24/11/2026", r.loc[vitima,"Observações da análise"])
+        self.assertEqual(r.loc[normal,"Parecer do analista"], "OK")
         self.assertEqual(r.loc[normal,"Observações da análise"], "")
 
     def test_caso_6050235_perda_liquida_estoque_com_historico(self):
@@ -474,6 +476,34 @@ class ParecerAutomaticoTests(unittest.TestCase):
         # Não usar uma fotografia de referência diferente da atual.
         r = self.analisar([compra], new, macro_atual=macro(0,19), historico=hist)
         self.assertEqual(r["MATERIAIS OP"].iloc[0]["Observações da análise"], "")
+
+
+    def test_demanda_antiga_sem_motivo_retorna_verificar(self):
+        from mrp_compra_preanalise import validar_pareceres_exportacao
+        r = self.analisar([self.compra()], [
+            self.linha(self.ANTIGO, "10/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+        ])
+        for aba in ["MATERIAIS OP", "DETALHE OP"]:
+            self.assertEqual(r[aba].iloc[0]["Parecer do analista"], "VERIFICAR")
+            self.assertEqual(r[aba].iloc[0]["Observações da análise"], "")
+        validar_pareceres_exportacao(r, referencia="2026-11-25")
+        r["MATERIAIS OP"].loc[:, "Parecer do analista"] = "DEMANDA"
+        with self.assertRaisesRegex(ValueError, "parecer automático ausente"):
+            validar_pareceres_exportacao(r, referencia="2026-11-25")
+
+    def test_observacao_multiplos_projetos_com_datas_individuais(self):
+        r = self.analisar([self.compra()], [
+            self.linha(self.NOVO, "24/11/2026", "27/11/2026", 202647, 2, "Estoque 2"),
+            self.linha(self.OUTRO, "25/11/2026", "04/12/2026", 202648, 3, "P.C. 3 (sem. 202648)"),
+            self.linha(self.ANTIGO, "10/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+        ])
+        for aba in ["MATERIAIS OP", "DETALHE OP"]:
+            linha = r[aba].iloc[0]
+            self.assertEqual(linha["Parecer do analista"], "DEMANDA")
+            self.assertIn(f"PROJETO {self.NOVO} (SOLICITAÇÃO: 24/11/2026)", linha["Observações da análise"])
+            self.assertIn(f"PROJETO {self.OUTRO} (SOLICITAÇÃO: 25/11/2026)", linha["Observações da análise"])
 
 
 if __name__ == "__main__":

@@ -192,7 +192,9 @@ export default function({data,parentElement,setTriggerValue}) {
 
 @st.cache_resource(show_spinner=False)
 def _component():
-    return st.components.v2.component("setta_materiais_grade", html=HTML, css=CSS, js=JS)
+    # Não reutilizar os ativos do componente anterior após atualização no Streamlit Cloud.
+    assets = hashlib.blake2s((HTML + CSS + JS).encode(), digest_size=8).hexdigest()
+    return st.components.v2.component(f"setta_materiais_grade_{assets}", html=HTML, css=CSS, js=JS)
 
 
 def grade_resultado(frame, colunas, base_key):

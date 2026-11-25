@@ -78,7 +78,7 @@ def check(browser, width, height):
         p=context.new_page()
         p.goto(URL,wait_until="domcontentloaded")
         expect(p.get_by_role("heading",name="MRP atual")).to_be_visible(timeout=30000)
-        expect(p.get_by_text("2 materiais",exact=False)).to_be_visible()
+        expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
         assert p.evaluate("document.documentElement.scrollWidth") <= width+2
         expect(p.get_by_role("table",name="")).to_be_visible()
         controls=p.locator('[class*="st-key-mrp_operacao_bar_"] button')
@@ -103,7 +103,7 @@ def check(browser, width, height):
             expect(dlg).not_to_be_visible()
         p.get_by_role("button",name="Filtros").click()
         p.get_by_role("button",name="Limpar",exact=True).click()
-        expect(p.get_by_text("2 materiais",exact=False)).to_be_visible()
+        expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
         p.get_by_role("button",name="Críticas",exact=False).click()
         expect(p.get_by_role("tab",name="DEMANDA POR PROJETO")).to_have_attribute("aria-selected","true")
         p.get_by_role("button",name="Exportar",exact=False).click()
@@ -133,7 +133,7 @@ def main():
                 with sync_playwright() as p:
                     b=p.chromium.launch(executable_path=chrome,args=["--no-sandbox","--disable-dev-shm-usage"])
                     try:
-                        for wh in [(1440,900),(390,844)]:check(b,*wh)
+                        for wh in [(1363,936),(390,844)]:check(b,*wh)
                     finally:
                         b.close()
             except Exception:

@@ -77,6 +77,7 @@ class AbasSobDemandaTests(unittest.TestCase):
             """
 import pandas as pd
 import streamlit as st
+from mrp_abas_visual import limpar_filtros_projeto
 from mrp_workspace import WorkspaceSection, workspace_pages
 UI_CONFIG = {"title_demanda_geral":"DEMANDA GERAL","title_demanda_projeto":"DEMANDA POR PROJETO"}
 mg = pd.DataFrame({"Código":[42],"Status":["OK"],"Tipo":["MP"]})
@@ -114,6 +115,8 @@ def formatar_semana(x): return str(x)
         app.button[0].click().run()
         self.assertEqual([x.value for x in app.text], ["tab2"])
         self.assertEqual(app.selectbox(key="admin_status_atendimento").value,"🟡 ATENÇÃO AO PRAZO")
+        next(b for b in app.button if b.label == "Limpar").click().run()
+        self.assertEqual(app.selectbox(key="admin_status_atendimento").value,"TODOS")
         app.session_state[chave] = "MRP ATUAL"
         app.run()
         self.assertEqual(app.text_input(key="admin_descricao_geral").value,"cabo")
@@ -136,11 +139,13 @@ def formatar_semana(x): return str(x)
         app.button[0].click().run()
         self.assertEqual([x.value for x in app.text], ["tab_projeto"])
         app.text_input(key="consulta_projeto_descricao").set_value("motor")
-        next(b for b in app.button if b.label == "INICIAR PESQUISA").click().run()
+        next(b for b in app.button if b.label == "Buscar").click().run()
         app.session_state[chave] = "MRP ATUAL"
         app.run()
         self.assertFalse(any(x.key == "consulta_projeto_descricao" for x in app.text_input))
         app.session_state[chave] = "DEMANDA POR PROJETO"
         app.run()
         self.assertEqual(app.text_input(key="consulta_projeto_descricao").value,"motor")
+        next(b for b in app.button if b.label == "Limpar").click().run()
+        self.assertEqual(app.text_input(key="consulta_projeto_descricao").value,"")
         self.assertFalse(app.exception)

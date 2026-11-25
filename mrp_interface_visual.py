@@ -39,7 +39,7 @@ WORKSPACE_CSS = """
 .mrp-buy-step{display:flex;gap:.6rem;align-items:center;margin:10px 0 4px;color:#0f172a}
 .mrp-buy-step span{display:grid;place-items:center;width:26px;height:26px;
   flex:none;border-radius:7px;background:#e8eef5;color:#1e3551;font-size:.8rem;font-weight:750}
-.mrp-buy-step h3{font-size:1rem!important;line-height:1.3!important;margin:0!important;
+.mrp-buy-step h2{font-size:1rem!important;line-height:1.3!important;margin:0!important;
   padding:0!important;color:#0f172a!important;text-transform:none!important}
 body:has(.mrp-workspace-head) .mrp-ped-hero{background:#fff!important;
   color:#0f172a!important;border:1px solid #dfe5ec;padding:12px 16px!important;
@@ -122,5 +122,5 @@ def cabecalho_html(pagina, logo_url, status, quando, *, semana=None, bases=None,
 def etapa_compra_html(numero, titulo):
     return (
         f'<div class="mrp-buy-step"><span aria-hidden="true">{int(numero)}</span>'
-        + f'<h3>{escape(titulo)}</h3></div>'
+        + f'<h2>{escape(titulo)}</h2></div>'
     )

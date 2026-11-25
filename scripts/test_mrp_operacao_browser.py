@@ -23,13 +23,17 @@ lo = src.index('_mrp_manter_filtros_de_abas("admin_operacao_colunas")')
 hi = src.index("\nif tab1.open:\n    export_macro=",lo)
 limits = (src.index('if _mrp_page in {"MRP ATUAL","DEMANDA POR PROJETO"}:\n    _status_dashboard='), src.index("# Protege a última fotografia"))
 methods = {"_setta_dataframe","_setta_table_height","_mrp_codigo_mask","_mrp_manter_filtros_de_abas",
-           "_mrp_dashboard_navigate","_compra_abrir"}
+           "_mrp_dashboard_navigate","_compra_abrir","normalizar_compra_mrp","formatar_data_br",
+           "render_validacao_compra_mrp","_compra_menor_preco","_compra_codigo","_compra_botao_finalizar"}
 helpers = "\n".join(ast.unparse(n) for n in ast.parse(src).body if isinstance(n, ast.FunctionDef) and n.name in methods)
 APP = f"""
 import pandas as pd
 import re
 import streamlit as st
 from mrp_interface_visual import WORKSPACE_CSS
+from mrp_abas_visual import ABAS_VISUAL_CSS, limpar_filtros_projeto
+from mrp_excedentes import exibir_analise_excedentes
+from datetime import date
 from mrp_workspace import WORKSPACE_V2_CSS, WorkspaceSection, workspace_sidebar, workspace_pages, workspace_header, workspace_falta
 from mrp_operacao_ui import OPERACAO_CSS, operacao_busca, operacao_indicadores, operacao_grade, operacao_detalhe, operacao_tabela_detalhe, operacao_rotulo_grade
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
@@ -38,7 +42,9 @@ st.html({nav_js!r},unsafe_allow_javascript=True)
 st.html(WORKSPACE_CSS)
 st.html(OPERACAO_CSS)
 st.html(WORKSPACE_V2_CSS)
+st.html(ABAS_VISUAL_CSS)
 def _mrp_set_sidebar_page(page): st.session_state["_mrp_sidebar_page"]=page
+st.session_state["auth_role"]="ADMIN"
 _mrp_page=st.session_state.get("_mrp_sidebar_page","MRP ATUAL")
 st.html(workspace_header(_mrp_page,"","ATUALIZADO","08:10",semana="2026-47",bases=(5,5),registros="",alertas=[],nome="Almoxarifado",perfil="ADMIN"))
 with st.sidebar:
@@ -52,9 +58,7 @@ def _df_exibicao_br(df): return df
 def _mrp_numero_br(x): return str(x)
 def render_tratativa_projetos(): st.text("Tratativa")
 def render_mrp_history(): st.text("Comparativo")
-def render_validacao_compra_mrp(*args): st.text("Fluxo de compra de teste")
-def exibir_analise_excedentes(*args, **kwargs): st.text("Fluxo de excedentes de teste")
-def normalizar_compra_mrp(x): return x
+def _compra_exclusoes_ler(): return {{}}
 def _mrp_geral_export_sf(x): return x
 def excel_bytes(x): return b"teste"
 def zip_bytes(x): return b"teste"
@@ -66,7 +70,7 @@ UI_CONFIG={{"title_demanda_geral":"DEMANDA GERAL","title_demanda_projeto":"DEMAN
 macro=pd.DataFrame({{"Código":[42,43],"Descrição":["Cabo para teste","Motor para teste"],"Tipo":["MP","PI"],
     "Saldo em Estoque":[1.01,4],"Demanda":[4.3,2],"P.C.":[5.4,0],"S.C.":[6.1,0],"Produzindo":[7.2,0],
     "DIV":[-3.25,2],"Status":["CRIAR S.C.","OK"],"Semana de Atendimento":["NN","202648"], "Período de Atendimento":["",""]}})
-compras_mrp=macro
+compras_mrp=pd.DataFrame([{{"produto":42,"qnt":3,"data":"25/11/2026","cc":"600307","op":"26001101001","prioridade":"1","vunit":1.5}}])
 cad=macro
 rg=macro
 def periodo_semana(n): return str(n)
@@ -119,8 +123,8 @@ def check(browser, width, height):
                 "el => getComputedStyle(el).textAlign") == "center"
             second_card=p.locator(".op-item").filter(has_text="Motor para teste")
             expect(second_card.locator(".op-item-value").filter(has_text="Produzindo")).to_have_text("Produzindo0")
-        expect(p.get_by_text("Fluxo de compra de teste")).to_have_count(0)
-        expect(p.get_by_text("Fluxo de excedentes de teste")).to_have_count(0)
+        expect(p.get_by_role("heading",name="Revisar materiais")).to_have_count(0)
+        expect(p.get_by_role("heading",name="Documentos com excedente")).to_have_count(0)
         if os.environ.get("MRP_LAYOUT_CAPTURES"):
             p.screenshot(path=f"/tmp/MRP-layout-{width}.png")
         controls=p.locator('[class*="st-key-mrp_operacao_bar_"] button')
@@ -171,6 +175,23 @@ def check(browser, width, height):
         expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
         p.get_by_role("button",name="Críticas",exact=False).click()
         expect(p.get_by_role("heading",name="Demanda por Projeto",exact=True)).to_be_visible()
+        project=p.locator(".st-key-mrp_visual_projeto")
+        expect(project.get_by_text("Status de atendimento",exact=True)).to_be_visible()
+        expect(project.get_by_text("Mostrar demandas não aptas",exact=True)).to_be_visible()
+        project_button=project.get_by_role("button",name="Buscar",exact=True)
+        expect(project_button.locator("p")).to_have_css("font-size","14px")
+        assert abs(project_button.bounding_box()["height"] - 40)<2
+        project.get_by_placeholder("Parte da descrição").fill("Cabo")
+        project_button.click()
+        expect(project.get_by_placeholder("Parte da descrição")).to_have_value("Cabo")
+        project.get_by_role("button",name="Limpar",exact=True).click()
+        expect(project.get_by_placeholder("Parte da descrição")).to_have_value("")
+        if width < 700:
+            top_fields=project.get_by_test_id("stSelectbox")
+            boxes=[top_fields.nth(i).bounding_box() for i in range(top_fields.count())]
+            assert abs(boxes[0]["y"]-boxes[1]["y"])<2, boxes
+        if os.environ.get("MRP_LAYOUT_CAPTURES"):
+            p.screenshot(path=f"/tmp/MRP-projeto-{width}.png")
         def nav(label):
             menu=p.get_by_role("button",name="Abrir menu lateral")
             if menu.is_visible():
@@ -181,11 +202,34 @@ def check(browser, width, height):
         expect(p.get_by_text("BAIXAR MRP GERAL",exact=False)).to_be_visible()
         p.keyboard.press("Escape")
         nav("Análise de Compra")
-        expect(p.get_by_text("Fluxo de compra de teste")).to_be_visible()
-        expect(p.get_by_role("searchbox")).to_have_count(0)
+        buy=p.locator(".st-key-mrp_visual_compra")
+        for section in ("Revisar materiais","Exportar prévia por OP","Liberar carga oficial do Protheus"):
+            expect(buy.get_by_role("heading",name=section,exact=True)).to_have_css("font-size","18px")
+        expect(p.get_by_role("heading",name="Análise de Compra",exact=True)).to_have_count(1)
+        expect(buy.get_by_text("Produtos para exportar",exact=True)).to_be_visible()
+        expect(buy.get_by_role("button",name="Preparar relatório por OP").locator("p")).to_have_css("font-size","14px")
+        expect(buy.get_by_role("button",name="Baixar carga do Protheus")).to_be_disabled()
+        buy.get_by_text("Mostrar campos técnicos",exact=True).click()
+        expect(buy.get_by_role("checkbox",name="Mostrar campos técnicos")).to_be_checked()
+        if os.environ.get("MRP_LAYOUT_CAPTURES"):
+            p.locator('[data-testid="stMain"]').evaluate("el => el.scrollTop = 0")
+            p.screenshot(path=f"/tmp/MRP-compra-{width}.png")
         nav("Excedentes")
-        expect(p.get_by_text("Fluxo de excedentes de teste")).to_be_visible()
-        expect(p.get_by_text("Fluxo de compra de teste")).to_have_count(0)
+        excess=p.locator(".st-key-mrp_visual_excedentes")
+        expect(excess.get_by_role("heading",name="Documentos com excedente")).to_have_css("font-size","18px")
+        expect(p.get_by_role("heading",name="Excedentes",exact=True)).to_have_count(1)
+        expect(excess.get_by_text("S.C. com excedente",exact=True)).to_be_visible()
+        expect(excess.get_by_text("P.C. com excedente",exact=True)).to_be_visible()
+        excess.get_by_role("tab",name="Pedidos (P.C.)",exact=True).click()
+        expect(excess.get_by_role("tab",name="Pedidos (P.C.)",exact=True)).to_have_attribute("aria-selected","true")
+        download=excess.get_by_role("button",name="Baixar excedentes em Excel")
+        expect(download.locator("p")).to_have_css("font-size","14px")
+        with p.expect_download() as result:
+            download.click()
+        assert result.value.suggested_filename.endswith(".xlsx")
+        if os.environ.get("MRP_LAYOUT_CAPTURES"):
+            p.screenshot(path=f"/tmp/MRP-excedentes-{width}.png")
+        expect(p.get_by_role("heading",name="Revisar materiais")).to_have_count(0)
         print(f"MRP Operação {width}px: busca, atalhos, grade e ações sem erro.",flush=True)
 
 def main():

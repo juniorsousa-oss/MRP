@@ -301,19 +301,19 @@ _consulta_proj_form_old = """        with st.form("consulta_projeto_filtros", bo
                 st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
             with _blimpa:
                 st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_busca_projeto","consulta_semana"))"""
-_consulta_proj_form_new = """        with st.form("consulta_projeto_filtros", border=False):
-            c1, c2, c3, c4 = st.columns(4)
-            projeto_consulta = c1.selectbox("PROJETO", ["TODOS"] + sorted(set(dem["Projeto"].dropna().astype(str))) , key="consulta_projeto_busca")
-            produto_consulta = c2.selectbox("PRODUTO", ["TODOS"] + sorted(set(dem["Produto"].dropna().astype(str))), key="consulta_produto_busca")
-            descricao_projeto_consulta = c3.text_input("DESCRIÇÃO", key="consulta_projeto_descricao", placeholder="DIGITE PARTE DA DESCRIÇÃO")
+_consulta_proj_form_new = """        with st.container(key="mrp_visual_projeto"), st.form("consulta_projeto_filtros", border=False):
+            c1, c2, c3, c4 = st.columns([1,1,1.45,.9], gap="small")
+            projeto_consulta = c1.selectbox("Projeto", ["TODOS"] + sorted(set(dem["Projeto"].dropna().astype(str))) , key="consulta_projeto_busca")
+            produto_consulta = c2.selectbox("Produto", ["TODOS"] + sorted(set(dem["Produto"].dropna().astype(str))), key="consulta_produto_busca")
+            descricao_projeto_consulta = c3.text_input("Descrição", key="consulta_projeto_descricao", placeholder="Parte da descrição")
             _semana_opts = ["TODAS"] + semanas
-            semana = c4.selectbox("SEMANA", _semana_opts, key="consulta_semana", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
-            mostrar_residuos_consulta = st.checkbox("MOSTRAR DEMANDAS NÃO APTAS", value=False, key="consulta_mostrar_residuos", help="Inclui resíduos, demandas suspensas e canceladas.")
-            _bpesq, _blimpa = st.columns([8,1])
+            semana = c4.selectbox("Semana", _semana_opts, key="consulta_semana", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
+            _opcoes, _bpesq, _blimpa = st.columns([3,1,1], gap="small", vertical_alignment="center")
+            mostrar_residuos_consulta = _opcoes.checkbox("Mostrar demandas não aptas", value=False, key="consulta_mostrar_residuos", help="Inclui resíduos, demandas suspensas e canceladas.")
             with _bpesq:
-                st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
+                st.form_submit_button("Buscar", use_container_width=True, type="primary")
             with _blimpa:
-                st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("consulta_projeto_busca","consulta_produto_busca","consulta_projeto_descricao","consulta_semana","consulta_mostrar_residuos"))"""
+                st.form_submit_button("Limpar", use_container_width=True, type="secondary", on_click=limpar_filtros_projeto, args=({'consulta_projeto_busca': 'TODOS', 'consulta_produto_busca': 'TODOS', 'consulta_projeto_descricao': '', 'consulta_semana': 'TODAS', 'consulta_mostrar_residuos': False},))"""
 _final_replace(_consulta_proj_form_old, _consulta_proj_form_new, "filtros separados da Demanda por Projeto em consulta")
 
 _consulta_proj_logic_old = """        f = dem.copy()
@@ -406,21 +406,21 @@ _admin_proj_form_old = """    with st.form("admin_demanda_projeto_filtros", bord
             st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
         with _blimpa:
             st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_busca_projeto","admin_semana_projeto"))"""
-_admin_proj_form_new = """    with st.form("admin_demanda_projeto_filtros", border=False):
-        c1,c2,c3,c4=st.columns(4)
-        with c1: projeto_admin=st.selectbox("PROJETO", ["TODOS"]+sorted(set(demanda_projeto["Projeto"].dropna().astype(str))), key="admin_projeto_busca")
-        with c2: produto_admin=st.selectbox("PRODUTO", ["TODOS"]+sorted(set(demanda_projeto["Produto"].dropna().astype(str))), key="admin_produto_busca")
-        with c3: descricao_proj_admin=st.text_input("DESCRIÇÃO", key="admin_proj_descricao", placeholder="DIGITE PARTE DA DESCRIÇÃO")
+_admin_proj_form_new = """    with st.container(key="mrp_visual_projeto"), st.form("admin_demanda_projeto_filtros", border=False):
+        c1,c2,c3,c4,c5=st.columns([1,1,1.45,.9,1.4], gap="small")
+        with c1: projeto_admin=st.selectbox("Projeto", ["TODOS"]+sorted(set(demanda_projeto["Projeto"].dropna().astype(str))), key="admin_projeto_busca")
+        with c2: produto_admin=st.selectbox("Produto", ["TODOS"]+sorted(set(demanda_projeto["Produto"].dropna().astype(str))), key="admin_produto_busca")
+        with c3: descricao_proj_admin=st.text_input("Descrição", key="admin_proj_descricao", placeholder="Parte da descrição")
         _semana_admin_opts=["TODAS"]+sorted(demanda_projeto["Semana de Necessidade"].dropna().unique().tolist()) if len(demanda_projeto) else ["TODAS"]
-        with c4: semana_filtro=st.selectbox("SEMANA",_semana_admin_opts, key="admin_semana_projeto", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
+        with c4: semana_filtro=st.selectbox("Semana",_semana_admin_opts, key="admin_semana_projeto", format_func=lambda x: "TODAS" if x=="TODAS" else formatar_semana(x))
         _status_opts=["TODOS","🟢 DENTRO DO PRAZO","🟡 ATENÇÃO AO PRAZO","🔴 ATENDIMENTO CRÍTICO","⚪ DEMANDAS NÃO APTAS"]
-        status_atendimento_admin=st.selectbox("STATUS DE ATENDIMENTO",_status_opts,key="admin_status_atendimento")
-        mostrar_residuos_admin=st.checkbox("MOSTRAR DEMANDAS NÃO APTAS", value=False, key="admin_mostrar_residuos", help="Inclui resíduos, demandas suspensas e canceladas.")
-        _bpesq, _blimpa = st.columns([8,1])
+        status_atendimento_admin=c5.selectbox("Status de atendimento",_status_opts,key="admin_status_atendimento")
+        _opcoes, _bpesq, _blimpa = st.columns([3,1,1], gap="small", vertical_alignment="center")
+        mostrar_residuos_admin=_opcoes.checkbox("Mostrar demandas não aptas", value=False, key="admin_mostrar_residuos", help="Inclui resíduos, demandas suspensas e canceladas.")
         with _bpesq:
-            st.form_submit_button("INICIAR PESQUISA", use_container_width=True, type="primary")
+            st.form_submit_button("Buscar", use_container_width=True, type="primary")
         with _blimpa:
-            st.form_submit_button("LIMPAR", use_container_width=True, type="secondary", on_click=_limpar_filtros_mrp, args=("admin_projeto_busca","admin_produto_busca","admin_proj_descricao","admin_semana_projeto","admin_status_atendimento","admin_mostrar_residuos"))"""
+            st.form_submit_button("Limpar", use_container_width=True, type="secondary", on_click=limpar_filtros_projeto, args=({'admin_projeto_busca': 'TODOS', 'admin_produto_busca': 'TODOS', 'admin_proj_descricao': '', 'admin_semana_projeto': 'TODAS', 'admin_status_atendimento': 'TODOS', 'admin_mostrar_residuos': False},))"""
 _final_replace(_admin_proj_form_old, _admin_proj_form_new, "filtros separados da Demanda por Projeto ADMIN")
 
 _admin_proj_logic_old = """    d=demanda_projeto.copy()

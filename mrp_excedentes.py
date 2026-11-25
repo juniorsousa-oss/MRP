@@ -362,9 +362,10 @@ def exibir_analise_excedentes(mrp, compras, projecao, prefixo, data_snapshot=Non
         if not st.session_state.get(chave, False):
             return
 
-    st.markdown("### ANÁLISE DE EXCEDENTES — S.C. E P.C.")
+    if not pagina:
+        st.subheader("Análise de excedentes")
     st.caption(
-        "Análise indicativa de cancelamentos. A prioridade considera o INÍCIO DA SEMANA "
+        "Análise indicativa de cancelamentos. A prioridade considera o início da semana "
         "prevista, pois a base MRP não contém o dia exato de entrega."
     )
     if data_snapshot:
@@ -378,7 +379,9 @@ def exibir_analise_excedentes(mrp, compras, projecao, prefixo, data_snapshot=Non
     sc, pc = calcular_excedentes(mrp, compras, projecao)
     sc_cancelar = preparar_relatorio_enxuto(sc, "S.C.")
     pc_cancelar = preparar_relatorio_enxuto(pc, "P.C.")
-    st.caption(f"{len(sc_cancelar)} S.C. e {len(pc_cancelar)} P.C. com quantidade cancelável.")
+    coluna_sc, coluna_pc = st.columns(2, gap="small")
+    coluna_sc.metric("S.C. com excedente", len(sc_cancelar))
+    coluna_pc.metric("P.C. com excedente", len(pc_cancelar))
     antigos = pd.concat([sc, pc], ignore_index=True)
     antigos = antigos[
         antigos["Situação"].eq("REPROCESSAR COMPRAS — DOCUMENTOS AGRUPADOS")
@@ -389,17 +392,19 @@ def exibir_analise_excedentes(mrp, compras, projecao, prefixo, data_snapshot=Non
             "na base anterior. Reprocesse COMPRAS no Conversor MRP para individualizar "
             "os documentos. Não será estimada uma quantidade para cada número."
         )
-    aba_sc, aba_pc = st.tabs(["SOLICITAÇÕES DE COMPRA (S.C.)", "PEDIDOS DE COMPRA (P.C.)"])
+    st.header("Documentos com excedente", anchor=False)
+    aba_sc, aba_pc = st.tabs(["Solicitações (S.C.)", "Pedidos (P.C.)"])
     for aba, frame, nome in ((aba_sc, sc, "S.C."), (aba_pc, pc, "P.C.")):
         with aba:
             visivel = preparar_relatorio_enxuto(frame, nome)
             if visivel.empty:
-                st.info(f"Nenhuma {nome} com excedente cancelável identificada.")
+                documento = "Nenhuma solicitação" if nome == "S.C." else "Nenhum pedido"
+                st.info(f"{documento} com excedente cancelável.")
             else:
                 st.dataframe(visivel, use_container_width=True, hide_index=True)
                 st.caption("Valores para avaliação de cancelamento junto a Suprimentos.")
     st.download_button(
-        "BAIXAR ANÁLISE DE EXCEDENTES — EXCEL",
+        "Baixar excedentes em Excel",
         data=_excel_excedentes(sc, pc, _data_local()),
         file_name=f"MRP_Excedentes_{_data_local():%Y%m%d}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

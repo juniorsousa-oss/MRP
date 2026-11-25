@@ -29,6 +29,8 @@ _b = _source.index('    # Conta acessível para todos os perfis.', _a)
 _source = _source[:_a]+'''st.html(OPERACAO_CSS)
 st.html(WORKSPACE_CSS)
 st.html(WORKSPACE_V2_CSS)
+from mrp_abas_visual import ABAS_VISUAL_CSS, limpar_filtros_projeto
+st.html(ABAS_VISUAL_CSS)
 st.html(workspace_header(
     _mrp_page,UI_CONFIG.get("logo_data"),_mrp_status,_mrp_when,
     semana=_mrp_sidebar_week,bases=(_mrp_base_ok,_mrp_base_total),
@@ -46,10 +48,12 @@ _source = _source[:_a]+'''    if _mrp_page in {"MRP ATUAL", "DEMANDA POR PROJETO
 _a = _source.index('    _consulta_operacao_compra=st.empty()')
 _b = _source.index('    if tab_geral.open:',_a)
 _source = _source[:_a]+'''    if _mrp_page == "ANÁLISE DE COMPRA":
-        render_validacao_compra_mrp(comp,"consulta",mg,dem,dem,mg,snap)
+        with st.container(key="mrp_visual_compra"):
+            render_validacao_compra_mrp(comp,"consulta",mg,dem,dem,mg,snap)
         return
     if _mrp_page == "EXCEDENTES":
-        exibir_analise_excedentes(mg,compras,proj,"consulta",snap.get("created_at"),pagina=True)
+        with st.container(key="mrp_visual_excedentes"):
+            exibir_analise_excedentes(mg,compras,proj,"consulta",snap.get("created_at"),pagina=True)
         return
 
     tab_geral,tab_projeto,tab_tratativa,tab_comparativo = (
@@ -76,10 +80,12 @@ _a = _source.index('_admin_operacao_compra=st.empty()')
 _b = _source.index('if tab1.open:',_a)
 _mcols = next(l for l in _source[_a:_b].splitlines() if l.startswith('macro_cols='))
 _source = _source[:_a]+'''if _mrp_page == "ANÁLISE DE COMPRA":
-    render_validacao_compra_mrp(normalizar_compra_mrp(compras_mrp),"admin",cad,rg,demanda_projeto,macro)
+    with st.container(key="mrp_visual_compra"):
+        render_validacao_compra_mrp(normalizar_compra_mrp(compras_mrp),"admin",cad,rg,demanda_projeto,macro)
     st.stop()
 if _mrp_page == "EXCEDENTES":
-    exibir_analise_excedentes(macro,cp,proj,"admin",pagina=True)
+    with st.container(key="mrp_visual_excedentes"):
+        exibir_analise_excedentes(macro,cp,proj,"admin",pagina=True)
     st.stop()
 
 tab1,tab2,tab3,tab4 = (

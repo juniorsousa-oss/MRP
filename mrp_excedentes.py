@@ -351,15 +351,16 @@ def _excel_excedentes(sc, pc, hoje):
     return arquivo.getvalue()
 
 
-def exibir_analise_excedentes(mrp, compras, projecao, prefixo, data_snapshot=None):
+def exibir_analise_excedentes(mrp, compras, projecao, prefixo, data_snapshot=None, *, pagina=False):
     """Painel Streamlit, com S.C. e P.C. independentes e Excel para conferência."""
     import streamlit as st
 
-    chave = f"mrp_excedentes_aberto_{prefixo}"
-    if st.button("ANÁLISE DE EXCEDENTES", key=f"mrp_excedentes_botao_{prefixo}", use_container_width=True):
-        st.session_state[chave] = not st.session_state.get(chave, False)
-    if not st.session_state.get(chave, False):
-        return
+    if not pagina:
+        chave = f"mrp_excedentes_aberto_{prefixo}"
+        if st.button("ANÁLISE DE EXCEDENTES", key=f"mrp_excedentes_botao_{prefixo}", use_container_width=True):
+            st.session_state[chave] = not st.session_state.get(chave, False)
+        if not st.session_state.get(chave, False):
+            return
 
     st.markdown("### ANÁLISE DE EXCEDENTES — S.C. E P.C.")
     st.caption(

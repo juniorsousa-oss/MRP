@@ -23,17 +23,22 @@ def _extrair_interface(tree, *, consulta):
     if consulta:
         func = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "render_consulta_view")
         corpo = func.body
-        chave = "consulta_tabs_kpi"
+        chave = "_mrp_sidebar_page"
     else:
         corpo = tree.body
-        chave = "mrp_admin_tabs"
+        chave = "_mrp_sidebar_page"
     inicio = next(i for i, node in enumerate(corpo)
                   if isinstance(node, ast.Expr) and _nome_chamada(node.value, "_mrp_manter_filtros_de_abas"))
     controles = []
     for node in corpo[inicio:]:
+        if sum(_guarda_aba(n) for n in controles) >= 5:
+            break
         if _guarda_aba(node):
             contexto = node.body[0]
             assert isinstance(contexto, ast.With)
+            if not isinstance(contexto.items[0].context_expr,ast.Name):
+                controles.append(node)
+                continue
             nome = contexto.items[0].context_expr.id
             contexto.body = [
                 stmt for stmt in contexto.body if isinstance(stmt, ast.With)
@@ -46,11 +51,11 @@ def _extrair_interface(tree, *, consulta):
             ]
             contexto.body += ast.parse(f"st.text({nome!r})").body
             controles.append(node)
-        elif sum(_guarda_aba(n) for n in controles) >= 4:
+        elif sum(_guarda_aba(n) for n in controles) >= 5:
             break
-        else:
+        elif not isinstance(node,ast.If) or ast.unparse(node.test) not in {'_mrp_page == "ANÁLISE DE COMPRA"', '_mrp_page == "EXCEDENTES"', "_mrp_page == 'ANÁLISE DE COMPRA'", "_mrp_page == 'EXCEDENTES'"}:
             controles.append(node)
-    assert len([node for node in controles if _guarda_aba(node)]) == 4
+    assert len([node for node in controles if _guarda_aba(node)]) == 5
     return chave, ast.unparse(ast.Module(body=controles, type_ignores=[]))
 
 
@@ -62,7 +67,7 @@ class AbasSobDemandaTests(unittest.TestCase):
     def _app(self, consulta, role):
         tree = ast.parse(self.source)
         nomes = {"_mrp_manter_filtros_de_abas", "_limpar_filtros_mrp",
-                 "_mrp_dashboard_navigate", "_mrp_consulta_navigate"}
+                 "_mrp_dashboard_navigate", "_mrp_consulta_navigate", "_mrp_set_sidebar_page", "_compra_fechar"}
         fontes = [tree, ast.parse(UI_ADEQUACOES_PATCH)]
         helpers = "\n".join(ast.unparse(n) for fonte in fontes for n in fonte.body
                             if isinstance(n, ast.FunctionDef) and n.name in nomes)
@@ -72,6 +77,7 @@ class AbasSobDemandaTests(unittest.TestCase):
             """
 import pandas as pd
 import streamlit as st
+from mrp_workspace import WorkspaceSection, workspace_pages
 UI_CONFIG = {"title_demanda_geral":"DEMANDA GERAL","title_demanda_projeto":"DEMANDA POR PROJETO"}
 mg = pd.DataFrame({"Código":[42],"Status":["OK"],"Tipo":["MP"]})
 macro = mg
@@ -84,6 +90,7 @@ demanda_projeto = dem
 def formatar_semana(x): return str(x)
 """
             + f'\nst.session_state["auth_role"]={role!r}\n'
+            + '\n_mrp_page=st.session_state.get("_mrp_sidebar_page","MRP ATUAL")\nif _mrp_page not in workspace_pages(st.session_state.auth_role): _mrp_page="MRP ATUAL"\n'
             + helpers
             + f'\nst.button("Atalho KPI",on_click={callback},args=("🟡 ATENÇÃO AO PRAZO",False))\n'
             + controles
@@ -107,7 +114,7 @@ def formatar_semana(x): return str(x)
         app.button[0].click().run()
         self.assertEqual([x.value for x in app.text], ["tab2"])
         self.assertEqual(app.selectbox(key="admin_status_atendimento").value,"🟡 ATENÇÃO AO PRAZO")
-        app.session_state[chave] = "DEMANDA GERAL"
+        app.session_state[chave] = "MRP ATUAL"
         app.run()
         self.assertEqual(app.text_input(key="admin_descricao_geral").value,"cabo")
         self.assertTrue(any(b.label == "ANÁLISE DE COMPRA" for b in app.button))
@@ -116,14 +123,21 @@ def formatar_semana(x): return str(x)
         self.assertFalse(app.exception)
 
     def test_consulta_preserva_filtros_sem_expor_comparativo(self):
-        app, chave = self._app(consulta=True, role="CONSULTA")
+        for role in ("CONSULTA","OPERADOR"):
+            with self.subTest(role=role):
+                self._verificar_consulta(role)
+
+    def _verificar_consulta(self, role):
+        app, chave = self._app(consulta=True, role=role)
         self.assertEqual([x.value for x in app.text], ["tab_geral"])
-        self.assertNotIn("COMPARATIVO MRP",[x.label for x in app.tabs])
+        app.session_state[chave] = "COMPARATIVO MRP"
+        app.run()
+        self.assertEqual([x.value for x in app.text], ["tab_geral"])
         app.button[0].click().run()
         self.assertEqual([x.value for x in app.text], ["tab_projeto"])
         app.text_input(key="consulta_projeto_descricao").set_value("motor")
         next(b for b in app.button if b.label == "INICIAR PESQUISA").click().run()
-        app.session_state[chave] = "DEMANDA GERAL"
+        app.session_state[chave] = "MRP ATUAL"
         app.run()
         self.assertFalse(any(x.key == "consulta_projeto_descricao" for x in app.text_input))
         app.session_state[chave] = "DEMANDA POR PROJETO"

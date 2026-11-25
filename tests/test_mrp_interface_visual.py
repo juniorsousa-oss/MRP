@@ -4,6 +4,8 @@ import unittest
 
 from mrp_engine_extract import montar_fonte_atual
 from mrp_interface_visual import cabecalho_html, etapa_compra_html
+from mrp_workspace import workspace_header, workspace_pages, workspace_falta
+import pandas as pd
 
 
 class InterfaceVisualTests(unittest.TestCase):
@@ -39,7 +41,7 @@ class InterfaceVisualTests(unittest.TestCase):
     def test_acoes_principais_separadas_dos_seis_downloads(self):
         tree = ast.parse(montar_fonte_atual())
         self.assertEqual(sum(isinstance(n,ast.Call) and isinstance(n.func,ast.Name)
-                             and n.func.id == "cabecalho_html" for n in ast.walk(tree)),1)
+                             and n.func.id == "workspace_header" for n in ast.walk(tree)),1)
         grupos = [n for n in ast.walk(tree) if isinstance(n,ast.With) and
                   any(isinstance(i.context_expr,ast.Call) and i.context_expr.args and
                       isinstance(i.context_expr.args[0],ast.Constant) and
@@ -49,9 +51,28 @@ class InterfaceVisualTests(unittest.TestCase):
             self.assertEqual(sum(isinstance(n,ast.Attribute) and n.attr == "download_button"
                                  for n in ast.walk(grupo)),3)
             self.assertNotIn("ANÁLISE DE COMPRA",ast.unparse(grupo))
-        botoes = [n for n in ast.walk(tree) if isinstance(n,ast.Call) and
-                  isinstance(n.func,ast.Attribute) and n.func.attr == "button" and
-                  n.args and isinstance(n.args[0],ast.Constant) and n.args[0].value == "ANÁLISE DE COMPRA"]
-        self.assertEqual(len(botoes),2)
-        self.assertTrue(all(any(k.arg == "type" and k.value.value == "primary" for k in n.keywords)
-                            for n in botoes))
+        self.assertEqual(len([
+            n for n in ast.walk(tree) if isinstance(n,ast.If) and
+            ast.unparse(n.test) == "_mrp_page == 'ANÁLISE DE COMPRA'"
+            and any(isinstance(c,ast.Call) and isinstance(c.func,ast.Name)
+                    and c.func.id == "render_validacao_compra_mrp" for c in ast.walk(n))
+        ]),2)
+
+    def test_marca_usa_configuracao_e_preserva_perfis(self):
+        original="data:image/png;base64,UE5H"
+        html=workspace_header("MRP ATUAL",original,"ATUALIZADO","08:10",semana="2026-47",
+                              bases=(5,5),registros="",alertas=[],nome="<Conta>",perfil="ADMIN")
+        self.assertIn(f'src="{original}"',html)
+        self.assertIn("&lt;Conta&gt; · Admin",html)
+        for role in ("CONSULTA","OPERADOR"):
+            self.assertNotIn("CONFIGURAÇÕES",workspace_pages(role))
+            self.assertNotIn("COMPARATIVO MRP",workspace_pages(role))
+            self.assertIn("ANÁLISE DE COMPRA",workspace_pages(role))
+            self.assertIn("EXCEDENTES",workspace_pages(role))
+
+    def test_falta_e_apenas_apresentacao_do_saldo_final(self):
+        src=pd.DataFrame({"DIV":[-4.5,10,""]})
+        res=workspace_falta(src)
+        self.assertNotIn("Falta",src.columns)
+        self.assertEqual(res["Falta"].iloc[:2].tolist(),[4.5,0])
+        self.assertTrue(pd.isna(res["Falta"].iloc[2]))

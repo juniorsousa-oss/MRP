@@ -164,7 +164,7 @@ for perfil in ("admin", "consulta"):
     assert f"{perfil}_compra_confirmada" not in state
 
 def possui_validacao_condicional(perfil):
-    chave = f"{perfil}_compra_aberta"
+    chave = "_mrp_page == 'ANÁLISE DE COMPRA'"
     for node in ast.walk(tree):
         if not isinstance(node, ast.If) or chave not in ast.unparse(node.test):
             continue
@@ -172,6 +172,7 @@ def possui_validacao_condicional(perfil):
             isinstance(chamado, ast.Call)
             and isinstance(chamado.func, ast.Name)
             and chamado.func.id == "render_validacao_compra_mrp"
+            and any(isinstance(a,ast.Constant) and a.value==perfil for a in chamado.args)
             for comando in node.body
             for chamado in ast.walk(comando)
         ):

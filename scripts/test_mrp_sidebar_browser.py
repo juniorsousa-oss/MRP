@@ -14,7 +14,8 @@ from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
 
 from mrp_engine_extract import montar_fonte_atual
-from mrp_interface_visual import WORKSPACE_CSS, cabecalho_html
+from mrp_interface_visual import WORKSPACE_CSS
+from mrp_workspace import WORKSPACE_V2_CSS, workspace_header
 from mrp_setta_ui_v1_patch import SETTA_UI_V1_PATCH
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,14 +36,16 @@ SIDEBAR = next(
     and any(ast.unparse(i.context_expr) == "st.sidebar" for i in n.items)
 )
 HEADERS = {
-    page: cabecalho_html(page, "", "ATUALIZADO", "25/11/2026 08:00", semana="2026-47", bases=(5,5))
+    page: workspace_header(page, "", "ATUALIZADO", "25/11/2026 08:00", semana="2026-47", bases=(5,5), registros="", alertas=[], nome="Almoxarifado", perfil="ADMIN")
     for page in ("MRP ATUAL", "SOLICITAÇÕES AVULSAS", "CONFIGURAÇÕES")
 }
 APP = f"""
 import streamlit as st
+from mrp_workspace import workspace_sidebar
 st.set_page_config(layout="wide", initial_sidebar_state="auto")
 st.html({CSS!r})
 st.html({WORKSPACE_CSS!r})
+st.html({WORKSPACE_V2_CSS!r})
 st.html({NAV_JS!r}, unsafe_allow_javascript=True)
 _mrp_pages=("MRP ATUAL","SOLICITAÇÕES AVULSAS","CONFIGURAÇÕES")
 if st.session_state.get("logged_out"):
@@ -119,9 +122,9 @@ def check(browser,width,height,name,iphone=False):
         page=context.new_page()
         try:
             page.goto(URL,wait_until="domcontentloaded",timeout=30000)
-            expect(page.get_by_role("heading",name="MRP atual",exact=True)).to_be_visible(timeout=15000)
-            expect(page.get_by_text("Semana atual: 2026-47")).to_be_visible()
-            expect(page.get_by_text("Bases: 5/5")).to_be_visible()
+            expect(page.get_by_role("heading",name="Demanda Geral",exact=True)).to_be_visible(timeout=15000)
+            expect(page.locator(".mrp-v2-stamps:visible, .mrp-v2-mobile-date:visible")).to_be_visible()
+            expect(page.get_by_text("Bases 5/5")).to_be_visible()
             menu=page.get_by_role("button",name="Abrir menu lateral")
             collapse=page.get_by_role("button",name="Recolher menu lateral")
             settings=page.get_by_role("button",name="Configurações",exact=True)
@@ -160,12 +163,12 @@ def check(browser,width,height,name,iphone=False):
 
 def main():
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    chrome=next((p for cmd in ("google-chrome","google-chrome-stable","chromium","chromium-browser")
+    chrome=os.environ.get("MRP_CHROME") or next((p for cmd in ("google-chrome","google-chrome-stable","chromium","chromium-browser")
                  if (p:=shutil.which(cmd))),None)
     assert chrome, "Chrome/Chromium ausente."
     with tempfile.TemporaryDirectory() as folder:
         app=Path(folder)/"sidebar_app.py"
-        app.write_text(APP,encoding="utf-8")
+        app.write_text(f"import sys\nsys.path.insert(0, {str(ROOT)!r})\n"+APP,encoding="utf-8")
         server=subprocess.Popen(
             [sys.executable,"-m","streamlit","run",str(app),"--server.headless=true",
              "--server.port=8515","--browser.gatherUsageStats=false"],

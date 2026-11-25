@@ -371,6 +371,25 @@ class ParecerAutomaticoTests(unittest.TestCase):
         self.assertEqual(r["MATERIAIS OP"].iloc[0]["Parecer do analista"], "DEMANDA")
         self.assertEqual(r["MATERIAIS OP"].iloc[0]["Observações da análise"], "")
 
+    def test_exportacao_bloqueia_parecer_ausente_com_data_valida(self):
+        from mrp_compra_preanalise import validar_pareceres_exportacao
+        r = self.analisar([self.compra()], [
+            self.linha(self.ANTIGO, "24/11/2026", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+        ])
+        validar_pareceres_exportacao(r, referencia="2026-11-25")
+        r["MATERIAIS OP"].loc[:, "Parecer do analista"] = ""
+        with self.assertRaisesRegex(ValueError, "parecer automático ausente"):
+            validar_pareceres_exportacao(r, referencia="2026-11-25")
+
+    def test_exportacao_permite_revisao_manual_sem_data(self):
+        from mrp_compra_preanalise import validar_pareceres_exportacao
+        r = self.analisar([self.compra()], [
+            self.linha(self.ANTIGO, "NI", "18/12/2026", 202650, 5,
+                       "CRIAR S.C. 5 para semana 202650"),
+        ])
+        validar_pareceres_exportacao(r, referencia="2026-11-25")
+
 
 if __name__ == "__main__":
     unittest.main()

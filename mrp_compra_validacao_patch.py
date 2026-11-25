@@ -447,10 +447,13 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
         if aptos.empty:
             st.info("Nenhum material apto para compor o relatório.")
         else:
-            from mrp_compra_preanalise import (
-                construir_relatorio_compra_por_op,op_relatorio
-            )
-            op_opcoes=sorted({op_relatorio(x) for x in aptos["op"].tolist()})
+            import importlib
+            import mrp_compra_preanalise as _preanalise
+            # Streamlit pode manter módulos importados de um rerun anterior.
+            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v2":
+                importlib.invalidate_caches()
+                _preanalise=importlib.reload(_preanalise)
+            op_opcoes=sorted({_preanalise.op_relatorio(x) for x in aptos["op"].tolist()})
             escolhidas=st.multiselect(
                 "OPs para análise (sem seleção = todas)",
                 options=op_opcoes,default=[],
@@ -458,8 +461,20 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 help="Filtre uma ou mais OPs. Solicitações sem OP permanecem separadas em SEM OP VINCULADA.",
             )
             try:
-                planilhas=construir_relatorio_compra_por_op(
+                if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v2":
+                    raise RuntimeError("Versão antiga da pré-análise. Reinicie o aplicativo antes de baixar.")
+                planilhas=_preanalise.construir_relatorio_compra_por_op(
                     aptos,_descs,escolhidas or None,solicitacoes,alocacoes,
+                )
+                _preanalise.validar_pareceres_exportacao(planilhas)
+                _parecer=planilhas["MATERIAIS OP"]["Parecer do analista"]
+                _obs=planilhas["MATERIAIS OP"]["Observações da análise"]
+                st.caption(
+                    f"Pré-análise {_preanalise.PREANALISE_VERSAO} | "
+                    f"Novas demandas: {_parecer.eq('NOVA DEMANDA').sum()} | "
+                    f"Demandas: {_parecer.eq('DEMANDA').sum()} | "
+                    f"Observações: {_obs.ne('').sum()} | "
+                    f"Revisão manual: {_parecer.eq('').sum()}"
                 )
                 st.caption(
                     f"{len(planilhas['RESUMO OP'])} OP(s) / grupo(s), "

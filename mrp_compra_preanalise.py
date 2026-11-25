@@ -14,6 +14,7 @@ import pandas as pd
 
 CAMPOS = {"produto", "qnt", "data", "psy", "cc", "op", "obs", "prioridade"}
 OP_NAO_INFORMADA = "SEM OP VINCULADA"
+PREANALISE_VERSAO = "2026-11-25-v2"
 
 
 def _texto(valor) -> str:
@@ -300,6 +301,22 @@ def _preencher_analise(frame, pareceres):
     ]
 
 
+def validar_pareceres_exportacao(planilhas, referencia=None):
+    """Bloqueia exportação silenciosa de um relatório sem parecer esperado."""
+    hoje = max(_janela_analise(referencia))
+    for aba in ("MATERIAIS OP", "DETALHE OP"):
+        quadro = planilhas[aba]
+        for _, linha in quadro.iterrows():
+            data = _data_solicitacao(linha["Última solicitação"])
+            if (op_relatorio(linha["OP"]) != OP_NAO_INFORMADA
+                    and pd.notna(data) and data.date() <= hoje
+                    and _texto(linha["Parecer do analista"]) not in {"DEMANDA", "NOVA DEMANDA"}):
+                raise ValueError(
+                    f"{aba}: parecer automático ausente para OP {linha['OP']}, "
+                    f"material {linha['Código']}. Atualize a sessão antes de exportar."
+                )
+
+
 def construir_relatorio_compra_por_op(
     compra: pd.DataFrame,
     descricoes: Mapping[str, str] | None = None,
@@ -445,6 +462,7 @@ def construir_relatorio_compra_por_op(
         ("REDISTRIBUIÇÃO", "Observação estimada pelo consumo efetivo registrado na Ação do MRP e pela ordem de necessidade; não prova reserva anterior. Créditos não são duplicados; ausência de evidência fica em branco. Revisar antes de aprovar."),
         ("CALENDÁRIO", "Dias úteis: finais de semana e feriados do calendário SETTA/Patos de Minas. Pontos facultativos não são bloqueados automaticamente."),
         ("IMPORTANTE", "Não utilizar este arquivo na rotina de importação STSUP25 do Protheus."),
+        ("VERSÃO DA PRÉ-ANÁLISE", PREANALISE_VERSAO),
         ("GERAÇÃO", datetime.now().strftime("%d/%m/%Y %H:%M")),
     ], columns=["Informação", "Orientação"])
 

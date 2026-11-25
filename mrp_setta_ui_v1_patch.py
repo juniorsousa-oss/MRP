@@ -11,7 +11,7 @@ SETTA_UI_V1_PATCH = r'''
 # O tema SETTA já substitui set_page_config pela versão com favicon
 # global. Corrigir o estado diretamente nessa configuração final.
 _page_cfg_old = '    initial_sidebar_state="expanded",'
-_page_cfg_new = '    initial_sidebar_state="collapsed",'
+_page_cfg_new = '    initial_sidebar_state="auto",'
 if _source.count(_page_cfg_old) != 1:
     raise RuntimeError("Configuração de sidebar da página MRP não localizada.")
 _source = _source.replace(_page_cfg_old, _page_cfg_new, 1)
@@ -222,31 +222,6 @@ section[data-testid="stSidebar"] [data-testid="stVerticalBlock"]{
   gap:0!important;
   row-gap:0!important;
 }
-.sidebar-brand{
-  width:100%!important;
-  background:#f8fafc!important;
-  border:1px solid #e5e8ee!important;
-  border-radius:12px!important;
-  padding:14px 16px!important;
-  margin:0 0 20px 0!important;
-}
-.sidebar-brand-title{
-  margin:0!important;
-  padding:0!important;
-  font-size:15px!important;
-  font-weight:800!important;
-  line-height:18px!important;
-  color:#111827!important;
-  letter-spacing:-.01em!important;
-}
-.sidebar-brand-sub{
-  margin:3px 0 0 0!important;
-  padding:0!important;
-  font-size:12px!important;
-  font-weight:400!important;
-  line-height:16px!important;
-  color:#6b7280!important;
-}
 .sidebar-section-label{
   display:block!important;
   margin:0 0 8px 0!important;
@@ -340,118 +315,23 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   background:#ef4444!important;
   transform:translateY(-50%)!important;
 }
-.sidebar-divider{
-  display:block!important;
-  width:100%!important;
-  height:1px!important;
-  min-height:1px!important;
-  background:#d1d5db!important;
-  margin:18px 0 20px 0!important;
-  padding:0!important;
+/* O conteúdo da lateral tem seu próprio scroll quando faltar espaço. */
+[data-testid="stSidebarUserContent"]:has(.st-key-mrp_sidebar_account){
+  display:flex!important;flex-direction:column!important;flex:1 0 auto!important;
+  padding-bottom:16px!important;
 }
-.sidebar-status-card,
-.sidebar-week-card{
-  width:100%!important;
-  background:#f8fafc!important;
-  border:1px solid #e5e8ee!important;
-  border-radius:10px!important;
-  padding:12px 14px!important;
-  margin:0!important;
-  color:#6b7280!important;
+[data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"]{
+  flex:1 0 auto!important;
 }
-.sidebar-status-name,
-.sidebar-week-label{
-  margin:0!important;
-  padding:0!important;
-  font-size:11px!important;
-  line-height:14px!important;
-  font-weight:800!important;
-  color:#64748b!important;
-  text-transform:uppercase!important;
-  letter-spacing:.025em!important;
+[data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"] > :has(.st-key-mrp_sidebar_account),
+[data-testid="stSidebarUserContent"] > [data-testid="stVerticalBlock"] > .st-key-mrp_sidebar_account{
+  margin-top:auto!important;padding-top:16px!important;
 }
-.sidebar-status-value{
-  margin:4px 0 0 0!important;
-  padding:0!important;
-  font-size:13px!important;
-  line-height:16px!important;
-  font-weight:900!important;
-  text-transform:uppercase!important;
+.st-key-mrp_sidebar_account [data-testid="stPopoverButton"]{
+  min-height:44px;justify-content:flex-start;border:1px solid #e5e8ee;
+  border-radius:9px;background:#f8fafc;color:#1e293b;
 }
-.sidebar-status-value.status-ok{color:#16a34a!important}
-.sidebar-status-value.status-warning{color:#f59e0b!important}
-.sidebar-status-value.status-error{color:#ef4444!important}
-.sidebar-status-meta{
-  margin:6px 0 0 0!important;
-  padding:0!important;
-  color:#6b7280!important;
-  font-size:11px!important;
-  line-height:15px!important;
-  text-transform:uppercase!important;
-}
-.sidebar-subdivider{
-  width:100%!important;
-  height:1px!important;
-  min-height:1px!important;
-  background:#d1d5db!important;
-  margin:12px 0!important;
-}
-.sidebar-week-value{
-  margin:5px 0 0 0!important;
-  padding:0!important;
-  color:#111827!important;
-  font-size:13px!important;
-  line-height:16px!important;
-  font-weight:900!important;
-  text-transform:uppercase!important;
-}
-/* Conta ativa: conteúdo fluido dentro da sidebar, nunca flutuante. */
-.sidebar-account-divider{
-  margin:16px 0!important;
-}
-.sidebar-account-card{
-  box-sizing:border-box!important;
-  width:100%!important;
-  min-width:0!important;
-  background:#f8fafc!important;
-  border:1px solid #e5e8ee!important;
-  border-radius:10px!important;
-  padding:12px 14px!important;
-  margin:0 0 9px 0!important;
-}
-.sidebar-account-label{
-  color:#64748b!important;
-  font-size:10px!important;
-  font-weight:800!important;
-  line-height:14px!important;
-  letter-spacing:.035em!important;
-}
-.sidebar-account-name{
-  color:#111827!important;
-  font-size:13px!important;
-  font-weight:800!important;
-  line-height:18px!important;
-  margin:5px 0 3px!important;
-  overflow-wrap:anywhere!important;
-}
-.sidebar-account-role{
-  display:inline-block!important;
-  padding:3px 7px!important;
-  color:#334155!important;
-  background:#e9eef5!important;
-  border-radius:6px!important;
-  font-weight:800!important;
-  font-size:10px!important;
-  line-height:14px!important;
-}
-.sidebar-account-email{
-  margin:8px 0 0!important;
-  color:#64748b!important;
-  font-size:11px!important;
-  line-height:15px!important;
-  overflow-wrap:anywhere!important;
-}
-section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button{
+.st-key-mrp_logout_sidebar button{
   width:100%!important;
   min-height:39px!important;
   background:#fff!important;
@@ -461,7 +341,7 @@ section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button{
   font-size:12px!important;
   font-weight:800!important;
 }
-section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button:hover{
+.st-key-mrp_logout_sidebar button:hover{
   background:#fff5f5!important;
   border-color:#fecaca!important;
   color:#7f1d1d!important;
@@ -719,6 +599,42 @@ section[data-testid="stSidebar"] .st-key-mrp_logout_sidebar button:hover{
   .mrp-source-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 }
 
+/* Na área autenticada, voltar ao scroll interno nativo do painel.
+   Deixar o shell e o documento crescer com ele esticava a sidebar e
+   criava rolagem depois do fim do conteúdo. Não afeta a tela de login. */
+html:has(.mrp-workspace-head),body:has(.mrp-workspace-head),
+body:has(.mrp-workspace-head) #root{
+  height:100%!important;min-height:0!important;overflow:hidden!important;
+}
+body:has(.mrp-workspace-head) .stApp,
+body:has(.mrp-workspace-head) [data-testid="stAppViewContainer"]{
+  height:100vh!important;height:100dvh!important;min-height:0!important;
+  overflow:hidden!important;
+}
+body:has(.mrp-workspace-head) [data-testid="stMain"]{
+  height:100%!important;min-height:0!important;overflow-y:auto!important;
+}
+body:has(.mrp-workspace-head) [data-testid="stMainBlockContainer"]{
+  min-height:0!important;padding-bottom:24px!important;
+}
+body:has(.mrp-workspace-head) section[data-testid="stSidebar"]{
+  height:100vh!important;height:100dvh!important;min-height:0!important;
+}
+body:has(.mrp-workspace-head) [data-testid="stHeader"] [data-testid="stExpandSidebarButton"],
+body:has(.mrp-workspace-head) [data-testid="stSidebarCollapsedControl"] button,
+body:has(.mrp-workspace-head) [data-testid="collapsedControl"] button{
+  min-width:74px!important;min-height:38px!important;
+  border:1px solid #e5e8ee!important;border-radius:8px!important;background:#fff!important;
+}
+button[data-mrp-toggle] > *{display:none!important}
+button[data-mrp-toggle]::after{content:attr(data-mrp-toggle);font-size:13px;font-weight:650}
+button[data-mrp-toggle="Menu"]::before{content:"☰";font-size:14px}
+@media(max-width:900px){
+  body:has(.mrp-workspace-head) [data-testid="stMainBlockContainer"]{
+    padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))!important;
+  }
+}
+
 </style>"""
 
 # Mantém o bloco de navegação gerado por PADRONIZACAO_NFS_PATCH.
@@ -730,27 +646,51 @@ _shell_anchor = '_mrp_role=st.session_state.get("auth_role")\n'
 if _shell_anchor not in _source:
     raise RuntimeError("Ponto de montagem da sidebar não encontrado para SETTA UI.")
 
-# O clique em botão de página executa rerun do Streamlit, mas NÃO altera
-# automaticamente o estado aberto da sidebar. Fechar pelo controle nativo no
-# navegador antes do rerun evita CSS que esconderia também o botão de reabrir.
-# Script estático, sem receber texto dos usuários ou das bases MRP.
+# Só fechar ao navegar no mobile. Reutilizar os botões nativos, que
+# preservam foco, expansão manual e adaptação do layout Streamlit.
 _setta_close_on_navigation = r"""<script>
 (() => {
   if (window.__settaMenuCloseOnNavV1) return;
   window.__settaMenuCloseOnNavV1 = true;
+  const mobile = window.matchMedia("(max-width: 900px)");
+  const sidebar = () => document.querySelector('section[data-testid="stSidebar"]');
+  const collapseButton = () => sidebar()?.querySelector(
+    'button[data-testid="stSidebarCollapseButton"],' +
+    '[data-testid="stSidebarCollapseButton"] button,' +
+    '[data-testid="stSidebarHeader"] button'
+  );
+  const label = (button, text, name) => {
+    if (!button || button.dataset.mrpToggle === text) return;
+    button.dataset.mrpToggle = text;
+    button.setAttribute("aria-label", name);
+    button.title = name;
+  };
+  let initial = true;
+  const controls = () => {
+    const close = collapseButton();
+    label(close, "Recolher", "Recolher menu lateral");
+    label(document.querySelector(
+      'button[data-testid="stExpandSidebarButton"],' +
+      '[data-testid="stExpandSidebarButton"] button,' +
+      '[data-testid="stSidebarCollapsedControl"] button,' +
+      '[data-testid="collapsedControl"] button'
+    ), "Menu", "Abrir menu lateral");
+    if (initial && sidebar()?.querySelector('[class*="st-key-mrp_nav_btn_"] button')) {
+      initial = false;
+      if (mobile.matches && sidebar().getAttribute("aria-expanded") === "true") close?.click();
+    }
+  };
+  let pending = false;
+  new MutationObserver(() => {
+    if (pending) return;
+    pending = true;
+    requestAnimationFrame(() => { pending = false; controls(); });
+  }).observe(document.getElementById("root"), {childList: true, subtree: true});
+  controls();
   document.addEventListener("click", (event) => {
     const clicked = event.target instanceof Element ? event.target : null;
-    if (!clicked || !clicked.closest('[class*="st-key-mrp_nav_btn_"] button')) return;
-    queueMicrotask(() => {
-      const sidebar = document.querySelector('section[data-testid="stSidebar"]');
-      if (!sidebar) return;
-      const collapse = sidebar.querySelector(
-        'button[data-testid="stSidebarCollapseButton"],' +
-        '[data-testid="stSidebarCollapseButton"] button,' +
-        '[data-testid="stSidebarHeader"] button'
-      );
-      if (collapse && collapse.getClientRects().length) collapse.click();
-    });
+    if (!mobile.matches || !clicked?.closest('[class*="st-key-mrp_nav_btn_"] button')) return;
+    queueMicrotask(() => collapseButton()?.click());
   }, true);
 })();
 </script>"""

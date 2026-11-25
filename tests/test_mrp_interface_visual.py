@@ -23,6 +23,15 @@ class InterfaceVisualTests(unittest.TestCase):
         self.assertNotIn("<script>",html)
         self.assertIn("&lt;script&gt;",html)
 
+    def test_cabecalho_mostra_semana_bases_e_alertas_sem_html_injetado(self):
+        html = cabecalho_html("MRP ATUAL", None, "ATENÇÃO", "—",
+                              semana="2026-47", bases=(4,5), registros="800 REGISTROS",
+                              alertas=["Estoque <pendente>"])
+        for rotulo in ("Semana atual: 2026-47", "Bases: 4/5", "800 registros",
+                       "Estoque &lt;pendente&gt;", "Atenção"):
+            self.assertIn(rotulo, html)
+        self.assertNotIn("<pendente>", html)
+
     def test_etapas_com_rotulo_sem_html_injetado(self):
         self.assertIn('>3</span>',etapa_compra_html(3,"Liberar carga oficial"))
         self.assertNotIn("<script>",etapa_compra_html(1,"<script>"))

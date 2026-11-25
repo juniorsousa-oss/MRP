@@ -17,10 +17,14 @@ _old_title='''st.markdown(f'<h1 class="app-title">{UI_CONFIG["section_main_title
 if UI_CONFIG.get("section_main_description"):
     st.markdown(f'<p class="app-subtitle">{UI_CONFIG["section_main_description"]}</p>', unsafe_allow_html=True)'''
 _header_compact_replace(_old_title,'')
-_status_anchor='_mrp_rows=_initial_output_meta.get("rows_count")'
+_status_anchor='with st.sidebar:'
 _header_compact_replace(_status_anchor,'''from mrp_interface_visual import WORKSPACE_CSS,cabecalho_html
 st.html(WORKSPACE_CSS)
-st.html(cabecalho_html(_mrp_page,UI_CONFIG.get("logo_data"),_mrp_status,_mrp_when))
+st.html(cabecalho_html(
+    _mrp_page,UI_CONFIG.get("logo_data"),_mrp_status,_mrp_when,
+    semana=_mrp_sidebar_week,bases=(_mrp_base_ok,_mrp_base_total),
+    registros=_mrp_rows_text,alertas=_mrp_alertas,
+))
 ''' + _status_anchor)
 _login_anchor='    with st.form("login_form", clear_on_submit=False):'
 _header_compact_replace(_login_anchor,'''    from mrp_interface_visual import LOGIN_COMPACTO_CSS

@@ -8,6 +8,16 @@ on:
       - 'mrp_setta_ui_v1_patch.py'
       - 'scripts/test_mrp_sidebar_browser.py'
       - '.github/workflows/mrp-sidebar-browser.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'mrp_setta_ui_v1_patch.py'
+      - 'mrp_padronizacao_nfs_patch.py'
+      - 'mrp_cabecalho_compacto_patch.py'
+      - 'mrp_interface_visual.py'
+      - 'scripts/test_mrp_sidebar_browser.py'
+      - '.github/workflows/mrp-sidebar-browser.yml'
   workflow_dispatch:
 
 jobs:

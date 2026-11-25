@@ -329,7 +329,29 @@ def _compra_botao_finalizar(prefixo):
         _compra_fechar(prefixo)
         st.rerun()
 
-def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None, alocacoes=None):
+def _historico_preanalise(snapshot_atual=None):
+    # Leitura das duas fotografias já existentes, sem publicar nem recalcular.
+    atual=snapshot_atual if snapshot_atual is not None else load_latest_snapshot()
+    if not atual or atual.get("id") is None:
+        return None
+    atual_id=int(atual["id"])
+    meta=load_snapshot_history()
+    # Usa a fotografia imediatamente anterior à referência, não uma
+    # arbitrária nem uma mais recente que a sessão CONSULTA.
+    ids=[int(x["id"]) for x in meta if int(x["id"])<atual_id]
+    if not ids:
+        return None
+    anterior=load_snapshot(max(ids))
+    if not anterior:
+        return None
+    return {
+        "macro_anterior":snapshot_df(anterior,"mrp_geral"),
+        "alocacoes_anterior":snapshot_df(anterior,"demanda_projeto"),
+        "macro_referencia":snapshot_df(atual,"mrp_geral"),
+        "alocacoes_referencia":snapshot_df(atual,"demanda_projeto"),
+    }
+
+def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None, alocacoes=None, macro_atual=None, snapshot_atual=None):
     st.markdown("### VALIDAÇÃO DA COMPRA MRP")
     st.caption("Retire produtos que nao devem ser comprados; a decisao fica salva e podera ser revertida. Nao altera a demanda calculada no MRP.")
     try:
@@ -450,7 +472,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             import importlib
             import mrp_compra_preanalise as _preanalise
             # Streamlit pode manter módulos importados de um rerun anterior.
-            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v2":
+            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v3":
                 importlib.invalidate_caches()
                 _preanalise=importlib.reload(_preanalise)
             op_opcoes=sorted({_preanalise.op_relatorio(x) for x in aptos["op"].tolist()})
@@ -461,20 +483,28 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 help="Filtre uma ou mais OPs. Solicitações sem OP permanecem separadas em SEM OP VINCULADA.",
             )
             try:
-                if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v2":
+                if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v3":
                     raise RuntimeError("Versão antiga da pré-análise. Reinicie o aplicativo antes de baixar.")
+                try:
+                    _historico=_historico_preanalise(snapshot_atual)
+                except Exception as exc:
+                    _historico=None
+                    st.caption("Histórico comparativo indisponível; mantida a análise da alocação atual.")
                 planilhas=_preanalise.construir_relatorio_compra_por_op(
                     aptos,_descs,escolhidas or None,solicitacoes,alocacoes,
+                    macro_atual=macro_atual,historico=_historico,
                 )
                 _preanalise.validar_pareceres_exportacao(planilhas)
                 _parecer=planilhas["MATERIAIS OP"]["Parecer do analista"]
                 _obs=planilhas["MATERIAIS OP"]["Observações da análise"]
+                _emergencial=planilhas["MATERIAIS OP"]["Prioridade"].eq("2")
                 st.caption(
                     f"Pré-análise {_preanalise.PREANALISE_VERSAO} | "
                     f"Novas demandas: {_parecer.eq('NOVA DEMANDA').sum()} | "
                     f"Demandas: {_parecer.eq('DEMANDA').sum()} | "
                     f"Observações: {_obs.ne('').sum()} | "
-                    f"Revisão manual: {_parecer.eq('').sum()}"
+                    f"Demanda normal: {(~_emergencial).sum()} | "
+                    f"Revisão manual: {(_parecer.eq('') & _emergencial).sum()}"
                 )
                 st.caption(
                     f"{len(planilhas['RESUMO OP'])} OP(s) / grupo(s), "
@@ -560,7 +590,7 @@ _compra_replace(
     '''if c4.button("ANÁLISE DE COMPRA",key="consulta_compra_abrir",use_container_width=True):
         _compra_abrir("consulta")
     if st.session_state.get("consulta_compra_aberta",False):
-        render_validacao_compra_mrp(comp,"consulta",mg,dem)''',
+        render_validacao_compra_mrp(comp,"consulta",mg,dem,dem,mg,snap)''',
     "Bloqueio download direto CONSULTA",
 )
 _compra_replace(
@@ -569,7 +599,7 @@ _compra_replace(
     if st.button("ANÁLISE DE COMPRA",key="admin_compra_abrir",use_container_width=True):
         _compra_abrir("admin")
 if st.session_state.get("admin_compra_aberta",False):
-    render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg,demanda_projeto)''',
+    render_validacao_compra_mrp(compras_mrp_export,"admin",cad,rg,demanda_projeto,macro)''',
     "Bloqueio download direto ADMIN",
 )
 # Recalcular a compra e prioridades nas sessoes ainda abertas.

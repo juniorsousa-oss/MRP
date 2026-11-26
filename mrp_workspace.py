@@ -1,6 +1,7 @@
 """Visual shell and routes for the existing Streamlit MRP."""
 from contextlib import nullcontext
 from html import escape
+from pathlib import Path
 import re
 
 import pandas as pd
@@ -17,6 +18,13 @@ _ROUTES = {
 }
 _PLANNING = tuple(_ROUTES)[:4]
 _OPERATIONS = tuple(_ROUTES)[4:7]
+_ROUTE_IDS = {page: i for i, page in enumerate(_ROUTES)}
+
+WORKSPACE_TRANSITION_JS = (
+    '<span hidden data-mrp-shell-bootstrap></span><script>'
+    + (Path(__file__).parent / "assets" / "mrp_tab_transition.js").read_text(encoding="utf-8")
+    + "</script>"
+)
 
 
 def workspace_pages(role):
@@ -31,7 +39,6 @@ class WorkspaceSection(nullcontext):
 
 
 def workspace_sidebar(st, pages, active, change):
-    keys = {p: i for i, p in enumerate(_ROUTES)}
     for title, group in (("Planejamento", _PLANNING), ("Operações", _OPERATIONS), ("", ("CONFIGURAÇÕES",))):
         if title:
             st.html(f'<div class="sidebar-section-label">{title}</div>')
@@ -39,7 +46,7 @@ def workspace_sidebar(st, pages, active, change):
             if page not in pages:
                 continue
             name, _, icon = _ROUTES[page]
-            st.button(name, key=f"mrp_nav_btn_{keys[page]}",
+            st.button(name, key=f"mrp_nav_btn_{_ROUTE_IDS[page]}",
                       icon=f":material/{icon}:", type="primary" if active == page else "secondary",
                       width="stretch", on_click=change, args=(page,))
 
@@ -58,7 +65,7 @@ def workspace_header(page, logo, status, when, *, semana, bases, registros, aler
     meta = escape(" · ".join(filter(None, (f"Bases {bases[0]}/{bases[1]}", str(registros or "").lower()))))
     alert = f'<div class="mrp-v2-alert" role="status">{escape(" · ".join(alertas))}</div>' if alertas else ""
     return (
-        '<header class="mrp-v2-header" aria-label="Página do MRP SETTA">'
+        f'<header class="mrp-v2-header" data-mrp-route="{_ROUTE_IDS[page]}" aria-label="Página do MRP SETTA">'
         '<div class="mrp-v2-top">'
         f'<span class="mrp-v2-mark">{mark}</span><b class="mrp-v2-brand">MRP</b>'
         '<span class="mrp-v2-name">Planejamento de materiais</span>'
@@ -66,7 +73,8 @@ def workspace_header(page, logo, status, when, *, semana, bases, registros, aler
         '</div><div class="mrp-v2-intro">'
         f'<div class="mrp-v2-crumb">{section} / {title}</div>'
         f'<h1>{title}</h1><p>{description}</p><span class="mrp-v2-meta">{meta}</span>'
-        f'<span class="mrp-v2-mobile-date">{stamps}</span>{alert}</div></header>'
+        f'<span class="mrp-v2-mobile-date">{stamps}</span>{alert}</div>'
+        '<div class="mrp-tab-loader" role="status" aria-live="polite">Carregando aba…</div></header>'
     )
 
 
@@ -85,6 +93,21 @@ WORKSPACE_V2_CSS = """
 body:has(.mrp-v2-header) [data-testid="stMain"] [data-testid="stMainBlockContainer"].block-container {
   --v2-bg:#f0f3f8; --v2-navy:#142134; --v2-blue:#2158b3;
   background:var(--v2-bg)!important;padding:0 28px 24px!important;
+}
+/* Troca de aba: o quadro de navegação não esmaece; controles antigos
+   ficam fora da tela e do foco até terminar a renderização do destino. */
+.mrp-tab-loader{display:none}
+html[data-mrp-navigating="true"] .mrp-tab-loader{
+  display:flex;align-items:center;min-height:66px;margin:0;
+  padding:14px 18px;border:1px solid #dbe4f0;border-radius:12px;
+  background:#fff;color:#345071;font-size:.88rem;font-weight:650;
+}
+html[data-mrp-navigating="true"] [data-testid="stMainBlockContainer"] [data-mrp-tab-boundary] ~ *{
+  display:none!important;
+}
+html[data-mrp-navigating="true"] [data-testid="stSidebar"] [data-stale="true"],
+html[data-mrp-navigating="true"] [data-testid="stMainBlockContainer"] [data-stale="true"]:has(.mrp-v2-header){
+  opacity:1!important;transition:none!important;
 }
 /* O bootstrap executa JS, mas não é um bloco visual nem deve criar o gap da pilha. */
 body:has(.mrp-v2-header) [data-testid="stMainBlockContainer"] [data-testid="stElementContainer"]:has([data-mrp-shell-bootstrap]){

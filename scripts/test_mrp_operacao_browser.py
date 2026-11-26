@@ -29,12 +29,13 @@ helpers = "\n".join(ast.unparse(n) for n in ast.parse(src).body if isinstance(n,
 APP = f"""
 import pandas as pd
 import re
+import time
 import streamlit as st
 from mrp_interface_visual import WORKSPACE_CSS
 from mrp_abas_visual import ABAS_VISUAL_CSS, limpar_filtros_projeto
 from mrp_excedentes import exibir_analise_excedentes
 from datetime import date
-from mrp_workspace import WORKSPACE_V2_CSS, WorkspaceSection, workspace_sidebar, workspace_pages, workspace_header, workspace_falta
+from mrp_workspace import WORKSPACE_TRANSITION_JS, WORKSPACE_V2_CSS, WorkspaceSection, workspace_sidebar, workspace_pages, workspace_header, workspace_falta
 from mrp_operacao_ui import OPERACAO_CSS, operacao_busca, operacao_indicadores, operacao_grade, operacao_detalhe, operacao_tabela_detalhe, operacao_rotulo_grade
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed")
 st.html({shell!r})
@@ -43,12 +44,17 @@ st.html(WORKSPACE_CSS)
 st.html(OPERACAO_CSS)
 st.html(WORKSPACE_V2_CSS)
 st.html(ABAS_VISUAL_CSS)
+st.html(WORKSPACE_TRANSITION_JS,unsafe_allow_javascript=True)
 def _mrp_set_sidebar_page(page): st.session_state["_mrp_sidebar_page"]=page
 st.session_state["auth_role"]="ADMIN"
 _mrp_page=st.session_state.get("_mrp_sidebar_page","MRP ATUAL")
 st.html(workspace_header(_mrp_page,"","ATUALIZADO","08:10",semana="2026-47",bases=(5,5),registros="",alertas=[],nome="Almoxarifado",perfil="ADMIN"))
 with st.sidebar:
     workspace_sidebar(st,workspace_pages("ADMIN"),_mrp_page,_mrp_set_sidebar_page)
+_fixture_changed=st.session_state.get("_fixture_prev_page",_mrp_page)!=_mrp_page
+st.session_state["_fixture_prev_page"]=_mrp_page
+if _fixture_changed:
+    time.sleep(0.9)  # simula a renderização progressiva do destino
 {helpers}
 def _limpar_filtros_mrp(*keys):
     for k in keys: st.session_state.pop(k,None)
@@ -98,6 +104,8 @@ def check(browser, width, height):
         p.set_default_timeout(8000)
         p.goto(URL,wait_until="domcontentloaded")
         expect(p.get_by_role("heading",name="Demanda Geral",exact=True)).to_be_visible(timeout=30000)
+        loader=p.get_by_text("Carregando aba…",exact=True)
+        expect(loader).not_to_be_visible()
         expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
         assert p.evaluate("document.documentElement.scrollWidth") <= width+2
         expect(p.get_by_role("table")).to_be_visible() if width>700 else expect(p.locator(".op-item").first).to_be_visible()
@@ -215,6 +223,12 @@ def check(browser, width, height):
             p.locator('[data-testid="stMain"]').evaluate("el => el.scrollTop = 0")
             p.screenshot(path=f"/tmp/MRP-compra-{width}.png")
         nav("Excedentes")
+        expect(loader).to_be_visible()
+        expect(p.get_by_role("heading",name="Excedentes",exact=True)).to_be_visible()
+        expect(buy.get_by_role("heading",name="Revisar materiais",exact=True)).not_to_be_visible()
+        expect(buy.get_by_role("button",name="Preparar relatório por OP")).not_to_be_visible()
+        expect(p.locator(".mrp-v2-top")).to_be_visible()
+        expect(loader).not_to_be_visible()
         excess=p.locator(".st-key-mrp_visual_excedentes")
         expect(excess.get_by_role("heading",name="Documentos com excedente")).to_have_css("font-size","18px")
         expect(p.get_by_role("heading",name="Excedentes",exact=True)).to_have_count(1)
@@ -230,6 +244,9 @@ def check(browser, width, height):
         if os.environ.get("MRP_LAYOUT_CAPTURES"):
             p.screenshot(path=f"/tmp/MRP-excedentes-{width}.png")
         expect(p.get_by_role("heading",name="Revisar materiais")).to_have_count(0)
+        nav("Excedentes")
+        expect(loader).not_to_be_visible()
+        expect(excess.get_by_role("heading",name="Documentos com excedente")).to_be_visible()
         print(f"MRP Operação {width}px: busca, atalhos, grade e ações sem erro.",flush=True)
 
 def main():

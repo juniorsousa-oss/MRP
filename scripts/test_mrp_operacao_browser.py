@@ -181,8 +181,12 @@ def check(browser, width, height):
         p.get_by_role("button",name="Filtros").click()
         p.get_by_role("button",name="Limpar",exact=True).click()
         expect(p.get_by_text("2 materiais ·",exact=False)).to_be_visible()
+        if width > 900:
+            p.get_by_role("button",name="Abrir menu lateral").click()
+            expect(p.get_by_test_id("stSidebar")).to_have_attribute("aria-expanded","true")
         p.get_by_role("button",name="Críticas",exact=False).click()
         expect(p.get_by_role("heading",name="Demanda por Projeto",exact=True)).to_be_visible()
+        expect(p.get_by_test_id("stSidebar")).to_have_attribute("aria-expanded","false")
         project=p.locator(".st-key-mrp_visual_projeto")
         expect(project.get_by_text("Status de atendimento",exact=True)).to_be_visible()
         expect(project.get_by_text("Mostrar demandas não aptas",exact=True)).to_be_visible()
@@ -204,7 +208,10 @@ def check(browser, width, height):
             menu=p.get_by_role("button",name="Abrir menu lateral")
             if menu.is_visible():
                 menu.click()
-            p.get_by_role("button",name=label,exact=True).click()
+            destination=p.get_by_role("button",name=label,exact=True)
+            active=destination.get_attribute("aria-current")=="page"
+            destination.click()
+            expect(p.get_by_test_id("stSidebar")).to_have_attribute("aria-expanded","true" if active else "false")
         nav("Demanda Geral")
         p.get_by_role("button",name="Exportar",exact=False).click()
         expect(p.get_by_text("BAIXAR MRP GERAL",exact=False)).to_be_visible()

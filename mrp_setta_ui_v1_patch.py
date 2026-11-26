@@ -658,19 +658,29 @@ _shell_anchor = '_mrp_role=st.session_state.get("auth_role")\n'
 if _shell_anchor not in _source:
     raise RuntimeError("Ponto de montagem da sidebar não encontrado para SETTA UI.")
 
-# Fechar em todo login; em telas menores, também ao navegar.
+# Fechar em todo login e ao trocar de aba, em qualquer largura.
 # Usar os controles nativos para preservar a expansão manual.
 _setta_close_on_navigation = r"""<span hidden data-mrp-shell-bootstrap></span><script>
 (() => {
   if (window.__settaMenuCloseOnNavV1) return;
   window.__settaMenuCloseOnNavV1 = true;
-  const mobile = window.matchMedia("(max-width: 900px)");
   const sidebar = () => document.querySelector('section[data-testid="stSidebar"]');
   const collapseButton = () => sidebar()?.querySelector(
     'button[data-testid="stSidebarCollapseButton"],' +
     '[data-testid="stSidebarCollapseButton"] button,' +
     '[data-testid="stSidebarHeader"] button'
   );
+  const openButton = () => document.querySelector(
+    'button[data-testid="stExpandSidebarButton"],' +
+    '[data-testid="stExpandSidebarButton"] button,' +
+    '[data-testid="stSidebarCollapsedControl"] button,' +
+    '[data-testid="collapsedControl"] button'
+  );
+  const topMenu = () => document.querySelector(".mrp-v2-menu-toggle");
+  const html = document.documentElement;
+  const setAttribute = (node, key, value) => {
+    if (node.getAttribute(key) !== value) node.setAttribute(key, value);
+  };
   const label = (button, text, name) => {
     if (!button || button.dataset.mrpToggle === text) return;
     button.dataset.mrpToggle = text;
@@ -681,12 +691,20 @@ _setta_close_on_navigation = r"""<span hidden data-mrp-shell-bootstrap></span><s
   const controls = () => {
     const close = collapseButton();
     label(close, "Recolher", "Recolher menu lateral");
-    label(document.querySelector(
-      'button[data-testid="stExpandSidebarButton"],' +
-      '[data-testid="stExpandSidebarButton"] button,' +
-      '[data-testid="stSidebarCollapsedControl"] button,' +
-      '[data-testid="collapsedControl"] button'
-    ), "Menu", "Abrir menu lateral");
+    const open = openButton();
+    label(open, "Menu", "Abrir menu lateral");
+    const panel = sidebar();
+    const top = topMenu();
+    const expanded = panel?.getAttribute("aria-expanded");
+    if (top && (expanded === "true" ? close : expanded === "false" && open)) {
+      if (!panel.id) panel.id = "mrp-side-navigation";
+      setAttribute(top, "aria-controls", panel.id);
+      setAttribute(top, "aria-expanded", expanded);
+      setAttribute(top, "aria-label", expanded === "true" ? "Recolher menu lateral" : "Abrir menu lateral");
+      html.dataset.mrpMenuReady = "";
+    } else {
+      delete html.dataset.mrpMenuReady;
+    }
     sidebar()?.querySelectorAll('[class*="st-key-mrp_nav_btn_"] button').forEach(button => {
       const name = button.querySelector("p")?.textContent?.trim();
       if (name) button.setAttribute("aria-label", name);
@@ -696,7 +714,6 @@ _setta_close_on_navigation = r"""<span hidden data-mrp-shell-bootstrap></span><s
     if (document.querySelector(".setta-login-wrap")) {
       initial = true;
     } else if (initial && sidebar()?.querySelector('[class*="st-key-mrp_nav_btn_"] button')) {
-      const expanded = sidebar().getAttribute("aria-expanded");
       if (expanded === "true" && close) {
         initial = false;
         close.click();
@@ -710,15 +727,39 @@ _setta_close_on_navigation = r"""<span hidden data-mrp-shell-bootstrap></span><s
     if (pending) return;
     pending = true;
     requestAnimationFrame(() => { pending = false; controls(); });
-  }).observe(document.getElementById("root"), {childList: true, subtree: true});
+  }).observe(document.getElementById("root"), {
+    childList: true, subtree: true, attributes: true, attributeFilter: ["aria-expanded", "data-testid"]
+  });
   controls();
+  // No mobile, o Streamlit fecha na fase de mousedown fora da sidebar.
+  // O acionador está no topo; deixe apenas o click abaixo decidir o estado.
+  document.addEventListener("mousedown", (event) => {
+    if (event.target instanceof Element && event.target.closest(".mrp-v2-menu-toggle")) {
+      event.stopPropagation();
+    }
+  }, true);
   document.addEventListener("click", (event) => {
     const clicked = event.target instanceof Element ? event.target : null;
-    if (!clicked?.closest('[class*="st-key-mrp_nav_btn_"] button')) return;
+    if (clicked?.closest(".mrp-v2-menu-toggle")) {
+      const current = sidebar()?.getAttribute("aria-expanded");
+      if (current === "true") collapseButton()?.click();
+      else if (current === "false") openButton()?.click();
+      return;
+    }
+    const button = clicked?.closest("button");
+    if (!button || button.disabled) return;
+    const sideRoute = button.closest('[class*="st-key-mrp_nav_btn_"]') &&
+      button.dataset.testid !== "stBaseButton-primary";
+    const projectShortcut = topMenu()?.closest(".mrp-v2-header")?.dataset.mrpRoute === "0" &&
+      button.closest('[class*="st-key-mrp_operacao_kpis_"]');
+    if (!sideRoute && !projectShortcut) return;
     queueMicrotask(() => {
       const main = document.querySelector('[data-testid="stMain"]');
       if (main) main.scrollTop = 0;
-      if (mobile.matches) collapseButton()?.click();
+      if (sidebar()?.getAttribute("aria-expanded") === "true") {
+        collapseButton()?.click();
+        if (event.detail === 0) topMenu()?.focus({preventScroll: true});
+      }
     });
   }, true);
 })();

@@ -130,12 +130,15 @@ def assert_header(page):
 
 def assert_menu_button(page, control, *, opening):
     expect(control).to_be_in_viewport(ratio=1)
-    rect = control.bounding_box()
-    assert 43 <= rect["width"] <= 45 and 43 <= rect["height"] <= 45, rect
-    if opening:
-        logo = page.locator(".mrp-v2-mark").bounding_box()
-        assert rect["x"] + rect["width"] + 6 <= logo["x"], (rect, logo)
-        assert abs(rect["y"] + rect["height"]/2 - (logo["y"] + logo["height"]/2)) <= 2
+    # A posição horizontal muda em cada frame da animação; medir no mesmo frame.
+    rect = control.evaluate("""button => {
+      const r = button.getBoundingClientRect(), logo = button.nextElementSibling.getBoundingClientRect();
+      return {w:r.width,h:r.height,gap:logo.left-r.right,center:Math.abs(r.y+r.height/2-logo.y-logo.height/2)};
+    }""")
+    assert 43 <= rect["w"] <= 45 and 43 <= rect["h"] <= 45, rect
+    assert 7 <= rect["gap"] <= 14 and rect["center"] <= 2, rect
+    expect(control).to_have_attribute("aria-expanded", "false" if opening else "true")
+    assert control.evaluate("button => button.closest('.mrp-v2-top')?.contains(document.querySelector('.mrp-v2-account'))")
 
 
 def check(browser,width,height,name,iphone=False):
@@ -164,39 +167,41 @@ def check(browser,width,height,name,iphone=False):
                 assert_menu_button(page, menu, opening=True)
                 if index == 0:
                     menu.press("Enter")
+                elif iphone:
+                    menu.tap()
                 else:
                     menu.click()
                 expect(sidebar).to_have_attribute("aria-expanded", "true")
                 assert_menu_button(page, collapse, opening=False)
                 assert_header(page)
                 if index < 2:
-                    collapse.click()
+                    if iphone and index == 1:
+                        collapse.tap()
+                    else:
+                        collapse.click()
             page.wait_for_function("""() => {
               const sidebar = document.querySelector('section[data-testid="stSidebar"]');
-              const close = sidebar.querySelector('button[data-mrp-toggle="Recolher"]');
+              const close = document.querySelector('.mrp-v2-menu-toggle');
               const brand = document.querySelector(".mrp-v2-top");
               const r = close?.getBoundingClientRect(), s = sidebar.getBoundingClientRect();
               const b = brand.getBoundingClientRect();
-              return r && Math.abs(s.left) < 1 && Math.abs(r.left - 12) < 2 &&
+              return r && Math.abs(s.left) < 1 && Math.abs(r.left - b.left - 12) < 2 &&
                 Math.abs(r.top - 7) < 2 &&
                 (innerWidth>900 ? Math.abs(b.left-s.right) < 2 : Math.abs(b.left) < 2);
             }""")
             expect(settings).to_be_in_viewport()
             assert_scroll(page,width,long=True)
             page.screenshot(path=str(ARTIFACTS/f"{name}-aberto.png"))
-            settings.click()
+            settings.press("Enter")
             expect(page.get_by_role("heading",name="Configurações",exact=True)).to_be_visible()
             assert_header(page)
-            if width<=900:
-                expect(sidebar).to_have_attribute("aria-expanded", "false")
-                assert_menu_button(page, menu, opening=True)
-                menu.click()
-            else:
-                expect(settings).to_be_in_viewport()
-                collapse.click()
-                expect(menu).to_be_in_viewport()
-                menu.click()
+            expect(sidebar).to_have_attribute("aria-expanded", "false")
+            assert_menu_button(page, menu, opening=True)
+            menu.click()
             expect(settings).to_have_attribute("data-testid","stBaseButton-primary")
+            settings.click()
+            expect(sidebar).to_have_attribute("aria-expanded", "true")
+            assert_menu_button(page, collapse, opening=False)
             assert_scroll(page,width,long=False)
             expect(page.get_by_text("conta@example.invalid")).not_to_be_visible()
             account=page.get_by_role("button",name="Almoxarifado · Admin")

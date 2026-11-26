@@ -577,20 +577,79 @@ class ParecerAutomaticoTests(unittest.TestCase):
                 inicio = 0 if ausente else 3
                 self.assertIn(f"AUMENTO DE DEMANDA DE {inicio} PARA 5",row["Observações da análise"])
                 self.assertIn("NECESSIDADE ADICIONAL DE 2 UN.",row["Observações da análise"])
-                if ausente:
-                    self.assertIn("S.C. SUBIU DE 0 PARA 3 UN.",row["Observações da análise"])
+                self.assertIn(f"OP 26033001001 (+{5-inicio} UN.)",row["Observações da análise"])
+                self.assertNotIn("S.C.", row["Observações da análise"])
+
+    def test_identifica_as_ops_que_aumentaram_e_nao_a_op_afetada(self):
+        def linha(op, qtd, acao):
+            return self.linha(op, "24/11/2026", "11/12/2026", 202647, qtd, acao)
+
+        antes = [linha(self.ANTIGO, 2, "Estoque 2")]
+        agora = [linha(self.ANTIGO, 2, "CRIAR S.C. 2 para semana 202647"),
+                 linha(self.NOVO, 1, "Estoque 1"),
+                 linha(self.OUTRO, 1, "Estoque 1")]
+
+        def macro(demanda):
+            return pd.DataFrame([{"Código": 158, "Saldo em Estoque": 2, "Demanda": demanda,
+                                  "P.C.": 0, "S.C.": 0, "Produzindo": 0}])
+
+        referencia = macro(4)
+        hist = {"macro_anterior": macro(2), "alocacoes_anterior": pd.DataFrame(antes),
+                "macro_referencia": referencia, "alocacoes_referencia": pd.DataFrame(agora)}
+        r = self.analisar([self.compra(self.ANTIGO, 2)], agora, referencia="2026-11-26",
+                          macro_atual=referencia, historico=hist)["MATERIAIS OP"].iloc[0]
+        self.assertEqual(r["OP"], self.ANTIGO)
+        obs = r["Observações da análise"]
+        self.assertIn(f"OP {self.NOVO} (+1 UN.)", obs)
+        self.assertIn(f"OP {self.OUTRO} (+1 UN.)", obs)
+        self.assertNotIn(self.ANTIGO, obs)
+        self.assertIn("NECESSIDADE ADICIONAL DE 2 UN.", obs)
+
+    def test_falta_maior_em_uma_op_nao_desaparece_ao_diminuir_em_outra(self):
+        # O material passa de 4 para 6 faltantes, mas a OP nova ganha 5
+        # de falta e a antiga perde 3. A comparação líquida deve bater.
+        def linha(op, qtd, acao):
+            return self.linha(op, "24/11/2026", "11/12/2026", 202647, qtd, acao)
+
+        antes = [linha(self.ANTIGO, 4, "CRIAR S.C. 4 para semana 202647"),
+                 linha(self.NOVO, 6, "Estoque 6")]
+        agora = [linha(self.ANTIGO, 1, "CRIAR S.C. 1 para semana 202647"),
+                 linha(self.NOVO, 11, "Estoque 6; CRIAR S.C. 5 para semana 202647")]
+
+        def macro(demanda):
+            return pd.DataFrame([{"Código": 158, "Saldo em Estoque": 6, "Demanda": demanda,
+                                  "P.C.": 0, "S.C.": 0, "Produzindo": 0}])
+
+        referencia = macro(12)
+        hist = {"macro_anterior": macro(10), "alocacoes_anterior": pd.DataFrame(antes),
+                "macro_referencia": referencia, "alocacoes_referencia": pd.DataFrame(agora)}
+        resultado = self.analisar([self.compra(self.ANTIGO, 1), self.compra(self.NOVO, 5)],
+                                   agora, referencia="2026-11-26", macro_atual=referencia,
+                                   historico=hist)["MATERIAIS OP"].set_index("OP")
+        self.assertEqual(resultado.loc[self.NOVO, "Parecer do analista"], "DEMANDA")
+        obs = resultado.loc[self.NOVO, "Observações da análise"]
+        self.assertIn(f"OP {self.NOVO} (+5 UN.)", obs)
+        self.assertIn("NECESSIDADE ADICIONAL DE 5 UN. NESTA OP", obs)
+        self.assertNotIn("Estoque 6", obs)
+        self.assertEqual(resultado.loc[self.ANTIGO, "Observações da análise"], "")
+
+    def test_reducao_parcial_de_sc_exibe_so_as_unidades_sem_reposicao(self):
+        row = self._variacao((0,8,0,8,0),(0,8,3,0,0),
+                             "S.C. 8","P.C. 3; CRIAR S.C. 5 para semana 202647",5)
+        self.assertIn("REDUÇÃO DE S.C. SEM REPOSIÇÃO: 5 UN.",row["Observações da análise"])
+        self.assertNotIn("P.C.",row["Observações da análise"])
 
     def test_reducao_de_sc_sem_compensacao_gera_falta(self):
         row = self._variacao((0,8,0,8,0),(0,8,0,3,0),
                              "S.C. 8","S.C. 3; CRIAR S.C. 5 para semana 202647",5)
         self.assertEqual(row["Parecer do analista"],"DEMANDA")
-        self.assertIn("REDUÇÃO DE S.C. DE 5 UN.",row["Observações da análise"])
+        self.assertIn("REDUÇÃO DE S.C. SEM REPOSIÇÃO: 5 UN.",row["Observações da análise"])
 
     def test_sc_convertida_em_pc_nao_explica_compra_extra(self):
         row = self._variacao((0,8,0,8,0),(0,10,8,0,0),
                              "S.C. 8","P.C. 8; CRIAR S.C. 2 para semana 202647",2)
         self.assertIn("AUMENTO DE DEMANDA",row["Observações da análise"])
-        self.assertIn("COMPENSADA PELO AUMENTO DE P.C.",row["Observações da análise"])
+        self.assertNotIn("S.C.",row["Observações da análise"])
 
     def test_queda_pc_sem_aumento_ou_parcial_fica_para_conferencia(self):
         for saldo, acao, qtd, motivo in [
@@ -614,7 +673,7 @@ class ParecerAutomaticoTests(unittest.TestCase):
                              "P.C. 8","Estoque 8; CRIAR S.C. 2 para semana 202647",2)
         self.assertEqual(row["Parecer do analista"],"DEMANDA")
         self.assertIn("AUMENTO DE DEMANDA",row["Observações da análise"])
-        self.assertIn("SEM CONFIRMAÇÃO DE NF",row["Observações da análise"])
+        self.assertNotIn("P.C.",row["Observações da análise"])
 
     def test_demanda_antiga_sem_motivo_retorna_verificar(self):
         from mrp_compra_preanalise import validar_pareceres_exportacao

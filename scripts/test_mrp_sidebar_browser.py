@@ -167,13 +167,18 @@ def check(browser,width,height,name,iphone=False):
                 assert_menu_button(page, menu, opening=True)
                 if index == 0:
                     menu.press("Enter")
+                elif iphone:
+                    menu.tap()
                 else:
                     menu.click()
                 expect(sidebar).to_have_attribute("aria-expanded", "true")
                 assert_menu_button(page, collapse, opening=False)
                 assert_header(page)
                 if index < 2:
-                    collapse.click()
+                    if iphone and index == 1:
+                        collapse.tap()
+                    else:
+                        collapse.click()
             page.wait_for_function("""() => {
               const sidebar = document.querySelector('section[data-testid="stSidebar"]');
               const close = document.querySelector('.mrp-v2-menu-toggle');

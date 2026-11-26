@@ -731,6 +731,13 @@ _setta_close_on_navigation = r"""<span hidden data-mrp-shell-bootstrap></span><s
     childList: true, subtree: true, attributes: true, attributeFilter: ["aria-expanded", "data-testid"]
   });
   controls();
+  // No mobile, o Streamlit fecha na fase de mousedown fora da sidebar.
+  // O acionador está no topo; deixe apenas o click abaixo decidir o estado.
+  document.addEventListener("mousedown", (event) => {
+    if (event.target instanceof Element && event.target.closest(".mrp-v2-menu-toggle")) {
+      event.stopPropagation();
+    }
+  }, true);
   document.addEventListener("click", (event) => {
     const clicked = event.target instanceof Element ? event.target : null;
     if (clicked?.closest(".mrp-v2-menu-toggle")) {

@@ -739,8 +739,13 @@ _setta_close_on_navigation = r"""<span hidden data-mrp-shell-bootstrap></span><s
       else if (current === "false") openButton()?.click();
       return;
     }
-    const route = clicked?.closest('[class*="st-key-mrp_nav_btn_"] button');
-    if (!route || route.disabled || route.dataset.testid === "stBaseButton-primary") return;
+    const button = clicked?.closest("button");
+    if (!button || button.disabled) return;
+    const sideRoute = button.closest('[class*="st-key-mrp_nav_btn_"]') &&
+      button.dataset.testid !== "stBaseButton-primary";
+    const projectShortcut = topMenu()?.closest(".mrp-v2-header")?.dataset.mrpRoute === "0" &&
+      button.closest('[class*="st-key-mrp_operacao_kpis_"]');
+    if (!sideRoute && !projectShortcut) return;
     queueMicrotask(() => {
       const main = document.querySelector('[data-testid="stMain"]');
       if (main) main.scrollTop = 0;

@@ -153,5 +153,7 @@ _runtime_source = _runtime_source.replace(
 )
 
 _runtime_source = _runtime_source.replace(_exec_anchor, WORKSPACE_PATCH + "\n" + _exec_anchor, 1)
+from mrp_inicio_rapido_patch import INICIO_RAPIDO_PATCH
+_runtime_source = _runtime_source.replace(_exec_anchor, INICIO_RAPIDO_PATCH + "\n" + _exec_anchor, 1)
 
 exec(compile(_runtime_source, "app_mrp_runtime.py", "exec"), globals(), globals())

@@ -84,7 +84,7 @@ def workspace_header(page, logo, status, when, *, semana, bases, registros, aler
         f'<header class="mrp-v2-header" data-mrp-route="{_ROUTE_IDS[page]}" aria-label="Página do MRP SETTA">'
         '<div class="mrp-v2-top">'
         '<button class="mrp-v2-menu-toggle" type="button" aria-label="Abrir menu lateral" '
-        'aria-expanded="false"><span class="mrp-v2-menu-icon" aria-hidden="true"></span></button>'
+        'aria-expanded="false"><i class="mrp-v2-menu-icon" aria-hidden="true"></i></button>'
         f'<span class="mrp-v2-mark">{mark}</span><b class="mrp-v2-brand">MRP</b>'
         '<span class="mrp-v2-name">Planejamento de materiais</span>'
         f'<span class="mrp-v2-stamps">{stamps}</span><span class="mrp-v2-account">{escape(account)}</span>'

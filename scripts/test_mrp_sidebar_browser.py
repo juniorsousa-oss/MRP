@@ -14,6 +14,7 @@ from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
 
 from mrp_engine_extract import montar_fonte_atual
+from mrp_identidade_setta import identidade_css
 from mrp_interface_visual import WORKSPACE_CSS
 from mrp_workspace import WORKSPACE_V2_CSS, workspace_header
 
@@ -59,6 +60,7 @@ if not st.session_state.get("logged_in"):
 {BOOTSTRAP}
 st.html({WORKSPACE_CSS!r})
 st.html({WORKSPACE_V2_CSS!r})
+st.html({identidade_css()!r})
 _mrp_pages=workspace_pages("ADMIN")
 st.session_state.update(auth_nome="Almoxarifado", auth_role="ADMIN", auth_email="conta@example.invalid")
 _mrp_page=st.session_state.get("page", _mrp_pages[0])

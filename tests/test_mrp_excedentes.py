@@ -166,7 +166,7 @@ class ExcedentesTests(unittest.TestCase):
         wb = load_workbook(BytesIO(arquivo))
         for aba in wb.worksheets:
             self.assertEqual(aba.freeze_panes, "A2")
-            self.assertEqual(aba["A1"].fill.fgColor.rgb[-6:], "142B43")
+            self.assertEqual(aba["A1"].fill.fgColor.rgb[-6:], "333333")
             self.assertIsNotNone(aba.auto_filter.ref)
         aba = wb["Pedidos PC"]
         self.assertEqual(aba["C2"].value, "034257")

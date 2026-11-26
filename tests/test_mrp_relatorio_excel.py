@@ -20,8 +20,8 @@ class RelatorioExcelTests(unittest.TestCase):
         cls._export = staticmethod(context["excel_bytes"])
 
     def test_rotas_usam_cache_versionado_e_comparativo_pronto_antes_do_download(self):
-        self.assertIn('excel_bytes(s, layout_relatorio=True, versao_layout="2026-11-26-v8")', self.source)
-        self.assertIn('excel_bytes(report, layout_relatorio=True, espelhos=_espelhos, versao_layout="2026-11-26-v8")', self.source)
+        self.assertIn('excel_bytes(s, layout_relatorio=True, versao_layout=EXCEL_LAYOUT_VERSION)', self.source)
+        self.assertIn('excel_bytes(report, layout_relatorio=True, espelhos=_espelhos, versao_layout=EXCEL_LAYOUT_VERSION)', self.source)
         self.assertNotIn("lambda r=report, e=_espelhos", self.source)
 
     def test_preparo_excel_so_gera_ao_ser_solicitado(self):
@@ -119,7 +119,7 @@ class RelatorioExcelTests(unittest.TestCase):
         self.assertIn(new, styled.properties.subject)
         for s in styled.worksheets:
             self.assertEqual(list(plain[s.title].values), list(s.values))
-            self.assertEqual(s["A1"].fill.fgColor.rgb[-6:], "142B43")
+            self.assertEqual(s["A1"].fill.fgColor.rgb[-6:], "333333")
             self.assertEqual(s["A2"].border.bottom.style, "thin")
             self.assertIsNotNone(s.auto_filter.ref)
             self.assertIsNotNone(s.freeze_panes)

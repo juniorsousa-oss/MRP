@@ -492,9 +492,13 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             st.info("Nenhum material apto para compor o relatório.")
         else:
             import importlib
+            from mrp_identidade_setta import EXCEL_LAYOUT_VERSION
             import mrp_compra_preanalise as _preanalise
             # Streamlit pode manter módulos importados de um rerun anterior.
-            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-26-v9":
+            if (
+                getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-26-v9"
+                or getattr(_preanalise,"PREANALISE_LAYOUT_VERSAO",None)!=EXCEL_LAYOUT_VERSION
+            ):
                 importlib.invalidate_caches()
                 _preanalise=importlib.reload(_preanalise)
             op_opcoes=sorted({_preanalise.op_relatorio(x) for x in aptos["op"].tolist()})
@@ -515,7 +519,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             if _preparar or _pronto is not None:
                 _calculo=st.session_state.get("_mrp_compute_cache",{}) if prefixo=="admin" else {}
                 _assinatura_previa=(
-                    getattr(_preanalise,"PREANALISE_VERSAO",None), _calculo.get("key"),
+                    getattr(_preanalise,"PREANALISE_VERSAO",None), EXCEL_LAYOUT_VERSION, _calculo.get("key"),
                     st.session_state.get("auth_user_id"), (snapshot_atual or {}).get("id"),
                     _hoje, tuple(sorted(escolhidas)),
                     hashlib.sha256(aptos.to_json(orient="records").encode("utf-8")).hexdigest(),
@@ -528,7 +532,10 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 _pronto=None
                 try:
                     with st.spinner("Preparando relatório por OP..."):
-                        if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-26-v9":
+                        if (
+                            getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-26-v9"
+                            or getattr(_preanalise,"PREANALISE_LAYOUT_VERSAO",None)!=EXCEL_LAYOUT_VERSION
+                        ):
                             raise RuntimeError("Versão antiga da pré-análise. Reinicie o aplicativo antes de baixar.")
                         _historico_indisponivel=False
                         try:

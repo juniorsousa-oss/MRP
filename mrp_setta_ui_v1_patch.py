@@ -24,12 +24,12 @@ _source = _source.replace(_page_cfg_old, _page_cfg_new, 1)
 _setta_css = """<style>
 :root{
   color-scheme:light!important;
-  --setta-outer:#EEF3F8;
-  --setta-app:#F4F7FB;
+  --setta-outer:#F0F0F0;
+  --setta-app:#F0F0F0;
   --setta-surface:#FFFFFF;
-  --setta-text:#111827;
-  --setta-muted:#667085;
-  --setta-border:#E5E8EE;
+  --setta-text:#333333;
+  --setta-muted:#525252;
+  --setta-border:#E1E1E1;
   --setta-red:#EF4444;
 }
 
@@ -42,7 +42,7 @@ html,body,#root{
   overflow-x:hidden!important;
 }
 html,body{
-  background:#F4F7FB!important;
+  background:#F0F0F0!important;
   background-image:none!important;
 }
 body{
@@ -64,7 +64,7 @@ body{
   border:0!important;
   border-radius:0!important;
   overflow:visible!important;
-  background:#F8FAFD!important;
+  background:#FAFAFA!important;
   background-image:none!important;
   box-shadow:none!important;
 }
@@ -77,7 +77,7 @@ body{
   max-height:none!important;
   border-radius:0!important;
   overflow:visible!important;
-  background:#F4F7FB!important;
+  background:#F0F0F0!important;
   background-image:none!important;
 }
 [data-testid="stMain"],
@@ -89,7 +89,7 @@ section.main{
   max-height:none!important;
   overflow-x:hidden!important;
   overflow-y:visible!important;
-  background:#F4F7FB!important;
+  background:#F0F0F0!important;
   background-image:none!important;
 }
 [data-testid="stMainBlockContainer"],
@@ -181,7 +181,7 @@ section.main{
   min-width:42px!important;
   min-height:40px!important;
   background:#fff!important;
-  border:1px solid #e5e8ee!important;
+  border:1px solid #e1e1e1!important;
   border-radius:10px!important;
   box-shadow:0 2px 9px rgba(15,23,42,.12)!important;
 }
@@ -295,11 +295,11 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
 section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-secondary"]:hover{
   background:#f8fafc!important;
   border-color:#e5e7eb!important;
-  color:#111827!important;
+  color:#333333!important;
 }
 section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]{
-  background:#111827!important;
-  border:1px solid #111827!important;
+  background:#333333!important;
+  border:1px solid #333333!important;
   color:#fff!important;
   font-weight:700!important;
   box-shadow:0 5px 14px rgba(17,24,39,.14)!important;
@@ -331,14 +331,14 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   margin-top:auto!important;padding-top:16px!important;
 }
 .st-key-mrp_sidebar_account [data-testid="stPopoverButton"]{
-  min-height:44px;justify-content:flex-start;border:1px solid #e5e8ee;
+  min-height:44px;justify-content:flex-start;border:1px solid #e1e1e1;
   border-radius:9px;background:#f8fafc;color:#1e293b;
 }
 .st-key-mrp_logout_sidebar button{
   width:100%!important;
   min-height:39px!important;
   background:#fff!important;
-  border:1px solid #e5e8ee!important;
+  border:1px solid #e1e1e1!important;
   border-radius:9px!important;
   color:#991b1b!important;
   font-size:12px!important;
@@ -361,7 +361,7 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   justify-content:center!important;
   background:#fff!important;
   background-image:none!important;
-  border:1px solid #e5e8ee!important;
+  border:1px solid #e1e1e1!important;
   border-radius:18px!important;
   box-shadow:0 4px 14px rgba(24,39,75,.08)!important;
   box-sizing:border-box!important;
@@ -388,7 +388,7 @@ section[data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-test
   }
   body{
     padding:0!important;
-    background:#F5F8FC!important;
+    background:#FAFAFA!important;
     overflow-y:auto!important;
   }
   .stApp,
@@ -636,7 +636,7 @@ body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="stHeader"] [data
 body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="stSidebarCollapsedControl"] button,
 body:has(:is(.mrp-workspace-head,.mrp-v2-header)) [data-testid="collapsedControl"] button{
   min-width:74px!important;min-height:38px!important;
-  border:1px solid #e5e8ee!important;border-radius:8px!important;background:#fff!important;
+  border:1px solid #e1e1e1!important;border-radius:8px!important;background:#fff!important;
 }
 button[data-mrp-toggle] > *{display:none!important}
 button[data-mrp-toggle]::after{content:attr(data-mrp-toggle);font-size:13px;font-weight:650}

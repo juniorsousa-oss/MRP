@@ -8,40 +8,42 @@ from openpyxl.formatting.rule import CellIsRule, FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from mrp_identidade_setta import AMARELO, CINZA_CLARO, CINZA_ESCURO, CINZA_FUNDO, GRAFITE
+
 # Título de impressão, larguras, colunas fixas, texto longo, quantidades, ênfase, aba.
 _LAYOUTS = {
     "MRP_Geral": ("MRP Geral", (15,55,11,19,14,11,11,14,12,18,23,24),
-                  2, (2,10,12), (4,5,6,7,8,9), (9,10), "142B43"),
+                  2, (2,10,12), (4,5,6,7,8,9), (9,10), GRAFITE),
     "Projecao_Semanal": ("Projeção Semanal", (15,54,11,14,24,17,14,11,11,14,18),
-                         2, (2,5,11), (6,7,8,9,10,11), (11,), "234C69"),
+                         2, (2,5,11), (6,7,8,9,10,11), (11,), CINZA_ESCURO),
     "Tratativas_Projetos": ("Tratativas de Projetos", (19,80,27,31),
-                            1, (2,), (), (), "407473"),
+                            1, (2,), (), (), CINZA_ESCURO),
     "Tratativas_Produtos": ("Tratativas de Produtos", (19,15,80,27,31),
-                            2, (3,), (), (), "407473"),
+                            2, (3,), (), (), CINZA_ESCURO),
     "Compras": ("Compras", (15,21,16,21,16,38,38,22),
-                1, (6,7), (2,4,8), (8,), "407473"),
+                1, (6,7), (2,4,8), (8,), CINZA_ESCURO),
     "Fabricacao": ("Fabricação", (25,21,22,18),
-                   2, (), (4,), (4,), "407473"),
+                   2, (), (4,), (4,), CINZA_ESCURO),
     "Cadastro_Base": ("Cadastro Base", (68,13,13,23,24,16),
-                       0, (1,), (4,5), (), "768799"),
+                       0, (1,), (4,5), (), "919191"),
 }
 
 
 # Colunas por nome para o projeto (15 no cálculo e 16 no espelho de
 # consulta), comparativos históricos, e relatórios de outros módulos.
 _LAYOUTS_POR_NOME = {
-    "Demanda_Projeto": ("Demanda por Projeto", 2, "234C69"),
-    "MRP_Geral_Comparativo": ("Comparativo | MRP Geral", 2, "142B43"),
-    "Projecao_Comparativo": ("Comparativo | Projeção Semanal", 1, "234C69"),
-    "Demanda_Projeto_Comparativo": ("Comparativo | Demanda por Projeto", 2, "234C69"),
-    "Compras_Comparativo": ("Comparativo | Compras", 1, "407473"),
-    "MRP_Anterior": ("MRP Anterior", 2, "768799"),
-    "MRP_Atual": ("MRP Atual", 2, "234C69"),
-    "Compra_Anterior": ("Compra Anterior", 1, "768799"),
-    "Compra_Atual": ("Compra Atual", 1, "407473"),
-    "Solicitações SC": ("Excedentes | Solicitações de Compra", 0, "407473"),
-    "Pedidos PC": ("Excedentes | Pedidos de Compra", 0, "407473"),
-    "Materiais_por_SA": ("Solicitações Avulsas | Materiais", 1, "407473"),
+    "Demanda_Projeto": ("Demanda por Projeto", 2, CINZA_ESCURO),
+    "MRP_Geral_Comparativo": ("Comparativo | MRP Geral", 2, GRAFITE),
+    "Projecao_Comparativo": ("Comparativo | Projeção Semanal", 1, CINZA_ESCURO),
+    "Demanda_Projeto_Comparativo": ("Comparativo | Demanda por Projeto", 2, CINZA_ESCURO),
+    "Compras_Comparativo": ("Comparativo | Compras", 1, CINZA_ESCURO),
+    "MRP_Anterior": ("MRP Anterior", 2, "919191"),
+    "MRP_Atual": ("MRP Atual", 2, CINZA_ESCURO),
+    "Compra_Anterior": ("Compra Anterior", 1, "919191"),
+    "Compra_Atual": ("Compra Atual", 1, CINZA_ESCURO),
+    "Solicitações SC": ("Excedentes | Solicitações de Compra", 0, CINZA_ESCURO),
+    "Pedidos PC": ("Excedentes | Pedidos de Compra", 0, CINZA_ESCURO),
+    "Materiais_por_SA": ("Solicitações Avulsas | Materiais", 1, CINZA_ESCURO),
 }
 
 _LONGOS = {"descrição": 53, "ação": 42, "resumo": 36, "obs": 46, "justificativa": 46}
@@ -66,7 +68,7 @@ _DESTAQUES = {
 
 
 def _layout_por_nome(sheet):
-    titulo, fixas, cor = _LAYOUTS_POR_NOME.get(sheet.title, (sheet.title, 0, "407473"))
+    titulo, fixas, cor = _LAYOUTS_POR_NOME.get(sheet.title, (sheet.title, 0, CINZA_ESCURO))
     widths, wrap_cols, numeric_cols, accents = [], [], [], []
     for i, cell in enumerate(sheet[1], 1):
         name = str(cell.value or "").strip().casefold()
@@ -105,8 +107,8 @@ def _fill(color):
 @lru_cache(maxsize=32)
 def _corpo(par, numeric, long_text, accent):
     return (
-        Font(name="Calibri", size=11, color="24384C", bold=accent),
-        _fill("FFFFFF" if par else "F1F5F9"),
+        Font(name="Calibri", size=11, color=GRAFITE, bold=accent),
+        _fill("FFFFFF" if par else CINZA_FUNDO),
         Alignment(horizontal="right" if numeric else "left", vertical="center",
                   wrap_text=long_text, indent=1),
     )
@@ -119,13 +121,13 @@ def estilizar_relatorios_mrp(workbook, *, espelhos=()):
         anterior, atual = espelhos
         workbook.properties.subject = f"Anterior: {anterior}; Atual: {atual}"
     heading = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
-    header_fill = _fill("142B43")
-    result_fill = _fill("234C69")
+    header_fill = _fill(GRAFITE)
+    result_fill = _fill(CINZA_ESCURO)
     header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    header_line = Side(style="thin", color="4E6680")
+    header_line = Side(style="thin", color="626262")
     header_border = Border(left=header_line, right=header_line, top=header_line,
-                           bottom=Side(style="medium", color="91ABBE"))
-    cell_line = Side(style="thin", color="CFDAE6")
+                           bottom=Side(style="medium", color=AMARELO))
+    cell_line = Side(style="thin", color=CINZA_CLARO)
     cell_border = Border(left=cell_line, right=cell_line, top=cell_line, bottom=cell_line)
     for sheet in workbook.worksheets:
         layout = _LAYOUTS.get(sheet.title)
@@ -202,13 +204,13 @@ def estilizar_relatorios_mrp(workbook, *, espelhos=()):
 
         palettes = {
             "status": (("CRIAR S.C.", "FFF1D0", "784A08"), ("OK", "E3F4E8", "23653A")),
-            "classificação": (("ALTERADO", "FFF1D0", "784A08"), ("NOVO", "E1EFFA", "234C69"),
+            "classificação": (("ALTERADO", "FFF1D0", "784A08"), ("NOVO", "E1EFFA", CINZA_ESCURO),
                               ("REMOVIDO", "FDE8E7", "9E3027"), ("NOVO S.C.", "FDE8E7", "9E3027"),
                               ("NORMALIZADO", "E3F4E8", "23653A")),
             "cancelamento": (("TOTAL", "FDE8E7", "9E3027"), ("PARCIAL", "FFF1D0", "784A08")),
             "situação": (("ENTREGUE", "E3F4E8", "23653A"), ("RECUSADA", "FDE8E7", "9E3027"),
                          ("AGUARDANDO SEPARAÇÃO", "FFF1D0", "784A08"),
-                         ("SEPARADA", "E1EFFA", "234C69")),
+                         ("SEPARADA", "E1EFFA", CINZA_ESCURO)),
         }
         for field, palette in palettes.items():
             col = columns.get(field)

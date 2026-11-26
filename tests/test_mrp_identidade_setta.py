@@ -23,7 +23,19 @@ class SettaBrandTests(unittest.TestCase):
         css = identidade_css()
         self.assertIn("data:font/woff2;base64,", css)
         self.assertNotIn("https://", css)
-        self.assertEqual(Image.open(io.BytesIO(favicon_png())).getpixel((0, 0)), (51, 51, 51, 255))
+        with Image.open(io.BytesIO(favicon_png())) as icon:
+            self.assertEqual(icon.size, (256, 256))
+            self.assertEqual(icon.getpixel((0, 0))[3], 0)
+            self.assertEqual(icon.getpixel((128, 9)), (255, 255, 255, 255))
+            self.assertEqual(icon.getpixel((128, 25)), (51, 51, 51, 255))
+            yellow_rows = {y for y in range(icon.height) for r,g,b,a in (icon.getpixel((x,y)) for x in range(icon.width))
+                           if r > 220 and g > 145 and b < 50 and a > 230}
+            self.assertGreaterEqual(len(yellow_rows), 195)
+            for size in (16, 32):
+                small = icon.resize((size, size), Image.Resampling.LANCZOS)
+                colors = list(small.getdata())
+                self.assertTrue(any(r > 220 and g > 145 and b < 50 for r,g,b,a in colors if a > 230))
+                self.assertTrue(any(r < 75 and g < 75 and b < 75 for r,g,b,a in colors if a > 230))
         self.assertEqual(EXCEL_LAYOUT_VERSION, "setta-v4.0")
 
     def test_header_uses_bundled_mark_and_not_arbitrary_svg(self):

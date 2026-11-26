@@ -4,7 +4,6 @@ from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image
 
 ASSETS = Path(__file__).resolve().parent / "assets"
 GRAFITE = "333333"
@@ -26,6 +25,8 @@ def logo_data_uri():
 
 @lru_cache(maxsize=1)
 def favicon_png():
+    from PIL import Image
+
     # A arte permanece intacta; a moldura grafite dá contraste em abas claras.
     with Image.open(ASSETS / "setta-simbolo-oficial.png") as source:
         art = source.convert("RGBA")

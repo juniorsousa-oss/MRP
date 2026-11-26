@@ -12,7 +12,7 @@ assert "_mrp_set_sidebar_page" in functions
 assert 'with st.sidebar:' in generated
 assert 'with st.popover("☰"' not in generated
 assert 'st.container(key="setta_custom_navigation")' not in generated
-assert 'initial_sidebar_state="auto"' in generated
+assert 'initial_sidebar_state="collapsed"' in generated
 assert 'workspace_sidebar(st,_mrp_pages,_mrp_page,_mrp_set_sidebar_page)' in generated
 assert 'unsafe_allow_javascript=True' in generated
 assert 'window.__settaMenuCloseOnNavV1' in generated
@@ -21,7 +21,8 @@ assert 'stSidebarCollapseButton' in generated
 assert 'queueMicrotask' in generated
 
 assert "semana=_mrp_sidebar_week,bases=(_mrp_base_ok,_mrp_base_total)" in generated
-assert '(max-width: 900px)' in generated
+assert 'if (mobile.matches) collapseButton()' not in generated
+assert 'mrp-v2-menu-toggle' in generated
 assert 'st.session_state["_mrp_sidebar_page"]=page' in ast.get_source_segment(
     generated, functions["_mrp_set_sidebar_page"]
 )

@@ -81,6 +81,8 @@ def workspace_header(page, logo, status, when, *, semana, bases, registros, aler
     return (
         f'<header class="mrp-v2-header" data-mrp-route="{_ROUTE_IDS[page]}" aria-label="Página do MRP SETTA">'
         '<div class="mrp-v2-top">'
+        '<button class="mrp-v2-menu-toggle" type="button" aria-label="Abrir menu lateral" '
+        'aria-expanded="false"><span aria-hidden="true"></span></button>'
         f'<span class="mrp-v2-mark">{mark}</span><b class="mrp-v2-brand">MRP</b>'
         '<span class="mrp-v2-name">Planejamento de materiais</span>'
         f'<span class="mrp-v2-stamps">{stamps}</span><span class="mrp-v2-account">{escape(account)}</span>'
@@ -207,7 +209,7 @@ body:has(.mrp-v2-header):has([data-testid="stSidebar"][aria-expanded="false"]) .
 }
 .mrp-v2-header{color:#172435}
 .mrp-v2-top{position:sticky;top:0;z-index:4;min-height:58px;background:#142134;color:#fff;margin:0 -28px;
-  padding:8px 28px;display:flex;align-items:center;gap:13px}
+  padding:7px 28px;display:flex;align-items:center;gap:13px}
 .mrp-v2-mark{display:grid;place-items:center;box-sizing:border-box;width:88px;height:38px;
   background:white;color:#142134;border-radius:6px;padding:3px 7px;flex:none}
 .mrp-v2-mark img{width:100%;height:100%;object-fit:contain}
@@ -268,5 +270,22 @@ body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] button{
   body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] [data-testid="stPopoverButton"]{width:100%!important}
 
 }
+
+/* O acionador e os dados do topo usam a mesma linha, inclusive durante
+   o deslocamento da área principal no desktop. Sem JS, os nativos ficam visíveis. */
+.mrp-v2-menu-toggle{display:none}
+html[data-mrp-menu-ready] body:has(.mrp-v2-header) .mrp-v2-top{padding-left:12px!important}
+html[data-mrp-menu-ready] body:has(.mrp-v2-header) :is([data-testid="stHeader"],[data-testid="stSidebar"]) button[data-mrp-toggle]{
+  visibility:hidden!important;pointer-events:none!important
+}
+html[data-mrp-menu-ready] .mrp-v2-menu-toggle{
+  display:grid;place-items:center;box-sizing:border-box;flex:0 0 44px;
+  width:44px;height:44px;padding:0;border:1px solid #4b6385;border-radius:8px;
+  color:#fff;background:#263d61;cursor:pointer;font:inherit
+}
+.mrp-v2-menu-toggle:hover{background:#334e78!important}
+.mrp-v2-menu-toggle:focus-visible{outline:2px solid #dceaff;outline-offset:2px}
+.mrp-v2-menu-toggle span::before{content:"☰";font-size:20px;line-height:1}
+.mrp-v2-menu-toggle[aria-expanded="true"] span::before{content:"×";font-size:24px}
 </style>
 """

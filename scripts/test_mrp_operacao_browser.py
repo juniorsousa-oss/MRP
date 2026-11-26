@@ -204,7 +204,10 @@ def check(browser, width, height):
             menu=p.get_by_role("button",name="Abrir menu lateral")
             if menu.is_visible():
                 menu.click()
-            p.get_by_role("button",name=label,exact=True).click()
+            destination=p.get_by_role("button",name=label,exact=True)
+            active=destination.get_attribute("aria-current")=="page"
+            destination.click()
+            expect(p.get_by_test_id("stSidebar")).to_have_attribute("aria-expanded","true" if active else "false")
         nav("Demanda Geral")
         p.get_by_role("button",name="Exportar",exact=False).click()
         expect(p.get_by_text("BAIXAR MRP GERAL",exact=False)).to_be_visible()

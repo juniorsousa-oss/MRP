@@ -341,13 +341,8 @@ def _excel_excedentes(sc, pc, hoje):
     with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
         for nome, frame, sigla in (("Solicitações SC", sc, "S.C."), ("Pedidos PC", pc, "P.C.")):
             preparar_relatorio_enxuto(frame, sigla).to_excel(writer, sheet_name=nome, index=False)
-            aba = writer.sheets[nome]
-            aba.freeze_panes = "A2"
-            aba.auto_filter.ref = aba.dimensions
-            for coluna in aba.columns:
-                letra = coluna[0].column_letter
-                largura = min(62, max(14, max(len(str(c.value or "")) for c in coluna) + 2))
-                aba.column_dimensions[letra].width = largura
+        from mrp_relatorio_excel import estilizar_relatorios_mrp
+        estilizar_relatorios_mrp(writer.book)
     return arquivo.getvalue()
 
 
@@ -403,10 +398,12 @@ def exibir_analise_excedentes(mrp, compras, projecao, prefixo, data_snapshot=Non
             else:
                 st.dataframe(visivel, use_container_width=True, hide_index=True)
                 st.caption("Valores para avaliação de cancelamento junto a Suprimentos.")
+    hoje = _data_local()
     st.download_button(
         "Baixar excedentes em Excel",
-        data=_excel_excedentes(sc, pc, _data_local()),
-        file_name=f"MRP_Excedentes_{_data_local():%Y%m%d}.xlsx",
+        data=lambda sa=sc, pedidos=pc, dia=hoje: _excel_excedentes(sa, pedidos, dia),
+        on_click="ignore",
+        file_name=f"MRP_Excedentes_{hoje:%Y%m%d}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         key=f"mrp_excedentes_excel_{prefixo}",
         use_container_width=True,

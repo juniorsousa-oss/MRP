@@ -162,6 +162,18 @@ class ExcedentesTests(unittest.TestCase):
         self.assertEqual(len(dados), 1)
         self.assertIn("Qtd. Cancelar", dados.columns)
         self.assertNotIn("Quantidade em aberto", dados.columns)
+        from openpyxl import load_workbook
+        wb = load_workbook(BytesIO(arquivo))
+        for aba in wb.worksheets:
+            self.assertEqual(aba.freeze_panes, "A2")
+            self.assertEqual(aba["A1"].fill.fgColor.rgb[-6:], "142B43")
+            self.assertIsNotNone(aba.auto_filter.ref)
+        aba = wb["Pedidos PC"]
+        self.assertEqual(aba["C2"].value, "034257")
+        self.assertEqual(aba["C2"].data_type, "s")
+        self.assertEqual(aba["D2"].border.left.style, "thin")
+        self.assertEqual(aba["D2"].alignment.horizontal, "right")
+        self.assertEqual(aba["D2"].value, 3)
 
 
 if __name__ == "__main__":

@@ -73,7 +73,12 @@ _compare_replacement = '''def render_mrp_history():
                 "Compra_Anterior":comp_old,
                 "Compra_Atual":comp_new,
             }
-            st.download_button("BAIXAR RELATÓRIO COMPARATIVO",excel_bytes(report),"Comparativo_MRP.xlsx","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",use_container_width=True,key="download_comparativo_mrp")
+            from mrp_relatorio_excel import formatar_referencia_espelho
+            _espelhos=(
+                formatar_referencia_espelho(old_id,old.get("created_at")),
+                formatar_referencia_espelho(new_id,new.get("created_at")),
+            )
+            st.download_button("BAIXAR RELATÓRIO COMPARATIVO", lambda r=report, e=_espelhos: excel_bytes(r, layout_relatorio=True, espelhos=e), "Comparativo_MRP.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", on_click="ignore", use_container_width=True, key="download_comparativo_mrp")
     except Exception as e:
         st.error(f"Erro ao gerar o comparativo: {e}")
 

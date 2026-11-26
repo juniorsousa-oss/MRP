@@ -440,6 +440,62 @@ class ParecerAutomaticoTests(unittest.TestCase):
         self.assertEqual(r.loc[normal,"Parecer do analista"], "OK")
         self.assertEqual(r.loc[normal,"Observações da análise"], "")
 
+    def test_saldo_zerado_apos_excedente_justifica_as_duas_compras_auditadas(self):
+        import pandas as pd
+        from mrp_compra_preanalise import exportar_preanalise_formatada
+        from openpyxl import load_workbook
+        from io import BytesIO
+
+        casos = [
+            ("06080025", "26007206007", "03/11/2026", 27, 5),
+            ("00010497", "26009201001", "16/10/2026", 30, 15),
+        ]
+        antigo, novo, macro_ant, macro_novo, compras = [], [], [], [], []
+        for codigo, op, data, saldo, necessidade in casos:
+            velho = self.linha(op, data, "26/11/2026", 202648, necessidade, f"Estoque {necessidade}")
+            velho["Produto"] = int(codigo)
+            antigo.append(velho)
+            novo.append({**velho, "Ação": f"CRIAR S.C. {necessidade} para semana 202648"})
+            macro_linha = {"Código": int(codigo), "Demanda": necessidade, "P.C.": 0, "S.C.": 0, "Produzindo": 0}
+            macro_ant.append({**macro_linha, "Saldo em Estoque": saldo})
+            macro_novo.append({**macro_linha, "Saldo em Estoque": 0})
+            compras.append({**self.compra(op, necessidade), "produto": codigo})
+        macro_atual = pd.DataFrame(macro_novo)
+        hist = {"macro_anterior": pd.DataFrame(macro_ant), "alocacoes_anterior": pd.DataFrame(antigo),
+                "macro_referencia": macro_atual, "alocacoes_referencia": pd.DataFrame(novo),
+                "espelho_anterior": {"id": 127, "created_at": "2026-11-25T10:22:00Z"},
+                "espelho_referencia": {"id": 132, "created_at": "2026-11-26T10:52:00Z"}}
+        sem_perda = {**hist, "macro_anterior": macro_atual, "alocacoes_anterior": pd.DataFrame(novo),
+                     "espelho_anterior": {"id": 131, "created_at": "2026-11-25T18:11:00Z"}}
+        kwargs = {"referencia": "2026-11-26", "macro_atual": macro_atual}
+        sem_primeiro = self.analisar(compras, novo, historico=sem_perda, **kwargs)
+        self.assertEqual(sem_primeiro["MATERIAIS OP"]["Parecer do analista"].tolist(),
+                         ["VERIFICAR", "VERIFICAR"])
+        self.assertTrue(sem_primeiro["MATERIAIS OP"]["Observações da análise"].eq("").all())
+        analise = self.analisar(compras, novo, historico={"comparativos": [hist, sem_perda]}, **kwargs)
+        for aba in ("MATERIAIS OP", "DETALHE OP"):
+            linhas = analise[aba].set_index("Código")
+            for codigo, _, _, saldo, necessidade in casos:
+                self.assertEqual(linhas.loc[codigo, "Parecer do analista"], "DEMANDA")
+                obs = linhas.loc[codigo, "Observações da análise"]
+                self.assertIn(f"REDUÇÃO DE ESTOQUE DE {saldo} UN.", obs)
+                self.assertIn(f"NECESSIDADE ADICIONAL DE {necessidade} UN.", obs)
+                self.assertIn("#127 DE 25/11/2026 07:22 → #132 DE 26/11/2026 07:52", obs)
+                self.assertIn("CONFERIR AJUSTE NO ERP", obs)
+        ws = load_workbook(BytesIO(exportar_preanalise_formatada(analise)))["MATERIAIS OP"]
+        self.assertEqual(sum(isinstance(c.value, str) and "#127 DE 25/11/2026" in c.value
+                             for row in ws for c in row), 2)
+
+    def test_saldo_ainda_cobre_demanda_sem_gerar_nova_falta(self):
+        from mrp_compra_preanalise import _observacoes_variacao_historica
+        antigo = pd.DataFrame([self.linha(self.ANTIGO, "10/11/2026", "25/11/2026", 202648, 5, "Estoque 5")])
+        def macro(saldo):
+            return pd.DataFrame([{"Código": 158, "Saldo em Estoque": saldo, "Demanda": 5,
+                                  "P.C.": 0, "S.C.": 0, "Produzindo": 0}])
+        hist = {"macro_anterior": macro(27), "alocacoes_anterior": antigo,
+                "macro_referencia": macro(10), "alocacoes_referencia": antigo}
+        self.assertEqual(_observacoes_variacao_historica(antigo, macro(10), hist), {})
+
     def test_caso_6050235_perda_liquida_estoque_com_historico(self):
         codigo = "06050235"
         alvo = "26022703006"
@@ -487,6 +543,78 @@ class ParecerAutomaticoTests(unittest.TestCase):
         r = self.analisar([compra], new, macro_atual=macro(0,19), historico=hist)
         self.assertEqual(r["MATERIAIS OP"].iloc[0]["Observações da análise"], "")
 
+
+    def _variacao(self, antigo, atual, acao_antiga, acao_atual, qtd, codigo="00000158", op=None, ausente=False):
+        op = op or self.ANTIGO
+        base = ("Saldo em Estoque", "Demanda", "P.C.", "S.C.", "Produzindo")
+        def macro(v, c):
+            return {"Código": c, **dict(zip(base, v))}
+        def alocacao(demanda, acao):
+            return {**self.linha(op,"24/11/2026","11/12/2026",202647,demanda,acao), "Produto": int(codigo)}
+        nova = [alocacao(atual[1], acao_atual)]
+        ant = [alocacao(antigo[1], acao_antiga)]
+        mac = pd.DataFrame([macro(atual,int(codigo))])
+        mac_ant = pd.DataFrame([macro(antigo,int(codigo))])
+        if ausente:
+            ant[0]["Necessidade"] = 0
+            ant[0]["Ação"] = "RESÍDUO 4"
+            ant[0]["Projeto"] = self.OUTRO
+            mac_ant["Código"] = 9999
+        hist = {"macro_anterior": mac_ant, "alocacoes_anterior": pd.DataFrame(ant),
+                "macro_referencia": mac, "alocacoes_referencia": pd.DataFrame(nova),
+                "espelho_anterior": {"id": 127, "created_at": "2026-11-25T10:22:00Z"},
+                "espelho_referencia": {"id": 132, "created_at": "2026-11-26T10:52:00Z"}}
+        compra = {**self.compra(op,qtd),"produto":codigo}
+        return self.analisar([compra],nova,referencia="2026-11-26",macro_atual=mac,historico=hist)["MATERIAIS OP"].iloc[0]
+
+    def test_00705912_demanda_nova_ou_aumentada_justifica_as_duas_unidades(self):
+        for ausente in (True,False):
+            with self.subTest(ausente=ausente):
+                row = self._variacao((0,3,0,3,0),(0,5,0,3,0),
+                                     "S.C. 3 (sem. 202647)","S.C. 3 (sem. 202647); CRIAR S.C. 2 para semana 202647",
+                                     2,"00705912","26033001001",ausente)
+                self.assertEqual(row["Parecer do analista"],"DEMANDA")
+                inicio = 0 if ausente else 3
+                self.assertIn(f"AUMENTO DE DEMANDA DE {inicio} PARA 5",row["Observações da análise"])
+                self.assertIn("NECESSIDADE ADICIONAL DE 2 UN.",row["Observações da análise"])
+                if ausente:
+                    self.assertIn("S.C. SUBIU DE 0 PARA 3 UN.",row["Observações da análise"])
+
+    def test_reducao_de_sc_sem_compensacao_gera_falta(self):
+        row = self._variacao((0,8,0,8,0),(0,8,0,3,0),
+                             "S.C. 8","S.C. 3; CRIAR S.C. 5 para semana 202647",5)
+        self.assertEqual(row["Parecer do analista"],"DEMANDA")
+        self.assertIn("REDUÇÃO DE S.C. DE 5 UN.",row["Observações da análise"])
+
+    def test_sc_convertida_em_pc_nao_explica_compra_extra(self):
+        row = self._variacao((0,8,0,8,0),(0,10,8,0,0),
+                             "S.C. 8","P.C. 8; CRIAR S.C. 2 para semana 202647",2)
+        self.assertIn("AUMENTO DE DEMANDA",row["Observações da análise"])
+        self.assertIn("COMPENSADA PELO AUMENTO DE P.C.",row["Observações da análise"])
+
+    def test_queda_pc_sem_aumento_ou_parcial_fica_para_conferencia(self):
+        for saldo, acao, qtd, motivo in [
+            (0, "CRIAR S.C. 8 para semana 202647", 8, "SEM AUMENTO DE ESTOQUE"),
+            (3, "Estoque 3; CRIAR S.C. 5 para semana 202647", 5, "SALDO A CONFERIR: 5 UN."),
+        ]:
+            with self.subTest(saldo=saldo):
+                row = self._variacao((0,8,8,0,0),(saldo,8,0,0,0),"P.C. 8",acao,qtd)
+                self.assertEqual(row["Parecer do analista"],"VERIFICAR")
+                self.assertIn(motivo,row["Observações da análise"])
+
+    def test_queda_pc_sem_duplicar_baixa_normal_de_estoque(self):
+        row = self._variacao((2,10,8,0,0),(0,8,3,0,0),
+                             "Estoque 2; P.C. 8","P.C. 3; CRIAR S.C. 5 para semana 202647",5)
+        self.assertEqual(row["Parecer do analista"],"VERIFICAR")
+        self.assertIn("REDUÇÃO DE P.C. DE 5 UN.",row["Observações da análise"])
+        self.assertNotIn("POSSÍVEL ERRO DE ESTOQUE",row["Observações da análise"])
+
+    def test_queda_pc_com_aumento_equivalente_nao_explica_a_falta(self):
+        row = self._variacao((0,8,8,0,0),(8,10,0,0,0),
+                             "P.C. 8","Estoque 8; CRIAR S.C. 2 para semana 202647",2)
+        self.assertEqual(row["Parecer do analista"],"DEMANDA")
+        self.assertIn("AUMENTO DE DEMANDA",row["Observações da análise"])
+        self.assertIn("SEM CONFIRMAÇÃO DE NF",row["Observações da análise"])
 
     def test_demanda_antiga_sem_motivo_retorna_verificar(self):
         from mrp_compra_preanalise import validar_pareceres_exportacao
@@ -585,7 +713,7 @@ class LayoutPreAnaliseTests(unittest.TestCase):
 
 
 class HistoricoDiarioTests(unittest.TestCase):
-    def test_seleciona_ultimo_dia_anterior_e_imediato_sem_usar_futuro(self):
+    def test_prioriza_primeiro_dia_anterior_e_usa_ultimo_e_imediato_como_alternativas(self):
         from mrp_compra_preanalise import ids_comparacao_diaria
         atual = {"id": 130, "created_at": "2026-11-25T14:00:00Z"}
         meta = [
@@ -596,7 +724,25 @@ class HistoricoDiarioTests(unittest.TestCase):
             {"id": 126, "created_at": "2026-11-24T11:30:00Z"},
             {"id": 125, "created_at": "2026-11-24T11:00:00Z"},
         ]
-        self.assertEqual(ids_comparacao_diaria(meta, atual), [126,129])
+        self.assertEqual(ids_comparacao_diaria(meta, atual), [125,126,129])
+
+    def test_consulta_direta_encontra_primeira_fotografia_sem_depender_dos_50_ultimos(self):
+        from unittest.mock import Mock
+        from mrp_compra_preanalise import consultar_metadados_preanalise, ids_comparacao_diaria
+        atual = {"id": 132, "created_at": "2026-11-26T12:00:00Z"}
+        ultimo = {"id": 129, "created_at": "2026-11-26T01:30:00Z"}  # 25/11 22:30 em Patos
+        primeiro = {"id": 127, "created_at": "2026-11-25T10:30:00Z"}
+        imediato = {"id": 130, "created_at": "2026-11-26T11:58:00Z"}
+        consultar = Mock(side_effect=[[ultimo], [primeiro], [imediato]])
+        metadados = consultar_metadados_preanalise(consultar, atual)
+        self.assertEqual(ids_comparacao_diaria(metadados, atual), [127, 129, 130])
+        esperado = {"select": "id,created_at", "limit": "1"}
+        self.assertEqual([c.args[0] for c in consultar.call_args_list], [
+            {**esperado, "order": "created_at.desc,id.desc", "created_at": "lt.2026-11-26T03:00:00+00:00"},
+            {**esperado, "order": "created_at.asc,id.asc",
+             "and": "(created_at.gte.2026-11-25T03:00:00+00:00,created_at.lt.2026-11-26T03:00:00+00:00)"},
+            {**esperado, "order": "created_at.desc,id.desc", "created_at": "lt.2026-11-26T12:00:00+00:00"},
+        ])
 
     def test_fuso_local_e_ultimo_dia_disponivel(self):
         from mrp_compra_preanalise import ids_comparacao_diaria

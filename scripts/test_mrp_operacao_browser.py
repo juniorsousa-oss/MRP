@@ -154,7 +154,8 @@ def check(browser, width, height):
         expect(detail).to_be_visible()
         if width<=900:
             assert detail.evaluate("""button => {
-                const grid = button.closest('.op-scroll');
+                const grid = button.closest('.op-item, .op-scroll');
+                if (!grid) return false;
                 const r=button.getBoundingClientRect(), s=grid.getBoundingClientRect();
                 return grid.scrollLeft===0 && r.left>=s.left-1 && r.right<=s.right+1;
             }"""), "Detalhe não aparece antes de rolar a grade"

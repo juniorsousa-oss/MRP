@@ -132,13 +132,25 @@ def assert_header(page):
 
 def assert_menu_button(page, control, *, opening):
     expect(control).to_be_in_viewport(ratio=1)
-    # Mede acionador e logo juntos, inclusive durante a animação.
+    # Contrato visual medido no Inventário Setta: posição, caixa e glifos.
     rect = control.evaluate("""button => {
-      const r = button.getBoundingClientRect(), logo = button.nextElementSibling.getBoundingClientRect();
-      return {w:r.width,h:r.height,gap:logo.left-r.right,center:Math.abs(r.y+r.height/2-logo.y-logo.height/2)};
+      const box = e => {
+        const r = e.getBoundingClientRect();
+        return [r.x,r.y,r.width,r.height];
+      };
+      const logo = button.nextElementSibling;
+      const icon = button.querySelector('.mrp-v2-menu-icon');
+      const css = getComputedStyle(icon);
+      return {button:box(button),logo:box(logo),icon:box(icon),
+              glyph:getComputedStyle(icon,'::before').content,
+              font:css.fontFamily,size:css.fontSize,
+              loaded:[...document.fonts].some(f => f.family.includes('Material Symbols Rounded') && f.status === 'loaded')};
     }""")
-    assert 43 <= rect["w"] <= 45 and 43 <= rect["h"] <= 45, rect
-    assert 7 <= rect["gap"] <= 14 and rect["center"] <= 2, rect
+    assert rect["button"] == [12, 7, 44, 44], rect
+    assert rect["icon"] == [26, 21, 16, 16], rect
+    assert rect["logo"] == ([68, 14, 66, 30] if page.viewport_size["width"] <= 700 else [68, 10, 88, 38]), rect
+    assert rect["glyph"] == ('"menu"' if opening else '"close"'), rect
+    assert "Material Symbols Rounded" in rect["font"] and rect["size"] == "21px" and rect["loaded"], rect
     expect(control).to_have_attribute("aria-expanded", "false" if opening else "true")
     assert control.evaluate("button => button.closest('.mrp-v2-top')?.contains(document.querySelector('.mrp-v2-account'))")
 

@@ -84,7 +84,7 @@ def workspace_header(page, logo, status, when, *, semana, bases, registros, aler
         f'<header class="mrp-v2-header" data-mrp-route="{_ROUTE_IDS[page]}" aria-label="Página do MRP SETTA">'
         '<div class="mrp-v2-top">'
         '<button class="mrp-v2-menu-toggle" type="button" aria-label="Abrir menu lateral" '
-        'aria-expanded="false"><span aria-hidden="true"></span></button>'
+        'aria-expanded="false"><span class="mrp-v2-menu-icon" aria-hidden="true"></span></button>'
         f'<span class="mrp-v2-mark">{mark}</span><b class="mrp-v2-brand">MRP</b>'
         '<span class="mrp-v2-name">Planejamento de materiais</span>'
         f'<span class="mrp-v2-stamps">{stamps}</span><span class="mrp-v2-account">{escape(account)}</span>'
@@ -259,7 +259,8 @@ body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] button{
 @media(max-width:700px){
   body:has(.mrp-v2-header) [data-testid="stMainBlockContainer"]{padding:var(--mrp-top-height) 12px 18px!important}
   .mrp-v2-top{padding-right:12px;gap:8px}
-  .mrp-v2-mark{width:66px;height:30px;padding:2px 5px}
+  .mrp-v2-mark{width:66px;height:30px;padding:0}
+  .mrp-v2-mark img{width:52px;height:21px}
   .mrp-v2-account{font-size:.69rem;margin-left:auto;overflow:hidden;text-overflow:ellipsis}
   .mrp-v2-name,.mrp-v2-stamps{display:none}
   .mrp-v2-mobile-date{display:block;margin-top:3px}
@@ -289,12 +290,19 @@ html[data-mrp-menu-ready] body:has(.mrp-v2-header) :is([data-testid="stHeader"],
 }
 html[data-mrp-menu-ready] .mrp-v2-menu-toggle{
   display:grid;place-items:center;box-sizing:border-box;flex:0 0 44px;
-  width:44px;height:44px;padding:0;border:1px solid #767676;border-radius:8px;
+  width:44px;height:44px;padding:0;margin:0 -1px 0 0;border:1px solid #767676;border-radius:8px;
   color:#fff;background:#424242;cursor:pointer;font:inherit
 }
 .mrp-v2-menu-toggle:hover{background:#555555!important}
 .mrp-v2-menu-toggle:focus-visible{outline:2px solid #ffbb00;outline-offset:2px}
-.mrp-v2-menu-toggle span::before{content:"☰";font-size:20px;line-height:1}
-.mrp-v2-menu-toggle[aria-expanded="true"] span::before{content:"×";font-size:24px}
+/* Mesmos glifos e caixa visual do controle nativo no Inventário Setta. */
+.mrp-v2-menu-icon{display:flex;align-items:center;justify-content:center;width:16px;height:16px;
+  font:400 21px/1 "Material Symbols Rounded";font-feature-settings:"liga";
+  font-variation-settings:normal;white-space:nowrap;letter-spacing:normal;user-select:none}
+.mrp-v2-menu-icon::before{content:"menu"}
+.mrp-v2-menu-toggle[aria-expanded="true"] .mrp-v2-menu-icon::before{content:"close"}
+@media(max-width:700px){
+  html[data-mrp-menu-ready] .mrp-v2-menu-toggle{margin-right:4px}
+}
 </style>
 """

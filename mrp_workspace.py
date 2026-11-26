@@ -55,9 +55,12 @@ class WorkspaceSection(nullcontext):
 
 
 def workspace_sidebar(st, pages, active, change):
-    for title, group in (("Planejamento", _PLANNING), ("Operações", _OPERATIONS), ("", ("CONFIGURAÇÕES",))):
+    for index, (title, group) in enumerate(
+        (("Planejamento", _PLANNING), ("Operações", _OPERATIONS), ("", ("CONFIGURAÇÕES",)))
+    ):
         if title:
-            st.html(f'<div class="sidebar-section-label">{title}</div>')
+            section_after = " sidebar-section-label--following" if index else ""
+            st.html(f'<div class="sidebar-section-label{section_after}">{title}</div>')
         for page in group:
             if page not in pages:
                 continue
@@ -144,8 +147,15 @@ body:has(.mrp-v2-header) [data-testid="stMain"]{
 body:has(.mrp-v2-header) [data-testid="stSidebar"],body:has(.mrp-v2-header) [data-testid="stSidebarContent"]{
   background:#333333!important;color:#f0f0f0!important}
 body:has(.mrp-v2-header) section[data-testid="stSidebar"]{border-right:0!important}
+/* O Streamlit troca o z-index ao recolher, antes de terminar o deslizamento. */
+body:has(.mrp-v2-header) section[data-testid="stSidebar"][aria-expanded="false"]{
+  z-index:2001!important
+}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] .sidebar-section-label{
   color:#d2d2d2!important;font-size:.67rem!important;letter-spacing:.12em!important}
+body:has(.mrp-v2-header) [data-testid="stSidebar"] .sidebar-section-label--following{
+  margin-top:12px!important
+}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button{
   color:#f0f0f0!important;background:transparent!important;border:1px solid transparent!important;box-shadow:none!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]{

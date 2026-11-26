@@ -9,7 +9,7 @@ def _ws_replace(old, new):
 
 _source = _ws_replace(
     '_mrp_pages=["MRP ATUAL", "SOLICITAÇÕES AVULSAS", "CONFIGURAÇÕES"] if _mrp_role=="ADMIN" else ["MRP ATUAL", "SOLICITAÇÕES AVULSAS"]',
-    'from mrp_workspace import workspace_pages, workspace_sidebar, WorkspaceSection, workspace_header, WORKSPACE_V2_CSS\n_mrp_pages=workspace_pages(_mrp_role)')
+    'from mrp_workspace import workspace_pages, workspace_sidebar, WorkspaceSection, workspace_header, WORKSPACE_V2_CSS, workspace_transition\n_mrp_pages=workspace_pages(_mrp_role)')
 _source = _ws_replace(
     'def _mrp_set_sidebar_page(page):\n    st.session_state["_mrp_sidebar_page"]=page',
     '''def _mrp_set_sidebar_page(page):
@@ -31,6 +31,7 @@ st.html(WORKSPACE_CSS)
 st.html(WORKSPACE_V2_CSS)
 from mrp_abas_visual import ABAS_VISUAL_CSS, limpar_filtros_projeto
 st.html(ABAS_VISUAL_CSS)
+workspace_transition(st)
 st.html(workspace_header(
     _mrp_page,UI_CONFIG.get("logo_data"),_mrp_status,_mrp_when,
     semana=_mrp_sidebar_week,bases=(_mrp_base_ok,_mrp_base_total),
@@ -117,8 +118,8 @@ _source = _ws_replace(
     '_idx=operacao_grade(_df_exibicao_br(f),',
     '_idx=operacao_grade(f,')
 _source = _ws_replace(
-    'from mrp_workspace import workspace_pages, workspace_sidebar, WorkspaceSection, workspace_header, WORKSPACE_V2_CSS',
-    'from mrp_workspace import workspace_pages, workspace_sidebar, WorkspaceSection, workspace_header, workspace_falta, WORKSPACE_V2_CSS')
+    'from mrp_workspace import workspace_pages, workspace_sidebar, WorkspaceSection, workspace_header, WORKSPACE_V2_CSS, workspace_transition',
+    'from mrp_workspace import workspace_pages, workspace_sidebar, WorkspaceSection, workspace_header, workspace_falta, WORKSPACE_V2_CSS, workspace_transition')
 for _catalog in ("MRP_COLS","macro_cols"):
     _old = next(l for l in _source.splitlines() if l.lstrip().startswith(f"_opc=[c for c in {_catalog} if"))
     _space = _old[:len(_old)-len(_old.lstrip())]

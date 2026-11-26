@@ -143,6 +143,14 @@ def assert_menu_button(page, control, *, opening):
     assert control.evaluate("button => button.closest('.mrp-v2-top')?.contains(document.querySelector('.mrp-v2-account'))")
 
 
+def assert_breadcrumb_gap(page, width):
+    gap = page.locator(".mrp-v2-crumb").evaluate("""crumb =>
+      crumb.getBoundingClientRect().top -
+      document.querySelector(".mrp-v2-top").getBoundingClientRect().bottom
+    """)
+    assert abs(gap - (10 if width <= 700 else 12)) <= 1, gap
+
+
 def brand_positions(page):
     return page.locator(".mrp-v2-top").evaluate("""top =>
       ['.mrp-v2-menu-toggle','.mrp-v2-mark','.mrp-v2-brand','.mrp-v2-name']
@@ -176,6 +184,7 @@ def check(browser,width,height,name,iphone=False):
             settings=page.get_by_role("button",name="Configurações",exact=True)
             sidebar=page.get_by_test_id("stSidebar")
             assert_header(page)
+            assert_breadcrumb_gap(page, width)
             expect(sidebar).to_have_attribute("aria-expanded", "false")
             for index in range(3):
                 expect(sidebar).to_have_attribute("aria-expanded", "false")
@@ -194,6 +203,7 @@ def check(browser,width,height,name,iphone=False):
                 assert_menu_button(page, collapse, opening=False)
                 assert_fixed_brand(page, fixed_brand)
                 assert_header(page)
+                assert_breadcrumb_gap(page, width)
                 if index < 2:
                     if iphone and index == 1:
                         collapse.tap()
@@ -216,6 +226,7 @@ def check(browser,width,height,name,iphone=False):
             settings.press("Enter")
             expect(page.get_by_role("heading",name="Configurações",exact=True)).to_be_visible()
             assert_header(page)
+            assert_breadcrumb_gap(page, width)
             expect(sidebar).to_have_attribute("aria-expanded", "false")
             assert_menu_button(page, menu, opening=True)
             menu.click()

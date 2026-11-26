@@ -228,7 +228,7 @@ body:has(.mrp-v2-header) button[data-mrp-toggle="Menu"]::before{font-size:20px;l
 .mrp-v2-name{font-size:.76rem;color:#e1e1e1;border-left:1px solid #767676;padding-left:13px}
 .mrp-v2-stamps{margin-left:auto;color:#e1e1e1;font-size:.75rem}
 .mrp-v2-account{color:#fff;font-size:.8rem;font-weight:680;white-space:nowrap}
-.mrp-v2-intro{padding-top:1px;position:relative}
+.mrp-v2-intro{padding-top:12px;position:relative}
 .mrp-v2-crumb,.mrp-v2-meta,.mrp-v2-mobile-date{font-size:.72rem;color:#525252}
 .mrp-v2-intro h1{font-size:clamp(1.45rem,3vw,1.95rem)!important;
   font-weight:780!important;color:#333333!important;text-transform:none!important;
@@ -263,7 +263,7 @@ body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] button{
   .mrp-v2-account{font-size:.69rem;margin-left:auto;overflow:hidden;text-overflow:ellipsis}
   .mrp-v2-name,.mrp-v2-stamps{display:none}
   .mrp-v2-mobile-date{display:block;margin-top:3px}
-  .mrp-v2-intro{margin-top:-7px}
+  .mrp-v2-intro{padding-top:10px}
   body:has(.mrp-v2-header) [data-testid="stMain"] [data-testid="stMainBlockContainer"].block-container{padding:var(--mrp-top-height) 12px 18px!important}
 
   body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_kpis_"] [data-testid="stColumn"]{

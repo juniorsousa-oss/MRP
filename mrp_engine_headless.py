@@ -134,10 +134,11 @@ def construir_motor():
     ):
         raise RuntimeError("O núcleo de cálculo ainda contém chamadas à interface Streamlit.")
 
+    result_keys = (*OUTPUTS, "semana_atual")
     body.append(ast.Return(
         value=ast.Dict(
-            keys=[ast.Constant(value=name) for name in OUTPUTS],
-            values=[ast.Name(id=name, ctx=ast.Load()) for name in OUTPUTS],
+            keys=[ast.Constant(value=name) for name in result_keys],
+            values=[ast.Name(id=name, ctx=ast.Load()) for name in result_keys],
         )
     ))
     args = ast.arguments(
@@ -168,7 +169,8 @@ def calcular_mrp(
     cad: pd.DataFrame, est: pd.DataFrame, rg: pd.DataFrame,
     rg_mrp: pd.DataFrame, cp: pd.DataFrame, mt: pd.DataFrame,
     tratativas_projeto: pd.DataFrame, tratativas_produto: pd.DataFrame,
-) -> dict[str, pd.DataFrame]:
+    *, incluir_semana: bool = False,
+) -> dict[str, pd.DataFrame] | tuple[dict[str, pd.DataFrame], int]:
     if tratativas_projeto is None or tratativas_produto is None:
         raise ValueError("Tratativas autorizadas são obrigatórias; não assumir vazias.")
     calculator = construir_motor()
@@ -178,4 +180,5 @@ def calcular_mrp(
     for name in OUTPUTS:
         if name not in result or not isinstance(result[name], pd.DataFrame):
             raise RuntimeError(f"Resultado obrigatório ausente: {name}")
-    return result
+    week = int(result.pop("semana_atual"))
+    return (result, week) if incluir_semana else result

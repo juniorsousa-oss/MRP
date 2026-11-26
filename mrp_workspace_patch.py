@@ -128,7 +128,7 @@ _source = _source.replace('("Demanda","Saldo em Estoque","S.C.","P.C.","Status",
 # Aplicar o estilo só ao Excel dos relatórios, não às cargas nem aos CSVs.
 _source = _ws_replace(
     'def excel_bytes(sheets):',
-    'def excel_bytes(sheets, *, layout_relatorio=False, espelhos=()):')
+    'def excel_bytes(sheets, *, layout_relatorio=False, espelhos=(), versao_layout=None):')
 _source = _ws_replace(
     '        for name,df in sheets.items(): df.to_excel(writer,sheet_name=name[:31],index=False)\n',
     '        for name,df in sheets.items(): df.to_excel(writer,sheet_name=name[:31],index=False)\n'
@@ -137,5 +137,5 @@ _source = _ws_replace(
     '            estilizar_relatorios_mrp(writer.book, espelhos=espelhos)\n')
 for _line in _source.splitlines():
     if 'excel_bytes(s)' in _line and ('"MRP_Consulta.xlsx"' in _line or '"MRP_Relatorios_Completos.xlsx"' in _line):
-        _source = _ws_replace(_line, _line.replace('excel_bytes(s)', 'excel_bytes(s, layout_relatorio=True)'))
+        _source = _ws_replace(_line, _line.replace('excel_bytes(s)', 'excel_bytes(s, layout_relatorio=True, versao_layout="2026-11-26-v8")'))
 """

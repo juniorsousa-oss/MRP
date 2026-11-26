@@ -19,6 +19,11 @@ class RelatorioExcelTests(unittest.TestCase):
         exec(compile(ast.Module(body=[fn], type_ignores=[]), "<export>", "exec"), context)
         cls._export = staticmethod(context["excel_bytes"])
 
+    def test_rotas_usam_cache_versionado_e_comparativo_pronto_antes_do_download(self):
+        self.assertIn('excel_bytes(s, layout_relatorio=True, versao_layout="2026-11-26-v8")', self.source)
+        self.assertIn('excel_bytes(report, layout_relatorio=True, espelhos=_espelhos, versao_layout="2026-11-26-v8")', self.source)
+        self.assertNotIn("lambda r=report, e=_espelhos", self.source)
+
     def test_export_style_preserves_values_and_positions(self):
         cols = ["Código", "Descrição", "Tipo", "Saldo em Estoque", "Demanda",
                 "P.C.", "S.C.", "Produzindo", "SF", "Status",
@@ -125,7 +130,7 @@ class RelatorioExcelTests(unittest.TestCase):
         self.assertEqual(len(hits), 4)
         self.assertTrue(any("MRP_Relatorios_Completos.xlsx" in l for l in hits))
         self.assertTrue(any("MRP_Consulta.xlsx" in l for l in hits))
-        self.assertTrue(any("Comparativo_MRP.xlsx" in l and "espelhos=e" in l for l in hits))
+        self.assertTrue(any("Comparativo_MRP.xlsx" in l and "espelhos=_espelhos" in l for l in hits))
         self.assertTrue(any("Materiais_por_SA" in l for l in hits))
         for title in ("Compra_MRP", "Tratativas", "Tratativas_Produtos"):
             with self.subTest(title=title):

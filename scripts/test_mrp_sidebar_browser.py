@@ -157,6 +157,48 @@ def assert_menu_button(page, control, *, opening):
     assert control.evaluate("button => button.closest('.mrp-v2-top')?.contains(document.querySelector('.mrp-v2-account'))")
 
 
+def assert_section_spacing(sidebar):
+    gap = sidebar.evaluate("""side => {
+      const entries = [...side.querySelectorAll('.sidebar-section-label, [class*="st-key-mrp_nav_btn_"] button')];
+      const i = entries.findIndex(e => e.textContent.trim() === "Operações");
+      const top = entries[i].getBoundingClientRect();
+      return [top.top - entries[i-1].getBoundingClientRect().bottom,
+              entries[i+1].getBoundingClientRect().top - top.bottom];
+    }""")
+    assert gap == [12, 8], gap
+
+
+def start_header_trace(page):
+    page.evaluate("""() => {
+      window.__testHeaderTrace = new Promise(resolve => {
+        const samples = [];
+        const started = performance.now();
+        let closing;
+        const frame = now => {
+          const top = document.querySelector('.mrp-v2-top');
+          const sidebar = document.querySelector('[data-testid="stSidebar"]');
+          if (top && sidebar?.getAttribute('aria-expanded') === 'false') {
+            closing ??= now;
+            const r = sidebar.getBoundingClientRect();
+            const hits = [[24, 28], [91, 28]].map(([x,y]) =>
+              top.contains(document.elementFromPoint(x,y)));
+            samples.push({right:r.right, hits, sidebarZ:getComputedStyle(sidebar).zIndex,
+                          topZ:getComputedStyle(top).zIndex});
+          }
+          if ((closing && now - closing >= 325) || now - started >= 2000) resolve(samples);
+          else requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      });
+    }""")
+
+
+def assert_header_trace(page):
+    samples = page.evaluate("() => window.__testHeaderTrace")
+    assert samples and all(all(sample["hits"]) for sample in samples), samples
+    assert all(int(sample["topZ"]) > int(sample["sidebarZ"]) for sample in samples), samples
+
+
 def assert_breadcrumb_gap(page, width):
     gap = page.locator(".mrp-v2-crumb").evaluate("""crumb =>
       crumb.getBoundingClientRect().top -
@@ -215,14 +257,19 @@ def check(browser,width,height,name,iphone=False):
                     menu.click()
                 expect(sidebar).to_have_attribute("aria-expanded", "true")
                 assert_menu_button(page, collapse, opening=False)
+                assert_section_spacing(sidebar)
                 assert_fixed_brand(page, fixed_brand)
                 assert_header(page)
                 assert_breadcrumb_gap(page, width)
                 if index < 2:
+                    if index == 0:
+                        start_header_trace(page)
                     if iphone and index == 1:
                         collapse.tap()
                     else:
                         collapse.click()
+                    if index == 0:
+                        assert_header_trace(page)
             page.wait_for_function("""() => {
               const sidebar = document.querySelector('section[data-testid="stSidebar"]');
               const close = document.querySelector('.mrp-v2-menu-toggle');
@@ -237,8 +284,10 @@ def check(browser,width,height,name,iphone=False):
             expect(settings).to_be_in_viewport()
             assert_scroll(page,width,long=True)
             page.screenshot(path=str(ARTIFACTS/f"{name}-aberto.png"))
+            start_header_trace(page)
             settings.press("Enter")
             expect(page.get_by_role("heading",name="Configurações",exact=True)).to_be_visible()
+            assert_header_trace(page)
             assert_header(page)
             assert_breadcrumb_gap(page, width)
             expect(sidebar).to_have_attribute("aria-expanded", "false")

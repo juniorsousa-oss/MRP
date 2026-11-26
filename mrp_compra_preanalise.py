@@ -14,7 +14,7 @@ import pandas as pd
 
 CAMPOS = {"produto", "qnt", "data", "psy", "cc", "op", "obs", "prioridade"}
 OP_NAO_INFORMADA = "SEM OP VINCULADA"
-PREANALISE_VERSAO = "2026-11-26-v8"
+PREANALISE_VERSAO = "2026-11-26-v9"
 
 
 def _texto(valor) -> str:
@@ -430,8 +430,6 @@ def _observacoes_variacao_historica(alocacoes, macro_atual, historico):
         if delta <= 1e-7:
             continue
         motivos = []
-        if demanda > 1e-7:
-            motivos.append(f"AUMENTO DE DEMANDA DE {velho[1]:g} PARA {novo[1]:g} UN.")
         perda_sem_reducao_de_demanda = -estoque > max(0.0, -demanda) + 1e-7
         if perda_sem_reducao_de_demanda:
             if demanda > 1e-7:
@@ -440,26 +438,19 @@ def _observacoes_variacao_historica(alocacoes, macro_atual, historico):
                 motivos.append(f"POSSÍVEL ERRO DE ESTOQUE — REDUÇÃO DE ESTOQUE DE {-estoque:g} UN. COM REDUÇÃO DE DEMANDA DE {max(0.0, -demanda):g} UN.")
         pc_inconsistente = False
         if pc < -1e-7:
-            if estoque <= 1e-7:
+            pc_descoberto = -pc - max(0.0, estoque)
+            if pc_descoberto > 1e-7:
                 pc_inconsistente = True
-                motivos.append(f"REDUÇÃO DE P.C. DE {-pc:g} UN. SEM AUMENTO DE ESTOQUE — CONFERIR NF NO ERP")
-            elif estoque < -pc - 1e-7:
-                pc_inconsistente = True
-                motivos.append(f"REDUÇÃO DE P.C. DE {-pc:g} UN. COM AUMENTO DE ESTOQUE DE {estoque:g} UN. — SALDO A CONFERIR: {-pc-estoque:g} UN. NO ERP")
-            else:
-                motivos.append(f"REDUÇÃO DE P.C. DE {-pc:g} UN. COBERTA PELO AUMENTO DE ESTOQUE DE {estoque:g} UN. — COMPATÍVEL COM RECEBIMENTO, SEM CONFIRMAÇÃO DE NF")
-        if sc > 1e-7 and demanda > 1e-7:
-            motivos.append(f"S.C. SUBIU DE {velho[3]:g} PARA {novo[3]:g} UN.")
+                if estoque <= 1e-7:
+                    motivos.append(f"REDUÇÃO DE P.C. DE {-pc:g} UN. SEM AUMENTO DE ESTOQUE — CONFERIR NF NO ERP")
+                else:
+                    motivos.append(f"REDUÇÃO DE P.C. — SALDO A CONFERIR: {pc_descoberto:g} UN. NO ERP")
         if sc < -1e-7:
-            if pc >= -sc - 1e-7:
-                motivos.append(f"REDUÇÃO DE S.C. DE {-sc:g} UN. COMPENSADA PELO AUMENTO DE P.C. DE {pc:g} UN.")
-            else:
-                motivos.append(f"REDUÇÃO DE S.C. DE {-sc:g} UN." +
-                               (f", COMPENSADA EM PARTE PELO AUMENTO DE P.C. DE {pc:g} UN." if pc > 1e-7 else " SEM AUMENTO DE P.C. — CONFERIR S.C. NO ERP"))
+            sc_descoberta = -sc - max(0.0, pc)
+            if sc_descoberta > 1e-7:
+                motivos.append(f"REDUÇÃO DE S.C. SEM REPOSIÇÃO: {sc_descoberta:g} UN. — CONFERIR S.C. NO ERP")
         if produzindo < -1e-7:
             motivos.append(f"REDUÇÃO EM PRODUÇÃO DE {-produzindo:g} UN.")
-        if not motivos:
-            continue
         # Confirmar que a falta global e as faltas por projeto se reconciliam.
         # TC/TP e origens sem OP não podem ser atribuídas por engano.
         fa, fb = faltas[codigo], faltas_ant.get(codigo, {})
@@ -468,16 +459,37 @@ def _observacoes_variacao_historica(alocacoes, macro_atual, historico):
                 and isclose(sum(x[2] for x in fa.values()), depois, rel_tol=1e-7, abs_tol=1e-7)
                 and isclose(sum(x[2] for x in fb.values()), antes, rel_tol=1e-7, abs_tol=1e-7)):
             continue
-        aumentos = {op: x[2] - fb.get(op, (0,0,0))[2] for op,x in fa.items()
-                    if x[2] - fb.get(op, (0,0,0))[2] > 1e-7}
-        if not isclose(sum(aumentos.values()), delta, rel_tol=1e-7, abs_tol=1e-7):
+        if demanda > 1e-7:
+            origens = [
+                (op, fb.get(op, (0, 0, 0))[0], valores[0])
+                for op, valores in sorted(fa.items())
+                if valores[0] - fb.get(op, (0, 0, 0))[0] > 1e-7
+            ]
+            detalhe = ", ".join(f"OP {op} (+{n-a:g} UN.)" for op, a, n in origens)
+            texto = f"AUMENTO DE DEMANDA DE {velho[1]:g} PARA {novo[1]:g} UN."
+            if detalhe:
+                texto += f" ORIGEM DO AUMENTO: {detalhe}"
+            else:
+                texto += " OP DE ORIGEM NÃO IDENTIFICADA."
+            motivos.insert(0, texto)
+        if not motivos:
             continue
-        for op, qtd in aumentos.items():
+        # Outra OP pode ter reduzido sua falta no mesmo intervalo. Confira
+        # o saldo líquido, mas só descreva aumentos de falta de cada OP.
+        variacoes = {
+            op: fa.get(op, (0, 0, 0))[2] - fb.get(op, (0, 0, 0))[2]
+            for op in fa.keys() | fb.keys()
+        }
+        if not isclose(sum(variacoes.values()), delta, rel_tol=1e-7, abs_tol=1e-7):
+            continue
+        for op, qtd in variacoes.items():
+            if qtd <= 1e-7:
+                continue
             contexto = f"COMPARATIVO MRP{rastreio}"
             if perda_sem_reducao_de_demanda:
                 contexto += "; CONFERIR AJUSTE NO ERP"
             out[(op,codigo)] = (fa[op][2], " | ".join(motivos) +
-                                f" — NECESSIDADE ADICIONAL DE {qtd:g} UN. ({contexto})",
+                                f" — NECESSIDADE ADICIONAL DE {qtd:g} UN. NESTA OP ({contexto})",
                                 pc_inconsistente)
     return out
 
@@ -705,7 +717,7 @@ def construir_relatorio_compra_por_op(
         ("SEM OP", "Demandas sem OP de origem são exibidas como SEM OP VINCULADA."),
         ("PARECER", "Prioridade 1 = OK, sem observação. Prioridade 2: NOVA DEMANDA para solicitação de hoje ou do último dia útil; DEMANDA quando antiga com motivo identificado; VERIFICAR quando não há justificativa ou os dados são insuficientes. Pareceres editáveis."),
         ("REDISTRIBUIÇÃO", "Observação estimada pelo consumo efetivo registrado na Ação do MRP e pela ordem de necessidade. Inclui a última solicitação do projeto responsável por material; não prova reserva anterior. Créditos não são duplicados. Revisar antes de aprovar."),
-        ("VARIAÇÃO DE DEMANDA E COBERTURA", "Prioriza o primeiro espelho do dia anterior disponível. Identifica aumento de demanda e redução de estoque, S.C., P.C. e produção quando a falta adicional se reconcilia. Queda de P.C. sem aumento de estoque, ou com cobertura parcial, fica para conferência; aumento de estoque compatível não confirma entrada de NF."),
+        ("VARIAÇÃO DE DEMANDA E COBERTURA", "Prioriza o primeiro espelho do dia anterior disponível. Informa o que gerou falta adicional e as OPs com aumento de demanda quando identificadas. Aponta apenas a parcela de S.C. ou P.C. sem reposição; movimentos compensados não entram na justificativa."),
         ("CALENDÁRIO", "Dias úteis: finais de semana e feriados do calendário SETTA/Patos de Minas. Pontos facultativos não são bloqueados automaticamente."),
         ("IMPORTANTE", "Não utilizar este arquivo na rotina de importação STSUP25 do Protheus."),
         ("VERSÃO DA PRÉ-ANÁLISE", PREANALISE_VERSAO),

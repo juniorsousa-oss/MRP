@@ -494,7 +494,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             import importlib
             import mrp_compra_preanalise as _preanalise
             # Streamlit pode manter módulos importados de um rerun anterior.
-            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-26-v8":
+            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-26-v9":
                 importlib.invalidate_caches()
                 _preanalise=importlib.reload(_preanalise)
             op_opcoes=sorted({_preanalise.op_relatorio(x) for x in aptos["op"].tolist()})
@@ -528,7 +528,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 _pronto=None
                 try:
                     with st.spinner("Preparando relatório por OP..."):
-                        if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-26-v8":
+                        if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-26-v9":
                             raise RuntimeError("Versão antiga da pré-análise. Reinicie o aplicativo antes de baixar.")
                         _historico_indisponivel=False
                         try:

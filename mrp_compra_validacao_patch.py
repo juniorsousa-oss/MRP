@@ -331,16 +331,17 @@ def _compra_botao_finalizar(prefixo):
 
 def _historico_preanalise(snapshot_atual=None):
     # Executado somente ao preparar o relatório. Não publica nem recalcula.
-    from mrp_compra_preanalise import ids_comparacao_diaria
+    from mrp_compra_preanalise import consultar_metadados_preanalise, ids_comparacao_diaria
     atual=snapshot_atual if snapshot_atual is not None else load_latest_snapshot()
     if not atual or atual.get("id") is None:
         return None
-    ids=ids_comparacao_diaria(load_snapshot_history(),atual)
+    ids=ids_comparacao_diaria(consultar_metadados_preanalise(_sb_get,atual),atual)
     if not ids:
         return None
     referencia={
         "macro_referencia":snapshot_df(atual,"mrp_geral"),
         "alocacoes_referencia":snapshot_df(atual,"demanda_projeto"),
+        "espelho_referencia":{k:atual.get(k) for k in ("id","created_at")},
     }
     comparativos=[]
     for id_anterior in ids:
@@ -350,6 +351,7 @@ def _historico_preanalise(snapshot_atual=None):
                 **referencia,
                 "macro_anterior":snapshot_df(anterior,"mrp_geral"),
                 "alocacoes_anterior":snapshot_df(anterior,"demanda_projeto"),
+                "espelho_anterior":{k:anterior.get(k) for k in ("id","created_at")},
             })
     return {"comparativos":comparativos} if comparativos else None
 
@@ -492,7 +494,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
             import importlib
             import mrp_compra_preanalise as _preanalise
             # Streamlit pode manter módulos importados de um rerun anterior.
-            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v6":
+            if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-26-v8":
                 importlib.invalidate_caches()
                 _preanalise=importlib.reload(_preanalise)
             op_opcoes=sorted({_preanalise.op_relatorio(x) for x in aptos["op"].tolist()})
@@ -526,7 +528,7 @@ def render_validacao_compra_mrp(df, prefixo="admin", cad=None, solicitacoes=None
                 _pronto=None
                 try:
                     with st.spinner("Preparando relatório por OP..."):
-                        if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-25-v6":
+                        if getattr(_preanalise,"PREANALISE_VERSAO",None)!="2026-11-26-v8":
                             raise RuntimeError("Versão antiga da pré-análise. Reinicie o aplicativo antes de baixar.")
                         _historico_indisponivel=False
                         try:

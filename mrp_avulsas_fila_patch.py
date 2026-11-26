@@ -95,10 +95,10 @@ _av_fila_main="""    if _mrp_av_admin_area=="SOLICITAÇÕES" and _mrp_av_consult
                         with st.expander("Registros anteriores sem protocolo",expanded=False):
                             st.dataframe(_sa_sem_protocolo,use_container_width=True,hide_index=True)
                 st.download_button("EXPORTAR SOLICITAÇÕES · EXCEL",
-                    lambda: excel_bytes({"Materiais_por_SA":_exportar}),
+                    lambda dados=_exportar: excel_bytes({"Materiais_por_SA":dados}, layout_relatorio=True),
                     "mrp_solicitacoes_avulsas.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True)
+                    on_click="ignore", use_container_width=True)
 """
 _source=_source[:_av_fila_ini]+_av_fila_main+_source[_av_fila_fim:]
 _av_fila_sub("""            for _p in _entregues_pendentes:

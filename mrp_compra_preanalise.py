@@ -14,7 +14,7 @@ import pandas as pd
 
 CAMPOS = {"produto", "qnt", "data", "psy", "cc", "op", "obs", "prioridade"}
 OP_NAO_INFORMADA = "SEM OP VINCULADA"
-PREANALISE_VERSAO = "2026-11-25-v6"
+PREANALISE_VERSAO = "2026-11-26-v8"
 
 
 def _texto(valor) -> str:
@@ -298,37 +298,89 @@ def _mapa_faltas(alocacoes):
     return {k: v for k, v in out.items() if k not in invalidos}
 
 
+def _instante_espelho(registro):
+    return pd.to_datetime(registro.get("created_at"), errors="coerce", utc=True)
+
+
 def ids_comparacao_diaria(meta, atual):
-    """Último snapshot do dia anterior disponível + último intradiário."""
+    """Primeiro e último do dia anterior registrado, mais o anterior imediato."""
     if not atual or atual.get("id") is None:
         return []
-    def instante(registro):
-        return pd.to_datetime(registro.get("created_at"), errors="coerce", utc=True)
-    ref = instante(atual)
+    ref = _instante_espelho(atual)
     if pd.isna(ref):
         return []
-    dia_ref = ref.tz_convert("America/Sao_Paulo").date()
+    fuso = "America/Sao_Paulo"
+    dia_ref = ref.tz_convert(fuso).date()
     anteriores = []
     for registro in meta or []:
-        ts = instante(registro)
-        if registro.get("id") is not None and int(registro["id"]) != int(atual["id"]) and pd.notna(ts) and ts < ref:
-            anteriores.append((ts, int(registro["id"])))
-    anteriores.sort(reverse=True)
-    diario = next((id_ for ts,id_ in anteriores
-                   if ts.tz_convert("America/Sao_Paulo").date() < dia_ref), None)
-    imediato = anteriores[0][1] if anteriores else None
-    return list(dict.fromkeys(x for x in (diario, imediato) if x is not None))
+        ts = _instante_espelho(registro)
+        try:
+            id_ = int(registro.get("id"))
+        except (TypeError, ValueError):
+            continue
+        if id_ != int(atual["id"]) and pd.notna(ts) and ts < ref:
+            anteriores.append((ts, id_))
+    anteriores.sort()
+    diarios = [(ts, id_) for ts, id_ in anteriores if ts.tz_convert(fuso).date() < dia_ref]
+    if diarios:
+        dia_anterior = diarios[-1][0].tz_convert(fuso).date()
+        diario_inicio = next(id_ for ts, id_ in diarios if ts.tz_convert(fuso).date() == dia_anterior)
+        diarios_ids = (diario_inicio, diarios[-1][1])
+    else:
+        diarios_ids = ()
+    return list(dict.fromkeys((*diarios_ids, *(id_ for _, id_ in anteriores[-1:]))))
 
 
-def _observacoes_perda_estoque(alocacoes, macro_atual, historico):
-    """Compara fotografias consecutivas; não infere movimento físico do ERP."""
+def consultar_metadados_preanalise(consultar, atual):
+    """Busca só metadados, por data; muitos espelhos recentes não ocultam a abertura."""
+    if not atual or atual.get("id") is None:
+        return []
+    ref = _instante_espelho(atual)
+    if pd.isna(ref):
+        return []
+    fuso = "America/Sao_Paulo"
+    inicio_atual = ref.tz_convert(fuso).normalize().tz_convert("UTC")
+
+    def buscar(filtros, ordem):
+        return consultar({
+            "select": "id,created_at", "limit": "1",
+            "order": f"created_at.{ordem},id.{ordem}", **filtros,
+        }) or []
+
+    ultimo_dia_anterior = buscar({"created_at": f"lt.{inicio_atual.isoformat()}"}, "desc")
+    primeiro_dia_anterior = []
+    if ultimo_dia_anterior:
+        ts = _instante_espelho(ultimo_dia_anterior[0])
+        if pd.notna(ts):
+            inicio_dia = ts.tz_convert(fuso).normalize()
+            inicio = inicio_dia.tz_convert("UTC").isoformat()
+            fim = (inicio_dia + pd.DateOffset(days=1)).tz_convert("UTC").isoformat()
+            primeiro_dia_anterior = buscar(
+                {"and": f"(created_at.gte.{inicio},created_at.lt.{fim})"}, "asc",
+            )
+    imediato = buscar({"created_at": f"lt.{ref.isoformat()}"}, "desc")
+    return primeiro_dia_anterior + ultimo_dia_anterior + imediato
+
+
+def _rastreio_espelho(registro):
+    if not isinstance(registro, dict) or registro.get("id") is None:
+        return ""
+    ts = _instante_espelho(registro)
+    if pd.isna(ts):
+        return f"#{registro['id']}"
+    data = ts.tz_convert("America/Sao_Paulo").strftime("%d/%m/%Y %H:%M")
+    return f"#{registro['id']} DE {data}"
+
+
+def _observacoes_variacao_historica(alocacoes, macro_atual, historico):
+    """Explica apenas faltas reconciliadas entre espelhos, sem inferir baixas físicas."""
     if not isinstance(historico, dict):
         return {}
     if "comparativos" in historico:
         # A base diária precede a intradiária; não duplicar o mesmo diagnóstico.
         resultado = {}
         for comparativo in historico["comparativos"]:
-            for chave, valor in _observacoes_perda_estoque(alocacoes, macro_atual, comparativo).items():
+            for chave, valor in _observacoes_variacao_historica(alocacoes, macro_atual, comparativo).items():
                 resultado.setdefault(chave, valor)
         return resultado
     atual = _mapa_macro(macro_atual)
@@ -337,28 +389,80 @@ def _observacoes_perda_estoque(alocacoes, macro_atual, historico):
     faltas = _mapa_faltas(alocacoes)
     faltas_ant = _mapa_faltas(historico.get("alocacoes_anterior"))
     faltas_ref = _mapa_faltas(historico.get("alocacoes_referencia"))
+    def codigos_no_quadro(quadro, chave):
+        if not isinstance(quadro, pd.DataFrame) or chave not in quadro.columns:
+            return set()
+        return {_codigo_material(c) for c in quadro[chave]}
+
+    codigos_anteriores = codigos_no_quadro(historico.get("macro_anterior"), "Código")
+    quadro_alocado_antes = historico.get("alocacoes_anterior")
+    pode_validar_novo = (isinstance(quadro_alocado_antes, pd.DataFrame) and
+                         {"Produto", "Projeto", "Necessidade", "Ação"}.issubset(quadro_alocado_antes.columns))
+    # Registros residuais zerados não são demanda ativa; linhas desconhecidas
+    # ou positivas não podem ser convertidas em uma fotografia de zero.
+    alocacao_anterior_nao_zerada = set()
+    if pode_validar_novo:
+        necessidades = pd.to_numeric(quadro_alocado_antes["Necessidade"], errors="coerce")
+        alocacao_anterior_nao_zerada = {
+            _codigo_material(c) for c in quadro_alocado_antes.loc[necessidades.ne(0), "Produto"]
+        }
     out = {}
+    origem = _rastreio_espelho(historico.get("espelho_anterior"))
+    destino = _rastreio_espelho(historico.get("espelho_referencia"))
+    rastreio = f" {origem} → {destino}" if origem and destino else ""
     for codigo, novo in atual.items():
         velho = anterior.get(codigo)
+        # Uma linha inválida/duplicada não é a mesma coisa que um código ausente.
+        if (velho is None and anterior and pode_validar_novo and
+                codigo not in codigos_anteriores and codigo not in alocacao_anterior_nao_zerada):
+            velho = (0.0, 0.0, 0.0, 0.0, 0.0)
         # ADMIN deve corresponder ao snapshot atual; não misturar cálculos.
         if velho is None or novo != referencia.get(codigo) or faltas.get(codigo) != faltas_ref.get(codigo):
             continue
-        if codigo not in faltas or codigo not in faltas_ant:
+        if not pode_validar_novo or codigo not in faltas or (
+            codigo not in faltas_ant and (velho[1] > 1e-7 or codigo in alocacao_anterior_nao_zerada)
+        ):
             continue
-        perda = velho[0] - novo[0]
-        reducao = velho[1] - novo[1]
-        if perda <= 1e-7 or reducao < -1e-7 or perda <= reducao + 1e-7:
-            continue
-        if any(not isclose(a, b, rel_tol=1e-7, abs_tol=1e-7) for a,b in zip(velho[2:],novo[2:])):
-            continue
+        estoque, demanda, pc, sc, produzindo = (n - v for n, v in zip(novo, velho))
         antes = max(0.0, velho[1] - velho[0] - sum(velho[2:]))
         depois = max(0.0, novo[1] - novo[0] - sum(novo[2:]))
         delta = depois - antes
-        if delta <= 1e-7 or not isclose(delta, perda-reducao, rel_tol=1e-7, abs_tol=1e-7):
+        if delta <= 1e-7:
+            continue
+        motivos = []
+        if demanda > 1e-7:
+            motivos.append(f"AUMENTO DE DEMANDA DE {velho[1]:g} PARA {novo[1]:g} UN.")
+        perda_sem_reducao_de_demanda = -estoque > max(0.0, -demanda) + 1e-7
+        if perda_sem_reducao_de_demanda:
+            if demanda > 1e-7:
+                motivos.append(f"REDUÇÃO DE ESTOQUE DE {-estoque:g} UN.")
+            else:
+                motivos.append(f"POSSÍVEL ERRO DE ESTOQUE — REDUÇÃO DE ESTOQUE DE {-estoque:g} UN. COM REDUÇÃO DE DEMANDA DE {max(0.0, -demanda):g} UN.")
+        pc_inconsistente = False
+        if pc < -1e-7:
+            if estoque <= 1e-7:
+                pc_inconsistente = True
+                motivos.append(f"REDUÇÃO DE P.C. DE {-pc:g} UN. SEM AUMENTO DE ESTOQUE — CONFERIR NF NO ERP")
+            elif estoque < -pc - 1e-7:
+                pc_inconsistente = True
+                motivos.append(f"REDUÇÃO DE P.C. DE {-pc:g} UN. COM AUMENTO DE ESTOQUE DE {estoque:g} UN. — SALDO A CONFERIR: {-pc-estoque:g} UN. NO ERP")
+            else:
+                motivos.append(f"REDUÇÃO DE P.C. DE {-pc:g} UN. COBERTA PELO AUMENTO DE ESTOQUE DE {estoque:g} UN. — COMPATÍVEL COM RECEBIMENTO, SEM CONFIRMAÇÃO DE NF")
+        if sc > 1e-7 and demanda > 1e-7:
+            motivos.append(f"S.C. SUBIU DE {velho[3]:g} PARA {novo[3]:g} UN.")
+        if sc < -1e-7:
+            if pc >= -sc - 1e-7:
+                motivos.append(f"REDUÇÃO DE S.C. DE {-sc:g} UN. COMPENSADA PELO AUMENTO DE P.C. DE {pc:g} UN.")
+            else:
+                motivos.append(f"REDUÇÃO DE S.C. DE {-sc:g} UN." +
+                               (f", COMPENSADA EM PARTE PELO AUMENTO DE P.C. DE {pc:g} UN." if pc > 1e-7 else " SEM AUMENTO DE P.C. — CONFERIR S.C. NO ERP"))
+        if produzindo < -1e-7:
+            motivos.append(f"REDUÇÃO EM PRODUÇÃO DE {-produzindo:g} UN.")
+        if not motivos:
             continue
         # Confirmar que a falta global e as faltas por projeto se reconciliam.
         # TC/TP e origens sem OP não podem ser atribuídas por engano.
-        fa, fb = faltas[codigo], faltas_ant[codigo]
+        fa, fb = faltas[codigo], faltas_ant.get(codigo, {})
         if not (isclose(sum(x[0] for x in fa.values()), novo[1], rel_tol=1e-7, abs_tol=1e-7)
                 and isclose(sum(x[0] for x in fb.values()), velho[1], rel_tol=1e-7, abs_tol=1e-7)
                 and isclose(sum(x[2] for x in fa.values()), depois, rel_tol=1e-7, abs_tol=1e-7)
@@ -369,32 +473,44 @@ def _observacoes_perda_estoque(alocacoes, macro_atual, historico):
         if not isclose(sum(aumentos.values()), delta, rel_tol=1e-7, abs_tol=1e-7):
             continue
         for op, qtd in aumentos.items():
-            out[(op,codigo)] = (fa[op][2], f"POSSÍVEL ERRO DE ESTOQUE — REDUÇÃO DE ESTOQUE DE {perda:g} UN. COM REDUÇÃO DE DEMANDA DE {reducao:g} UN. — NECESSIDADE ADICIONAL DE {qtd:g} UN. (COMPARATIVO MRP; CONFERIR AJUSTE NO ERP)")
+            contexto = f"COMPARATIVO MRP{rastreio}"
+            if perda_sem_reducao_de_demanda:
+                contexto += "; CONFERIR AJUSTE NO ERP"
+            out[(op,codigo)] = (fa[op][2], " | ".join(motivos) +
+                                f" — NECESSIDADE ADICIONAL DE {qtd:g} UN. ({contexto})",
+                                pc_inconsistente)
     return out
 
 
 def _analise_previa(fonte, mapa_solicitacoes, alocacoes, referencia, feriados_adicionais, macro_atual=None, historico=None):
     janela = _janela_analise(referencia, feriados_adicionais)
     redistribuicoes = _redistribuicoes(alocacoes, mapa_solicitacoes, janela)
-    perdas = _observacoes_perda_estoque(alocacoes, macro_atual, historico)
+    variacoes = _observacoes_variacao_historica(alocacoes, macro_atual, historico)
     pareceres = {}
     for (op, codigo), linhas in fonte.groupby(["OP", "Código"], sort=False):
         chave = (op, _codigo_material(codigo))
         data = _data_solicitacao(mapa_solicitacoes.get(chave, ""))
+        evidencia = variacoes.get(chave)
+        total_compra = float(linhas["Quantidade"].sum())
+        if evidencia and not isclose(evidencia[0], total_compra, rel_tol=1e-5, abs_tol=1e-7):
+            evidencia = None
         if op == OP_NAO_INFORMADA or pd.isna(data):
-            pareceres[chave] = ("VERIFICAR", "")
+            pareceres[chave] = ("VERIFICAR", evidencia[1] if evidencia else "")
             continue
         if data.date() in janela:
-            pareceres[chave] = ("NOVA DEMANDA", "")
+            pareceres[chave] = ("VERIFICAR" if evidencia and evidencia[2] else "NOVA DEMANDA",
+                               evidencia[1] if evidencia else "")
             continue
         if data.date() > max(janela):
-            pareceres[chave] = ("VERIFICAR", "")
+            pareceres[chave] = ("VERIFICAR", evidencia[1] if evidencia else "")
+            continue
+        if evidencia and evidencia[2]:
+            pareceres[chave] = ("VERIFICAR", evidencia[1])
             continue
         observacao = ""
         redistribuicao = redistribuicoes.get(chave)
         if redistribuicao:
             falta, atribuicoes = redistribuicao
-            total_compra = float(linhas["Quantidade"].sum())
             # Evita vincular uma linha TC/TP ou uma compra de outro cálculo.
             if isclose(falta, total_compra, rel_tol=1e-5, abs_tol=1e-7):
                 partes = [
@@ -404,9 +520,8 @@ def _analise_previa(fonte, mapa_solicitacoes, alocacoes, referencia, feriados_ad
                 observacao = " | ".join(partes) + " — INDÍCIO PELA ALOCAÇÃO ATUAL DO MRP"
                 if sum(atribuicoes.values()) < falta - 1e-7:
                     observacao += "; REDISTRIBUIÇÃO PARCIAL"
-        perda = perdas.get(chave)
-        if not observacao and perda and isclose(perda[0], float(linhas["Quantidade"].sum()), rel_tol=1e-5, abs_tol=1e-7):
-            observacao = perda[1]
+        if evidencia:
+            observacao = " | ".join(x for x in (evidencia[1], observacao) if x)
         pareceres[chave] = ("DEMANDA" if observacao else "VERIFICAR", observacao)
     return pareceres
 
@@ -590,7 +705,7 @@ def construir_relatorio_compra_por_op(
         ("SEM OP", "Demandas sem OP de origem são exibidas como SEM OP VINCULADA."),
         ("PARECER", "Prioridade 1 = OK, sem observação. Prioridade 2: NOVA DEMANDA para solicitação de hoje ou do último dia útil; DEMANDA quando antiga com motivo identificado; VERIFICAR quando não há justificativa ou os dados são insuficientes. Pareceres editáveis."),
         ("REDISTRIBUIÇÃO", "Observação estimada pelo consumo efetivo registrado na Ação do MRP e pela ordem de necessidade. Inclui a última solicitação do projeto responsável por material; não prova reserva anterior. Créditos não são duplicados. Revisar antes de aprovar."),
-        ("VARIAÇÃO DE ESTOQUE", "Compara a fotografia atual com a anterior quando as quantidades de compra e as faltas por projeto se reconciliam. Não comprova consumo físico nem movimentação de estoque."),
+        ("VARIAÇÃO DE DEMANDA E COBERTURA", "Prioriza o primeiro espelho do dia anterior disponível. Identifica aumento de demanda e redução de estoque, S.C., P.C. e produção quando a falta adicional se reconcilia. Queda de P.C. sem aumento de estoque, ou com cobertura parcial, fica para conferência; aumento de estoque compatível não confirma entrada de NF."),
         ("CALENDÁRIO", "Dias úteis: finais de semana e feriados do calendário SETTA/Patos de Minas. Pontos facultativos não são bloqueados automaticamente."),
         ("IMPORTANTE", "Não utilizar este arquivo na rotina de importação STSUP25 do Protheus."),
         ("VERSÃO DA PRÉ-ANÁLISE", PREANALISE_VERSAO),

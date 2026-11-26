@@ -140,8 +140,9 @@ _excel_preparo = '''
 @st.fragment
 def _mrp_preparar_excel_relatorios(s, nome):
     if st.button("Preparar relatório Excel", key="preparar_excel_" + nome, width="stretch"):
+        from mrp_identidade_setta import EXCEL_LAYOUT_VERSION
         with st.spinner("Preparando as planilhas Excel..."):
-            dados = excel_bytes(s, layout_relatorio=True, versao_layout="2026-11-26-v8")
+            dados = excel_bytes(s, layout_relatorio=True, versao_layout=EXCEL_LAYOUT_VERSION)
         st.download_button("BAIXAR TODOS — EXCEL", data=dados, on_click="ignore",
                            file_name=nome, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                            width="stretch", key="baixar_excel_" + nome)

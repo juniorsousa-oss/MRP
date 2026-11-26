@@ -5,7 +5,7 @@ ABAS_VISUAL_CSS = """<style>
   --mrp-control-text:.875rem;
   --mrp-control-height:40px;
   --mrp-section-text:1.125rem;
-  --mrp-border:#dce3ed;
+  --mrp-border:#e1e1e1;
   --mrp-surface:#fff;
 }
 .st-key-mrp_visual_projeto{
@@ -34,11 +34,11 @@ ABAS_VISUAL_CSS = """<style>
 }
 .st-key-mrp_visual_projeto [data-testid="stFormSubmitButton"] button:is([data-testid^="stBaseButton-primary"],[kind^="primary"]),
 .st-key-mrp_visual_compra [data-testid="stButton"] button:is([data-testid^="stBaseButton-primary"],[kind^="primary"]){
-  background:#213b60!important;border-color:#213b60!important;color:#fff!important;
+  background:#333333!important;border-color:#333333!important;color:#fff!important;
 }
 .st-key-mrp_visual_projeto [data-testid="stFormSubmitButton"] button:is([data-testid^="stBaseButton-primary"],[kind^="primary"]):hover,
 .st-key-mrp_visual_compra [data-testid="stButton"] button:is([data-testid^="stBaseButton-primary"],[kind^="primary"]):hover{
-  background:#2a4c77!important;border-color:#2a4c77!important;
+  background:#424242!important;border-color:#424242!important;
 }
 :is(.st-key-mrp_visual_compra,.st-key-mrp_visual_excedentes) [data-testid="stDownloadButton"]{
   min-height:0!important;padding:0!important;
@@ -50,7 +50,7 @@ ABAS_VISUAL_CSS = """<style>
 :is(.st-key-mrp_visual_compra,.st-key-mrp_visual_excedentes) [data-testid="stMetric"]::before{display:none!important}
 :is(.st-key-mrp_visual_compra,.st-key-mrp_visual_excedentes) [data-testid="stMetricLabel"] p{
   font-size:var(--mrp-control-text)!important;font-weight:600!important;text-transform:none!important;
-  white-space:normal!important;overflow-wrap:anywhere;color:#475569!important;
+  white-space:normal!important;overflow-wrap:anywhere;color:#525252!important;
 }
 :is(.st-key-mrp_visual_compra,.st-key-mrp_visual_excedentes) [data-testid="stMetricValue"]{
   font-size:1.375rem!important;font-weight:750!important;line-height:1.2!important;
@@ -61,7 +61,7 @@ ABAS_VISUAL_CSS = """<style>
 .st-key-mrp_visual_compra .mrp-buy-step h2,
 .st-key-mrp_visual_excedentes :is(h2,h3){
   font-size:var(--mrp-section-text)!important;font-weight:750!important;line-height:1.3!important;
-  padding:0!important;margin:0!important;color:#142134!important;text-transform:none!important;
+  padding:0!important;margin:0!important;color:#333333!important;text-transform:none!important;
 }
 .st-key-mrp_visual_compra .mrp-buy-step{margin:9px 0 0}
 .st-key-mrp_visual_compra .mrp-buy-step span{border-radius:6px}
@@ -72,9 +72,9 @@ ABAS_VISUAL_CSS = """<style>
   font-size:var(--mrp-control-text)!important;font-weight:600!important;text-transform:none!important;
 }
 .st-key-mrp_visual_excedentes [data-testid="stTabs"] button[role="tab"][aria-selected="true"]{
-  color:#204471!important;
+  color:#333333!important;
 }
-.st-key-mrp_visual_excedentes [data-baseweb="tab-highlight"]{background:#38639b!important}
+.st-key-mrp_visual_excedentes [data-baseweb="tab-highlight"]{background:#ffbb00!important}
 @media(max-width:900px){
   .st-key-mrp_visual_projeto [data-testid="stHorizontalBlock"]:has([data-testid="stWidgetLabel"]) > [data-testid="stColumn"],
   .st-key-mrp_visual_projeto [data-testid="stHorizontalBlock"]:has([data-testid="stFormSubmitButton"]) > [data-testid="stColumn"],

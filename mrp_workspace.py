@@ -10,6 +10,8 @@ import re
 import pandas as pd
 from streamlit.errors import StreamlitAPIException
 
+from mrp_identidade_setta import logo_data_uri
+
 _ROUTES = {
     "MRP ATUAL": ("Demanda Geral", "Consulte necessidades, saldos e falta por material.", "grid_view"),
     "DEMANDA POR PROJETO": ("Demanda por Projeto", "Acompanhe o atendimento por projeto e material.", "layers"),
@@ -68,7 +70,7 @@ def workspace_sidebar(st, pages, active, change):
 def workspace_header(page, logo, status, when, *, semana, bases, registros, alertas, nome, perfil):
     title, description, _ = _ROUTES[page]
     logo = str(logo or "")
-    if re.fullmatch(r"data:image/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+", logo):
+    if logo == logo_data_uri() or re.fullmatch(r"data:image/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+", logo):
         mark = f'<img src="{escape(logo,quote=True)}" alt="SETTA">'
     else:
         mark = '<b>SETTA</b>'
@@ -107,7 +109,7 @@ def workspace_falta(frame):
 WORKSPACE_V2_CSS = """
 <style>
 body:has(.mrp-v2-header) [data-testid="stMain"] [data-testid="stMainBlockContainer"].block-container {
-  --v2-bg:#f0f3f8; --v2-navy:#142134; --v2-blue:#2158b3;
+  --v2-bg:#f0f0f0; --v2-navy:#333333; --v2-blue:#ffbb00;
   background:var(--v2-bg)!important;padding:0 28px 24px!important;
 }
 /* Troca de aba: o quadro de navegação não esmaece; controles antigos
@@ -115,8 +117,8 @@ body:has(.mrp-v2-header) [data-testid="stMain"] [data-testid="stMainBlockContain
 .mrp-tab-loader{display:none}
 html[data-mrp-navigating="true"] .mrp-tab-loader{
   display:flex;align-items:center;min-height:66px;margin:0;
-  padding:14px 18px;border:1px solid #dbe4f0;border-radius:12px;
-  background:#fff;color:#345071;font-size:.88rem;font-weight:650;
+  padding:14px 18px;border:1px solid #e1e1e1;border-radius:12px;
+  background:#fff;color:#424242;font-size:.88rem;font-weight:650;
 }
 html[data-mrp-navigating="true"] [data-testid="stMainBlockContainer"] [data-mrp-tab-boundary] ~ *{
   display:none!important;
@@ -135,18 +137,20 @@ body:has(.mrp-v2-header) [data-testid="stToolbar"]{pointer-events:none!important
 body:has(.mrp-v2-header) [data-testid="stElementContainer"]:has(.mrp-v2-header),
 body:has(.mrp-v2-header) [data-testid="stHtml"]:has(.mrp-v2-header),
 .mrp-v2-header{display:contents!important}
-body:has(.mrp-v2-header) [data-testid="stMain"]{background:#f0f3f8!important}
+body:has(.mrp-v2-header) [data-testid="stMain"]{background:#f0f0f0!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"],body:has(.mrp-v2-header) [data-testid="stSidebarContent"]{
-  background:#142134!important;color:#f0f5ff!important}
+  background:#333333!important;color:#f0f0f0!important}
 body:has(.mrp-v2-header) section[data-testid="stSidebar"]{border-right:0!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] .sidebar-section-label{
-  color:#a9bcd7!important;font-size:.67rem!important;letter-spacing:.12em!important}
+  color:#d2d2d2!important;font-size:.67rem!important;letter-spacing:.12em!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button{
-  color:#cfdaeb!important;background:transparent!important;border:1px solid transparent!important;box-shadow:none!important}
+  color:#f0f0f0!important;background:transparent!important;border:1px solid transparent!important;box-shadow:none!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]{
-  color:#fff!important;background:#263d61!important;border-color:#3f5e8d!important}
-body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button:hover{
-  background:#263d61!important;color:#fff!important}
+  color:#333333!important;background:#ffbb00!important;border-color:#ffbb00!important}
+body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button[data-testid="stBaseButton-primary"]::before{
+  display:none!important}
+body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button:not([data-testid="stBaseButton-primary"]):hover{
+  background:#424242!important;color:#fff!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button p{color:inherit!important;text-transform:none!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] [data-testid="stIconMaterial"]{
   font-size:18px!important;color:inherit!important}
@@ -175,7 +179,7 @@ body:has(.mrp-v2-header) [data-testid="stSidebarUserContent"] [data-testid="stLa
 }
 body:has(.mrp-v2-header) [data-testid="stSidebarUserContent"] [data-testid="stLayoutWrapper"]:has(> .st-key-mrp_sidebar_account){
   flex:0 0 auto!important;margin-top:auto!important;padding-top:10px!important;
-  border-top:1px solid #354a65
+  border-top:1px solid #616161
 }
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button::before{display:none!important}
 body:has(.mrp-v2-header) [data-testid="stSidebar"] [class*="st-key-mrp_nav_btn_"] button{padding-left:11px!important}
@@ -184,11 +188,11 @@ body:has(.mrp-v2-header) :is([data-testid="stHeader"], [data-testid="stSidebar"]
   display:grid!important;place-items:center;box-sizing:border-box!important;
   width:44px!important;min-width:44px!important;max-width:44px!important;
   height:44px!important;min-height:44px!important;padding:0!important;
-  color:#fff!important;background:#263d61!important;border:1px solid #4b6385!important;
+  color:#fff!important;background:#424242!important;border:1px solid #767676!important;
   border-radius:8px!important;box-shadow:none!important
 }
-body:has(.mrp-v2-header) button[data-mrp-toggle]:hover{background:#334e78!important}
-body:has(.mrp-v2-header) button[data-mrp-toggle]:focus-visible{outline:2px solid #dceaff!important;outline-offset:2px}
+body:has(.mrp-v2-header) button[data-mrp-toggle]:hover{background:#555555!important}
+body:has(.mrp-v2-header) button[data-mrp-toggle]:focus-visible{outline:2px solid #ffbb00!important;outline-offset:2px}
 body:has(.mrp-v2-header) [data-testid="stHeader"] button[data-mrp-toggle="Menu"]{
   position:fixed!important;top:7px!important;left:12px!important;pointer-events:auto!important
 }
@@ -207,32 +211,32 @@ body:has(.mrp-v2-header):has([data-testid="stSidebar"][aria-expanded="false"]) .
     flex:1 1 0!important;min-width:0!important;max-width:none!important
   }
 }
-.mrp-v2-header{color:#172435}
-.mrp-v2-top{position:sticky;top:0;z-index:4;min-height:58px;background:#142134;color:#fff;margin:0 -28px;
+.mrp-v2-header{color:#333333}
+.mrp-v2-top{position:sticky;top:0;z-index:4;min-height:58px;background:#333333;color:#fff;margin:0 -28px;
   padding:7px 28px;display:flex;align-items:center;gap:13px}
 .mrp-v2-mark{display:grid;place-items:center;box-sizing:border-box;width:88px;height:38px;
-  background:white;color:#142134;border-radius:6px;padding:3px 7px;flex:none}
-.mrp-v2-mark img{width:100%;height:100%;object-fit:contain}
+  background:white;color:#333333;border-radius:6px;padding:7px 11px;flex:none}
+.mrp-v2-mark img{width:100%;height:24px;object-fit:contain;display:block}
 .mrp-v2-brand{letter-spacing:.08em}
-.mrp-v2-name{font-size:.76rem;color:#c1cee0;border-left:1px solid #415067;padding-left:13px}
-.mrp-v2-stamps{margin-left:auto;color:#c1cee0;font-size:.75rem}
+.mrp-v2-name{font-size:.76rem;color:#e1e1e1;border-left:1px solid #767676;padding-left:13px}
+.mrp-v2-stamps{margin-left:auto;color:#e1e1e1;font-size:.75rem}
 .mrp-v2-account{color:#fff;font-size:.8rem;font-weight:680;white-space:nowrap}
 .mrp-v2-intro{padding-top:1px;position:relative}
-.mrp-v2-crumb,.mrp-v2-meta,.mrp-v2-mobile-date{font-size:.72rem;color:#4d6077}
+.mrp-v2-crumb,.mrp-v2-meta,.mrp-v2-mobile-date{font-size:.72rem;color:#525252}
 .mrp-v2-intro h1{font-size:clamp(1.45rem,3vw,1.95rem)!important;
-  font-weight:780!important;color:#172435!important;text-transform:none!important;
+  font-weight:780!important;color:#333333!important;text-transform:none!important;
   letter-spacing:-.035em!important;padding:0!important;margin:5px 0 3px!important;line-height:1.15!important}
-.mrp-v2-intro p{font-size:.82rem;margin:0 0 4px;color:#4d6077}
+.mrp-v2-intro p{font-size:.82rem;margin:0 0 4px;color:#525252}
 .mrp-v2-meta{display:inline-block}
 .mrp-v2-mobile-date{display:none}
 .mrp-v2-alert{font-size:.78rem;color:#78350f;background:#fffbeb;border-radius:6px;padding:5px 8px;margin-top:6px}
 body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_kpis_"] [data-testid="stHorizontalBlock"]{gap:9px!important}
 body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_kpis_"] button{
-  min-height:42px!important;border-radius:8px!important;box-shadow:none!important;border:1px solid #dce3ed!important}
+  min-height:42px!important;border-radius:8px!important;box-shadow:none!important;border:1px solid #e1e1e1!important}
 body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_kpis_"] button[data-testid="stBaseButton-primary"]{
-  background:#edf4ff!important;border-color:#7195d0!important;color:#1d4e9d!important}
+  background:#fff3cc!important;border-color:#8a6500!important;color:#333333!important}
 body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"]{
-  border:1px solid #dce3ed;border-radius:9px;padding:9px 11px;background:#fff
+  border:1px solid #e1e1e1;border-radius:9px;padding:9px 11px;background:#fff
 }
 body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] button{
   min-height:38px!important;border-radius:6px!important;box-shadow:none!important;text-transform:none!important}
@@ -243,7 +247,7 @@ body:has(.mrp-v2-header) [class*="st-key-mrp_operacao_bar_"] button{
     background:transparent!important;pointer-events:none!important
   }
   body:has(.mrp-v2-header) section[data-testid="stSidebar"][aria-expanded="true"] [data-testid="stSidebarUserContent"]{
-    background:#142134!important;pointer-events:auto!important;box-shadow:8px 10px 24px #14213426
+    background:#333333!important;pointer-events:auto!important;box-shadow:8px 10px 24px #33333326
   }
 }
 @media(max-width:700px){
@@ -280,11 +284,11 @@ html[data-mrp-menu-ready] body:has(.mrp-v2-header) :is([data-testid="stHeader"],
 }
 html[data-mrp-menu-ready] .mrp-v2-menu-toggle{
   display:grid;place-items:center;box-sizing:border-box;flex:0 0 44px;
-  width:44px;height:44px;padding:0;border:1px solid #4b6385;border-radius:8px;
-  color:#fff;background:#263d61;cursor:pointer;font:inherit
+  width:44px;height:44px;padding:0;border:1px solid #767676;border-radius:8px;
+  color:#fff;background:#424242;cursor:pointer;font:inherit
 }
-.mrp-v2-menu-toggle:hover{background:#334e78!important}
-.mrp-v2-menu-toggle:focus-visible{outline:2px solid #dceaff;outline-offset:2px}
+.mrp-v2-menu-toggle:hover{background:#555555!important}
+.mrp-v2-menu-toggle:focus-visible{outline:2px solid #ffbb00;outline-offset:2px}
 .mrp-v2-menu-toggle span::before{content:"☰";font-size:20px;line-height:1}
 .mrp-v2-menu-toggle[aria-expanded="true"] span::before{content:"×";font-size:24px}
 </style>

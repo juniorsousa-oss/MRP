@@ -14,7 +14,10 @@ import pandas as pd
 
 CAMPOS = {"produto", "qnt", "data", "psy", "cc", "op", "obs", "prioridade"}
 OP_NAO_INFORMADA = "SEM OP VINCULADA"
+from mrp_identidade_setta import EXCEL_LAYOUT_VERSION
+
 PREANALISE_VERSAO = "2026-11-26-v9"
+PREANALISE_LAYOUT_VERSAO = EXCEL_LAYOUT_VERSION
 
 
 def _texto(valor) -> str:
@@ -743,8 +746,10 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
     from openpyxl.worksheet.datavalidation import DataValidation
     from openpyxl.utils import get_column_letter
 
-    azul, azul2, cinza = "142B43", "234C69", "F1F5F9"
-    tinta, branco, linha = "24384C", "FFFFFF", "DCE5ED"
+    from mrp_identidade_setta import AMARELO, CINZA_CLARO, CINZA_ESCURO, CINZA_FUNDO, GRAFITE
+
+    grafite, cinza_escuro, cinza = GRAFITE, CINZA_ESCURO, CINZA_FUNDO
+    tinta, branco, linha = GRAFITE, "FFFFFF", CINZA_CLARO
     cores = {
         "OK": ("E3F4E8", "23653A"),
         "NOVA DEMANDA": ("E4EFFB", "22558B"),
@@ -790,8 +795,8 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
         sheet.sheet_view.zoomScale = zoom
         sheet.sheet_properties.pageSetUpPr.fitToPage = True
         sheet.sheet_properties.outlinePr.summaryRight = False
-        faixa(sheet,1,1,n,titulo,azul,branco,19,36)
-        faixa(sheet,2,1,n,f"SETTA  |  {gerado}  |  Versão {PREANALISE_VERSAO}",azul2,branco,10,23)
+        faixa(sheet,1,1,n,titulo,grafite,branco,19,36)
+        faixa(sheet,2,1,n,f"SETTA  |  {gerado}  |  Versão {PREANALISE_VERSAO}",AMARELO,tinta,10,23)
         # Sem texto descritivo: apenas uma separação visual após o título.
         sheet.row_dimensions[3].height = 7
         sheet.row_dimensions[4].hidden = True
@@ -811,13 +816,13 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
             c = sheet.cell(row,j)
             texto(c,nome)
             c.font = Font(name="Calibri",size=10,bold=True,color=branco)
-            c.fill = fill(azul2)
+            c.fill = fill(cinza_escuro)
             c.alignment = Alignment(horizontal="center",vertical="center",wrap_text=True)
         sheet.row_dimensions[row].height = 34
 
     def corpo(c, row, alin="left", wrap_text=False):
         c.font = Font(name="Calibri", size=11, color=tinta)
-        c.fill = fill(branco if row % 2 == 0 else "F5F8FB")
+        c.fill = fill(branco if row % 2 == 0 else cinza)
         c.border = Border(left=Side(style="thin",color=linha), right=Side(style="thin",color=linha),
                           top=Side(style="thin",color=linha), bottom=Side(style="thin",color=linha))
         c.alignment = Alignment(horizontal=alin,vertical="center",wrap_text=wrap_text,
@@ -844,7 +849,7 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
     ws["A1"].comment = Comment("Relatório consultivo; não é carga do Protheus.", "SETTA | MRP")
     cabecalho(ws,5,cols)
     ws.freeze_panes = "C6"
-    ws.sheet_properties.tabColor = "234C69"
+    ws.sheet_properties.tabColor = CINZA_ESCURO
     # Quando há várias linhas de origem, preservar o detalhe no comentário da quantidade,
     # sem repetir o material em outra aba.
     grupos = {}
@@ -903,13 +908,13 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
     # Resumo gerencial: indicadores e pareceres por OP atualizam após edição no Excel.
     preparar(resumo,"RESUMO GERENCIAL  /  PRÉ-ANÁLISE DE COMPRAS",
              9,[19,18,18,18,20,18,18,18,18],90)
-    resumo.sheet_properties.tabColor = "142B43"
+    resumo.sheet_properties.tabColor = GRAFITE
     ref = "'MATERIAIS OP'!"
     status_ref = f"{ref}$L$6:$L${fim}"
     op_ref = f"{ref}$A$6:$A${fim}"
     # KPIs em pares de colunas: total e quatro pareceres.
     for start,end,label,formula,fundo,cor in [
-        (1,1,"OPs",f"=COUNTA(A11:A{max(11,10+len(base))})",azul,branco),
+        (1,1,"OPs",f"=COUNTA(A11:A{max(11,10+len(base))})",grafite,branco),
         (2,3,"MATERIAIS / OP",f"=COUNTA({ref}$B$6:$B${fim})",cinza,tinta),
         (4,5,"OK",f'=COUNTIF({status_ref},"OK")',*cores["OK"]),
         (6,7,"NOVA DEMANDA",f'=COUNTIF({status_ref},"NOVA DEMANDA")',*cores["NOVA DEMANDA"]),
@@ -932,7 +937,7 @@ def exportar_preanalise_formatada(planilhas: dict[str, pd.DataFrame]) -> bytes:
         resumo.row_dimensions[6].height = 22
         resumo.row_dimensions[7].height = 36
     resumo.row_dimensions[8].height = 9
-    faixa(resumo,9,1,9,"ANÁLISE POR ORDEM DE PRODUÇÃO",azul,branco,12,26)
+    faixa(resumo,9,1,9,"ANÁLISE POR ORDEM DE PRODUÇÃO",grafite,branco,12,26)
     nomes = ["OP","Materiais distintos","Linhas de demanda","Linhas emergenciais",
              "Primeira necessidade","OK","NOVA DEMANDA","DEMANDA","VERIFICAR"]
     cabecalho(resumo,10,nomes)

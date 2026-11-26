@@ -7,7 +7,8 @@ _page_old = 'st.set_page_config(page_title="MRP | SETTA", page_icon="assets/mrp_
 _page_new = """def _mrp_browser_icon():
     try:
         from PIL import Image as _MRPImage
-        _raw_icon=_central_mrp.favicon_bytes()
+        from mrp_identidade_setta import favicon_png
+        _raw_icon=favicon_png()
         if _raw_icon:
             _img=_MRPImage.open(BytesIO(_raw_icon))
             _img.load()
@@ -28,21 +29,18 @@ _source = _source.replace(_page_old, _page_new, 1)
 
 _login_anchor = 'PUBLIC_LOGIN_CONFIG = _public_login_config()\n'
 _login_new = """PUBLIC_LOGIN_CONFIG = _public_login_config()
-try:
-    _mrp_visual_global=_central_mrp.load_visual_config()
-    _mrp_global_logo=_central_mrp.logo_data_uri(_mrp_visual_global)
-    if _mrp_global_logo:
-        PUBLIC_LOGIN_CONFIG["login_image_data"]=_mrp_global_logo
-except Exception:
-    pass
+from mrp_identidade_setta import logo_data_uri, identidade_css
+_mrp_global_logo=logo_data_uri()
+PUBLIC_LOGIN_CONFIG["login_image_data"]=_mrp_global_logo
+st.html(identidade_css())
 PUBLIC_LOGIN_CONFIG.update({
     "app_title":"MRP | SETTA",
     "objective":"Planejamento de necessidades de materiais",
-    "color_primary":"#111827",
-    "color_title":"#111827",
+    "color_primary":"#333333",
+    "color_title":"#333333",
     "color_header":"#FFFFFF",
-    "color_background":"#F4F7FB",
-    "color_text":"#111827",
+    "color_background":"#F0F0F0",
+    "color_text":"#333333",
 })
 """
 if _source.count(_login_anchor) != 1:
@@ -54,13 +52,7 @@ if _ui_settings_call in _source:
     _source = _source.replace(_ui_settings_call, '', 1)
 
 _theme_anchor = '_apply_visual_theme(UI_CONFIG)\n'
-_theme_injection = """try:
-    _mrp_visual_global=_central_mrp.load_visual_config()
-    _mrp_global_logo=_central_mrp.logo_data_uri(_mrp_visual_global)
-except Exception:
-    _mrp_visual_global={}
-    _mrp_global_logo=""
-UI_CONFIG.update({
+_theme_injection = """UI_CONFIG.update({
     "logo_data":_mrp_global_logo,
     "logo_width":205,
     "app_title":"MRP | SETTA",
@@ -68,11 +60,11 @@ UI_CONFIG.update({
     "section_main_title":"MRP | SETTA",
     "section_main_description":"Planejamento • Demanda • Compras • Atendimento",
     "main_notice":"",
-    "color_primary":"#111827",
-    "color_title":"#111827",
+    "color_primary":"#333333",
+    "color_title":"#333333",
     "color_header":"#FFFFFF",
-    "color_background":"#F4F7FB",
-    "color_text":"#111827",
+    "color_background":"#F0F0F0",
+    "color_text":"#333333",
 })
 st.session_state["ui_config"] = UI_CONFIG
 """
@@ -88,11 +80,11 @@ _title_anchor = 'st.markdown(f\'<h1 class="app-title">{UI_CONFIG["section_main_t
 _setta_css = """
 <style>
 :root{
-  --setta-bg:#f4f7fb;
+  --setta-bg:#f0f0f0;
   --setta-card:#ffffff;
-  --setta-border:#e5e8ee;
-  --setta-text:#111827;
-  --setta-muted:#667085;
+  --setta-border:#e1e1e1;
+  --setta-text:#333333;
+  --setta-muted:#525252;
   --setta-red:#ef4444;
   --setta-green:#22c55e;
 }
@@ -126,7 +118,7 @@ div[data-testid="stElementContainer"]:has(.app-title){
 .app-subtitle,.app-sub{
   margin-top:.72rem!important;
   margin-bottom:1.65rem!important;
-  color:#4f5661!important;
+  color:#4e4e4e!important;
   font-size:.94rem!important;
   line-height:1.35!important;
   text-transform:uppercase!important;
@@ -136,8 +128,8 @@ div[data-testid="stElementContainer"]:has(.app-title){
   margin:1.25rem 0 .95rem;
   padding:.82rem 1rem;
   background:#fff;
-  border:1px solid #e5e8ee;
-  border-left:5px solid #111827;
+  border:1px solid #e1e1e1;
+  border-left:5px solid #333333;
   border-radius:12px;
   box-shadow:0 3px 12px rgba(15,23,42,.035);
 }
@@ -152,7 +144,7 @@ div[data-testid="stElementContainer"]:has(.app-title){
 .section-band-title{
   font-size:1.08rem;
   font-weight:900;
-  color:#111827;
+  color:#333333;
   letter-spacing:-.015em;
   line-height:1.2;
   text-transform:uppercase;
@@ -200,7 +192,7 @@ div[data-testid="stElementContainer"]:has(.app-title){
   margin-top:.42rem;
   font-size:.86rem;
   font-weight:900;
-  color:#111827;
+  color:#333333;
   text-transform:uppercase;
 }
 .mrp-source-meta{
@@ -260,7 +252,7 @@ div[data-testid="stMetric"]::before{
   top:0;
   bottom:0;
   width:4px;
-  background:#111827;
+  background:#333333;
 }
 div[data-testid="stMetricLabel"] p{
   color:#64748b!important;
@@ -269,7 +261,7 @@ div[data-testid="stMetricLabel"] p{
   text-transform:uppercase!important;
 }
 div[data-testid="stMetricValue"]{
-  color:#111827!important;
+  color:#333333!important;
   font-size:1.55rem!important;
   font-weight:900!important;
   letter-spacing:-.02em!important;
@@ -297,7 +289,7 @@ div[data-baseweb="tab-list"] button{
   letter-spacing:.01em!important;
 }
 div[data-baseweb="tab-list"] button[aria-selected="true"]{
-  color:#111827!important;
+  color:#333333!important;
   border-bottom-color:#ef4444!important;
 }
 
@@ -310,8 +302,8 @@ div[data-testid="stDownloadButton"] > button{
 div.stButton > button[kind="primary"],
 div.stDownloadButton > button,
 div[data-testid="stDownloadButton"] > button{
-  background:#111827!important;
-  border-color:#111827!important;
+  background:#333333!important;
+  border-color:#333333!important;
   color:#fff!important;
 }
 div.stButton > button[kind="primary"]:hover,
@@ -362,7 +354,7 @@ hr{
 }
 
 [data-testid="stDataFrame"]{
-  border:1px solid #e5e8ee!important;
+  border:1px solid #e1e1e1!important;
   border-radius:12px!important;
   overflow:hidden!important;
   background:#fff!important;

@@ -11,9 +11,9 @@ body:has(.mrp-operacao) .mrp-workspace-head{
 }
 body:has(.mrp-operacao) .mrp-workspace-head h1{font-size:1.62rem!important}
 .mrp-operacao-brandbar{display:flex;align-items:center;gap:10px;
-  background:#fff;border:1px solid #dce3ec;border-radius:7px;
-  min-height:40px;padding:0 12px;color:#4d6075;font-size:.8rem}
-.mrp-operacao-brandbar strong{color:#213e60}
+  background:#fff;border:1px solid #e1e1e1;border-radius:7px;
+  min-height:40px;padding:0 12px;color:#525252;font-size:.8rem}
+.mrp-operacao-brandbar strong{color:#333333}
 body:has(.mrp-operacao) .mrp-workspace-brand{display:none}
 @media(min-width:901px){
   body:has(.mrp-operacao) [data-testid="stSidebar"][aria-expanded="true"]{
@@ -32,28 +32,28 @@ body:has(.mrp-operacao) [data-testid="stMainBlockContainer"]{
 }
 [class*="st-key-mrp_operacao_kpis_"] [data-testid="stHorizontalBlock"]{gap:0!important}
 [class*="st-key-mrp_operacao_kpis_"] [data-testid="stButton"] button{
-  min-height:52px;border-radius:0;border:1px solid #dce3ec;
-  background:#fff;color:#213e60;box-shadow:none;justify-content:flex-start;
+  min-height:52px;border-radius:0;border:1px solid #e1e1e1;
+  background:#fff;color:#333333;box-shadow:none;justify-content:flex-start;
   padding:8px 12px;white-space:normal;
 }
 [class*="st-key-mrp_operacao_kpis_"] [data-testid="stButton"] button p{font-size:.77rem}
-[class*="_operacao_kpi_"] button strong{font-size:.97rem;color:#233e5e}
+[class*="_operacao_kpi_"] button strong{font-size:.97rem;color:#333333}
 [class*="_operacao_kpi_1"] button strong{color:#246549}
 [class*="_operacao_kpi_2"] button strong{color:#86520c}
 [class*="_operacao_kpi_3"] button strong{color:#a72e3e}
 [class*="st-key-mrp_operacao_kpis_"] button[data-testid="stBaseButton-primary"],
 [class*="st-key-mrp_operacao_kpis_"] button:hover{
-  background:#e9f0fa;color:#1d3c60;border-bottom:2px solid #315983;
+  background:#fff3cc;color:#333333;border-bottom:2px solid #8a6500;
 }
-[class*="st-key-mrp_operacao_kpis_"] button:focus-visible{outline:2px solid #315983;outline-offset:-2px}
+[class*="st-key-mrp_operacao_kpis_"] button:focus-visible{outline:2px solid #8a6500;outline-offset:-2px}
 body:has(.mrp-operacao) :is(.st-key-mrp_admin_tabs,.st-key-consulta_tabs_kpi) [role="tablist"],
 body:has(.mrp-operacao) [data-testid="stTabs"]:has(.mrp-operacao-tools) [role="tablist"]{
-  background:#fff;border-radius:8px 8px 0 0;border:1px solid #dce3ec;
+  background:#fff;border-radius:8px 8px 0 0;border:1px solid #e1e1e1;
   padding:0 10px;max-width:100%;overflow-x:auto;
 }
 .mrp-operacao-tools{display:none}
 [class*="st-key-mrp_operacao_bar_"]{
-  background:#fff;border:1px solid #dce3ec;border-radius:7px;padding:9px 10px;
+  background:#fff;border:1px solid #e1e1e1;border-radius:7px;padding:9px 10px;
 }
 [class*="st-key-mrp_operacao_bar_"] [data-testid="stForm"]{
   padding:0!important;margin:0!important;background:transparent!important;border:0!important;
@@ -88,12 +88,12 @@ body:has(.mrp-operacao) [data-testid="stSidebarUserContent"] [data-testid="stVer
   margin-top:auto!important;
 }
 [class*="st-key-mrp_operacao_bar_"] [data-testid="stBaseButton-primary"]{
-  background:#213e60!important;color:#fff!important;border-color:#213e60!important
+  background:#333333!important;color:#fff!important;border-color:#333333!important
 }
-.mrp-material-sheet{display:grid;gap:4px;color:#172437}
-.mrp-material-sheet small{font-size:.75rem;color:#4d6075}
+.mrp-material-sheet{display:grid;gap:4px;color:#333333}
+.mrp-material-sheet small{font-size:.75rem;color:#525252}
 .mrp-material-sheet strong{font-size:1.08rem;overflow-wrap:anywhere}
-.mrp-material-sheet span{font-size:.8rem;color:#4d6075}
+.mrp-material-sheet span{font-size:.8rem;color:#525252}
 [data-testid="stDialog"] [role="dialog"]:has(.mrp-material-sheet){
   position:fixed!important;inset:0 0 0 auto!important;margin:0!important;
   width:min(680px,100vw)!important;max-width:100vw!important;

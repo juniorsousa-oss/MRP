@@ -154,7 +154,7 @@ def _require_login(login_cfg):
     except Exception:
         image_height = 210
     image_html = (
-        f'<div class="setta-login-image"><img src="{image}" /></div>'
+        f'<div class="setta-login-image"><img src="{image}" alt="SETTA" /></div>'
         if image else
         '<div class="setta-login-image setta-login-image-empty"><div>MRP</div><span>SETTA</span></div>'
     )

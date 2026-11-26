@@ -135,7 +135,21 @@ _source = _ws_replace(
     '        if layout_relatorio:\n'
     '            from mrp_relatorio_excel import estilizar_relatorios_mrp\n'
     '            estilizar_relatorios_mrp(writer.book, espelhos=espelhos)\n')
+# Arquivos grandes precisam ficar prontos no servidor antes do download.
+_excel_preparo = '''
+@st.fragment
+def _mrp_preparar_excel_relatorios(s, nome):
+    if st.button("Preparar relatório Excel", key="preparar_excel_" + nome, width="stretch"):
+        with st.spinner("Preparando as planilhas Excel..."):
+            dados = excel_bytes(s, layout_relatorio=True, versao_layout="2026-11-26-v8")
+        st.download_button("BAIXAR TODOS — EXCEL", data=dados, on_click="ignore",
+                           file_name=nome, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                           width="stretch", key="baixar_excel_" + nome)
+'''
+_csv_anchor = '@st.cache_data(show_spinner=False, max_entries=24)\ndef csv_bytes(df):'
+_source = _ws_replace(_csv_anchor, _excel_preparo + "\n" + _csv_anchor)
 for _line in _source.splitlines():
     if 'excel_bytes(s)' in _line and ('"MRP_Consulta.xlsx"' in _line or '"MRP_Relatorios_Completos.xlsx"' in _line):
-        _source = _ws_replace(_line, _line.replace('excel_bytes(s)', 'excel_bytes(s, layout_relatorio=True, versao_layout="2026-11-26-v8")'))
+        _nome_excel = "MRP_Consulta.xlsx" if '"MRP_Consulta.xlsx"' in _line else "MRP_Relatorios_Completos.xlsx"
+        _source = _ws_replace(_line, _line[:len(_line)-len(_line.lstrip())] + f'_mrp_preparar_excel_relatorios(sheets, "{_nome_excel}")')
 """

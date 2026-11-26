@@ -49,7 +49,9 @@ class InterfaceVisualTests(unittest.TestCase):
         self.assertEqual(len(grupos),2)
         for grupo in grupos:
             self.assertEqual(sum(isinstance(n,ast.Attribute) and n.attr == "download_button"
-                                 for n in ast.walk(grupo)),3)
+                                 for n in ast.walk(grupo)),2)
+            self.assertEqual(sum(isinstance(n,ast.Call) and isinstance(n.func,ast.Name)
+                                 and n.func.id == "_mrp_preparar_excel_relatorios" for n in ast.walk(grupo)),1)
             self.assertNotIn("ANÁLISE DE COMPRA",ast.unparse(grupo))
         self.assertEqual(len([
             n for n in ast.walk(tree) if isinstance(n,ast.If) and

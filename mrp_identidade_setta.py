@@ -1,7 +1,6 @@
 """Assets e tipografia da Setta v4.0, locais e sem requisições externas."""
 from base64 import b64encode
 from functools import lru_cache
-from io import BytesIO
 from pathlib import Path
 
 
@@ -25,26 +24,8 @@ def logo_data_uri():
 
 @lru_cache(maxsize=1)
 def favicon_png():
-    from PIL import Image, ImageDraw
-
-    # Ícone de app: arte oficial sem distorção, fundo grafite, aro branco e
-    # cantos transparentes. Supersampling mantém o contorno limpo na aba.
-    size, scale = 256, 4
-    edge = size * scale
-    tile = Image.new("RGBA", (edge, edge))
-    shape = ImageDraw.Draw(tile)
-    shape.rounded_rectangle((4*scale, 4*scale, edge-4*scale-1, edge-4*scale-1),
-                            radius=58*scale, fill="#FFFFFF")
-    shape.rounded_rectangle((13*scale, 13*scale, edge-13*scale-1, edge-13*scale-1),
-                            radius=49*scale, fill="#" + GRAFITE)
-    tile = tile.resize((size, size), Image.Resampling.LANCZOS)
-    with Image.open(ASSETS / "setta-simbolo-oficial.png") as source:
-        art = source.convert("RGBA")
-        art = art.resize((202, 202), Image.Resampling.LANCZOS)
-    tile.alpha_composite(art, ((size - art.width)//2, (size - art.height)//2))
-    content = BytesIO()
-    tile.save(content, format="PNG", optimize=True)
-    return content.getvalue()
+    # Ícone original enviado pelo usuário, apenas redimensionado para a aba.
+    return (ASSETS / "setta-favicon-original.png").read_bytes()
 
 
 @lru_cache(maxsize=1)

@@ -124,13 +124,15 @@ def assert_scroll(page, width, long):
 
 def assert_header(page):
     top = page.locator(".mrp-v2-top")
-    assert abs(top.bounding_box()["y"]) <= 1, "Faixa acima do cabeçalho"
+    box = top.bounding_box()
+    assert abs(box["y"]) <= 1, "Faixa acima do cabeçalho"
+    assert abs(box["x"]) <= 1 and abs(box["width"]-page.viewport_size["width"]) <= 2, box
     assert top.evaluate("el => getComputedStyle(el).borderBottomWidth") == "0px"
 
 
 def assert_menu_button(page, control, *, opening):
     expect(control).to_be_in_viewport(ratio=1)
-    # A posição horizontal muda em cada frame da animação; medir no mesmo frame.
+    # Mede acionador e logo juntos, inclusive durante a animação.
     rect = control.evaluate("""button => {
       const r = button.getBoundingClientRect(), logo = button.nextElementSibling.getBoundingClientRect();
       return {w:r.width,h:r.height,gap:logo.left-r.right,center:Math.abs(r.y+r.height/2-logo.y-logo.height/2)};
@@ -139,6 +141,19 @@ def assert_menu_button(page, control, *, opening):
     assert 7 <= rect["gap"] <= 14 and rect["center"] <= 2, rect
     expect(control).to_have_attribute("aria-expanded", "false" if opening else "true")
     assert control.evaluate("button => button.closest('.mrp-v2-top')?.contains(document.querySelector('.mrp-v2-account'))")
+
+
+def brand_positions(page):
+    return page.locator(".mrp-v2-top").evaluate("""top =>
+      ['.mrp-v2-menu-toggle','.mrp-v2-mark','.mrp-v2-brand','.mrp-v2-name']
+        .map(s => top.querySelector(s).getBoundingClientRect())
+        .map(r => [r.x, r.y, r.width, r.height])
+    """)
+
+
+def assert_fixed_brand(page, reference):
+    for actual, expected in zip(brand_positions(page), reference, strict=True):
+        assert all(abs(a-b) <= 1 for a,b in zip(actual, expected, strict=True)), (actual, expected)
 
 
 def check(browser,width,height,name,iphone=False):
@@ -166,6 +181,10 @@ def check(browser,width,height,name,iphone=False):
                 expect(sidebar).to_have_attribute("aria-expanded", "false")
                 assert_menu_button(page, menu, opening=True)
                 if index == 0:
+                    fixed_brand = brand_positions(page)
+                else:
+                    assert_fixed_brand(page, fixed_brand)
+                if index == 0:
                     menu.press("Enter")
                 elif iphone:
                     menu.tap()
@@ -173,6 +192,7 @@ def check(browser,width,height,name,iphone=False):
                     menu.click()
                 expect(sidebar).to_have_attribute("aria-expanded", "true")
                 assert_menu_button(page, collapse, opening=False)
+                assert_fixed_brand(page, fixed_brand)
                 assert_header(page)
                 if index < 2:
                     if iphone and index == 1:
@@ -187,8 +207,9 @@ def check(browser,width,height,name,iphone=False):
               const b = brand.getBoundingClientRect();
               return r && Math.abs(s.left) < 1 && Math.abs(r.left - b.left - 12) < 2 &&
                 Math.abs(r.top - 7) < 2 &&
-                (innerWidth>900 ? Math.abs(b.left-s.right) < 2 : Math.abs(b.left) < 2);
+                Math.abs(b.left) < 2 && Math.abs(b.width-innerWidth) < 2;
             }""")
+            assert_fixed_brand(page, fixed_brand)
             expect(settings).to_be_in_viewport()
             assert_scroll(page,width,long=True)
             page.screenshot(path=str(ARTIFACTS/f"{name}-aberto.png"))
@@ -212,11 +233,10 @@ def check(browser,width,height,name,iphone=False):
                 const s = document.querySelector('[data-testid="stSidebar"]').getBoundingClientRect();
                 return Math.abs(s.left)<1 && innerHeight-r.bottom>=9 && innerHeight-r.bottom<=20;
             }""")
-            if width<=900:
-                assert page.locator(".mrp-v2-mark").evaluate("""el => {
-                    const r = el.getBoundingClientRect();
-                    return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));
-                }"""), "O menu aberto não pode bloquear a barra superior"
+            assert collapse.evaluate("""el => {
+                const r = el.getBoundingClientRect();
+                return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));
+            }"""), "O menu aberto não pode bloquear o botão do cabeçalho"
             if width>900:
                 page.set_viewport_size({"width":width,"height":370})
                 expect(account).to_be_in_viewport()

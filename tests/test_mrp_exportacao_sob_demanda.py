@@ -90,7 +90,7 @@ render_validacao_compra_mrp(df, "consulta", cadastro, snapshot_atual={"id":100})
             app.session_state.consulta_compra_preparada[1]["DETALHE OP"]["Quantidade"].tolist(), [3]
         )
 
-    def test_arquivos_gerais_sao_geradores_no_runtime_admin_e_consulta(self):
+    def test_planilhas_sao_preparadas_explicitamente_e_csvs_seguem_sob_demanda(self):
         calls = [
             n for n in ast.walk(ast.parse(self.source))
             if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
@@ -98,11 +98,23 @@ render_validacao_compra_mrp(df, "consulta", cadastro, snapshot_atual={"id":100})
             and isinstance(n.args[0], ast.Constant)
             and n.args[0].value in {"BAIXAR TODOS — EXCEL", "BAIXAR TODOS — ZIP/CSV", "BAIXAR MRP GERAL — CSV"}
         ]
-        self.assertEqual(len(calls), 6)
+        self.assertEqual(len(calls), 5)
+        self.assertEqual(self.source.count('_mrp_preparar_excel_relatorios(sheets, '), 2)
+        helpers = [n for n in ast.parse(self.source).body
+                   if isinstance(n, ast.FunctionDef) and n.name == "_mrp_preparar_excel_relatorios"]
+        self.assertEqual(len(helpers), 1)
+        gate = helpers[0].body[0]
+        self.assertIsInstance(gate, ast.If)
+        self.assertIn("Preparar relatório Excel", ast.unparse(gate.test))
+        self.assertIn("dados = excel_bytes", ast.unparse(gate))
+
         for call in calls:
             kwargs = {p.arg: p.value for p in call.keywords}
             generator = kwargs["data"] if "data" in kwargs else call.args[1]
-            self.assertIsInstance(generator, ast.Lambda)
+            if call.args[0].value == "BAIXAR TODOS — EXCEL":
+                self.assertEqual(ast.unparse(generator), "dados")
+            else:
+                self.assertIsInstance(generator, ast.Lambda)
             self.assertEqual(kwargs["on_click"].value, "ignore")
             if call.args[0].value == "BAIXAR MRP GERAL — CSV":
                 self.assertIn("_mrp_geral_export_sf", ast.unparse(generator))

@@ -24,6 +24,29 @@ class RelatorioExcelTests(unittest.TestCase):
         self.assertIn('excel_bytes(report, layout_relatorio=True, espelhos=_espelhos, versao_layout="2026-11-26-v8")', self.source)
         self.assertNotIn("lambda r=report, e=_espelhos", self.source)
 
+    def test_preparo_excel_so_gera_ao_ser_solicitado(self):
+        from streamlit.testing.v1 import AppTest
+
+        node = next(n for n in ast.parse(self.source).body
+                    if isinstance(n, ast.FunctionDef) and n.name == "_mrp_preparar_excel_relatorios")
+        source = (
+            "import streamlit as st\n"
+            "def excel_bytes(s, **kwargs):\n"
+            "    st.session_state.calls = st.session_state.get('calls', 0) + 1\n"
+            "    return b'planilha-de-teste'\n"
+            + ast.unparse(node)
+            + "\nwith st.popover('Exportar'):\n"
+            "    _mrp_preparar_excel_relatorios({}, 'MRP_Consulta.xlsx')\n"
+        )
+        app = AppTest.from_string(source).run()
+        self.assertFalse(app.exception)
+        self.assertNotIn("calls", app.session_state)
+        self.assertFalse(app.get("download_button"))
+        app.button(key="preparar_excel_MRP_Consulta.xlsx").click().run()
+        self.assertFalse(app.exception)
+        self.assertEqual(app.session_state.calls, 1)
+        self.assertEqual(len(app.get("download_button")), 1)
+
     def test_export_style_preserves_values_and_positions(self):
         cols = ["Código", "Descrição", "Tipo", "Saldo em Estoque", "Demanda",
                 "P.C.", "S.C.", "Produzindo", "SF", "Status",
@@ -127,9 +150,9 @@ class RelatorioExcelTests(unittest.TestCase):
 
     def test_only_report_downloads_use_new_layout(self):
         hits = [line for line in self.source.splitlines() if "layout_relatorio=True" in line]
-        self.assertEqual(len(hits), 4)
-        self.assertTrue(any("MRP_Relatorios_Completos.xlsx" in l for l in hits))
-        self.assertTrue(any("MRP_Consulta.xlsx" in l for l in hits))
+        self.assertEqual(len(hits), 3)
+        self.assertIn('_mrp_preparar_excel_relatorios(sheets, "MRP_Relatorios_Completos.xlsx")', self.source)
+        self.assertIn('_mrp_preparar_excel_relatorios(sheets, "MRP_Consulta.xlsx")', self.source)
         self.assertTrue(any("Comparativo_MRP.xlsx" in l and "espelhos=_espelhos" in l for l in hits))
         self.assertTrue(any("Materiais_por_SA" in l for l in hits))
         for title in ("Compra_MRP", "Tratativas", "Tratativas_Produtos"):

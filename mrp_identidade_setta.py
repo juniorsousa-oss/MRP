@@ -35,12 +35,12 @@ def favicon_png():
     shape = ImageDraw.Draw(tile)
     shape.rounded_rectangle((4*scale, 4*scale, edge-4*scale-1, edge-4*scale-1),
                             radius=58*scale, fill="#FFFFFF")
-    shape.rounded_rectangle((16*scale, 16*scale, edge-16*scale-1, edge-16*scale-1),
-                            radius=46*scale, fill="#" + GRAFITE)
+    shape.rounded_rectangle((13*scale, 13*scale, edge-13*scale-1, edge-13*scale-1),
+                            radius=49*scale, fill="#" + GRAFITE)
     tile = tile.resize((size, size), Image.Resampling.LANCZOS)
     with Image.open(ASSETS / "setta-simbolo-oficial.png") as source:
         art = source.convert("RGBA")
-        art.thumbnail((176, 176), Image.Resampling.LANCZOS)
+        art = art.resize((202, 202), Image.Resampling.LANCZOS)
     tile.alpha_composite(art, ((size - art.width)//2, (size - art.height)//2))
     content = BytesIO()
     tile.save(content, format="PNG", optimize=True)
